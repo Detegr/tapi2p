@@ -26,28 +26,19 @@ void RSA_PrivateKey::M_DecryptInit()
 
 }
 
-void RSA_PrivateKey::Decrypt(const unsigned char* in, size_t inlen)
+void RSA_PrivateKey::Decrypt(const unsigned char* in, size_t inlen, unsigned char** out, size_t* outlen)
 {
 	if(!m_Ctx) throw KeyException("Cannot decrypt: No key loaded");
 	if(!m_DecryptInit) M_DecryptInit();
 
-	size_t outlen=0;
 	int ret=0;
-	ret=EVP_PKEY_decrypt(m_Ctx, NULL, (size_t*)&outlen, in, inlen);
+	ret=EVP_PKEY_decrypt(m_Ctx, NULL, outlen, in, inlen);
 	if(ret<=0) throw KeyException("Failed to get output buffer length");
 	else
 	{
-		unsigned char* out=(unsigned char*)OPENSSL_malloc(outlen);
-		if(!out) throw KeyException("Failed to allocate output buffer.");
-		ret=EVP_PKEY_decrypt(m_Ctx, out, &outlen, in, inlen);
+		*out=(unsigned char*)OPENSSL_malloc(*outlen);
+		if(!*out) throw KeyException("Failed to allocate output buffer.");
+		ret=EVP_PKEY_decrypt(m_Ctx, *out, outlen, in, inlen);
 		if(ret<=0) throw KeyException("Failed to decrypt");
-		else
-		{
-			for(int i=0; i<outlen; ++i)
-			{
-				std::cout << (char)out[i];
-			}
-		}
-		OPENSSL_free(out);
 	}
 }

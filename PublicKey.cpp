@@ -7,7 +7,7 @@ void RSA_PublicKey::Load(const std::string& file)
 	EVP_PKEY* pkey;
 	BIO_read_filename(m_Bio, f.c_str());
 	pkey = PEM_read_bio_PUBKEY(m_Bio, NULL, NULL, (void*)"");
-	if(!pkey) throw KeyException("Failed to load public key");
+	if(!pkey) throw KeyException("Failed to load public key: " + f);
 	m_Size=EVP_PKEY_size(pkey);
 	m_Ctx = EVP_PKEY_CTX_new(pkey, NULL);
 	EVP_PKEY_free(pkey);

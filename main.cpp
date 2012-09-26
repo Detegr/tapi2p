@@ -6,7 +6,8 @@
 
 int main()
 {
-	//RSA_KeyGenerator::WriteKeyPair("foobar");
+	RSA_KeyGenerator::WriteKeyPair("foobar");
+	/*
 	std::ifstream is("foobar.enc");
 	std::string line;
 	std::string file;
@@ -30,4 +31,5 @@ int main()
 	p.Load("foobar");
 	p.Decrypt(out,outlen);
 	OPENSSL_free(out);
+	*/
 }
