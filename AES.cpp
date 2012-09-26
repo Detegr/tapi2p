@@ -9,7 +9,7 @@ EVP_CIPHER_CTX AES::m_Decrypt;
 std::vector<unsigned char> AES::m_EncData;
 std::vector<unsigned char> AES::m_DecData;
 unsigned char AES::m_Salt[8];
-const char* AES::m_Magic="PBKDF2__";
+const char* AES::m_Magic="TAPI2P__";
 
 void AES::M_EncryptInit(const std::string& pass)
 {
@@ -136,6 +136,11 @@ int main()
 	try
 	{
 		std::vector<unsigned char>& encdata=AES::Encrypt((unsigned char*)"foobar\n", 7, "password", "key");
+		for(std::vector<unsigned char>::iterator it=encdata.begin(); it!=encdata.end(); ++it)
+		{
+			std::cout << std::hex << (unsigned char)*it;
+		}
+		std::cout << std::endl;
 		std::vector<unsigned char>& decdata=AES::Decrypt(&encdata[0], encdata.size(), "key");
 		for(std::vector<unsigned char>::iterator it=decdata.begin(); it!=decdata.end(); ++it)
 		{
