@@ -8,9 +8,9 @@
 class AES
 {
 	private:
-		static const unsigned int			AES_ROUNDS=1;
-		static const unsigned int			AES_BLOCK_SIZE=16;
-		static const unsigned int			AES_SALT_SIZE=8;
+		static const unsigned int			ROUNDS=1;
+		static const unsigned int			BLOCK_SIZE=16;
+		static const unsigned int			MAGIC_LEN=8;
 		static EVP_CIPHER_CTX				m_Encrypt;
 		static EVP_CIPHER_CTX				m_Decrypt;
 
@@ -19,8 +19,11 @@ class AES
 
 		static unsigned char				m_Salt[8];
 
-		static std::string					m_Magic;
+		static const char*					m_Magic;
+
+		static int M_DecryptInit(const unsigned char* magic, const unsigned char* salt, const unsigned char* pass);
 	public:
 		static void Initialize(const std::string& pass);
 		static std::vector<unsigned char>& Encrypt(unsigned char* data, int len);
+		static std::vector<unsigned char>& Decrypt(unsigned char* data, int len);
 };
