@@ -19,10 +19,14 @@ void startup_init()
 	Config conf(tapipath);
 	if(!conf.Size())
 	{
-		std::string nick;
+		std::string data;
 		std::cout << "Seems like this is the first time you run Tapi2P\nPlease input your nickname:" << std::endl;
-		std::cin >> nick;
-		conf.Set("Account", "Nick", nick);
+		std::cin >> data;
+		conf.Set("Account", "Nick", data);
+		std::cout << "Which port would you like to use?\nNote: This port needs to be open and routed to your computer in order for Tapi2P to work correctly." << std::endl;
+		std::cin >> data;
+		// TODO: Check that the port is actually in valid port range
+		conf.Set("Account", "Port", data);
 		conf.Flush();
 	}
 	else
