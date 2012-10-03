@@ -1,0 +1,3 @@
+[submodule "dtglib"]
+	path = dtglib
+	url = git@github.com:Detegr/dtglib.git

@@ -106,13 +106,17 @@ void Config::Flush()
 	file.close();
 }
 
-ConfigItem Config::Get(const std::string& section, const std::string& data) const
+std::string Config::Get(const std::string& section, const std::string& data) const
 {
 	for(std::vector<ConfigItem>::const_iterator it=m_ConfigItems.begin(); it!=m_ConfigItems.end(); ++it)
 	{
-		if(it->m_Section == section && it->m_Data == data) return *it;
+		if(it->m_Section == section && it->m_Data == data)
+		{
+			if(it->m_Value.size()) return it->m_Value;
+			else return it->m_Data;
+		}
 	}
-	throw std::runtime_error("Config item " + section + "/" + data + " not found");
+	return "";
 }
 std::vector<ConfigItem> Config::Get(const std::string& section) const
 {
@@ -122,4 +126,9 @@ std::vector<ConfigItem> Config::Get(const std::string& section) const
 		ret.push_back(*it);
 	}
 	return ret;
+}
+
+unsigned int Config::Size() const
+{
+	return m_ConfigItems.size();
 }

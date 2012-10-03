@@ -32,7 +32,8 @@ class Config
 		Config(const std::string& f, bool replace=false);
 		void Set(const std::string& section, const std::string& data);
 		void Set(const std::string& section, const std::string& data, const std::string& value);
-		ConfigItem Get(const std::string& section, const std::string& data) const;
+		std::string Get(const std::string& section, const std::string& data) const;
 		std::vector<ConfigItem> Get(const std::string& section) const;
 		void Flush();
+		unsigned int Size() const;
 };
