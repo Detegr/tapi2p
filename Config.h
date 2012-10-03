@@ -19,6 +19,8 @@ class ConfigItem
 		ConfigItem(const std::string& s, const std::string& d, const std::string& v) : m_Section(s), m_Data(d), m_Value(v) {}
 	public:
 		bool operator<(const ConfigItem& ConfigItem) const;
+		std::string Key() const { return m_Data; }
+		std::string Value() const { return m_Value; }
 };
 class Config
 {

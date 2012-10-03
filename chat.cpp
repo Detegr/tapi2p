@@ -8,8 +8,9 @@
 #include <pwd.h>
 
 using namespace dtglib;
+bool run_threads=true;
 
-void startup_init()
+std::string startup_init()
 {
 	struct passwd* pw = getpwuid(getuid());
 	std::string tapipath=pw->pw_dir;
@@ -33,18 +34,85 @@ void startup_init()
 	{
 		std::cout << "Welcome to Tapi2P, " << conf.Get("Account", "Nick") << std::endl;
 	}
+	return tapipath;
 }
 
 void network_startup(void* args)
 {
-	std::cout << "Network starting up..." << std::endl;
-	sleep(5);
+	std::string confpath=*(std::string*)args;
+	Config c(confpath);
+	unsigned short port;
+	std::stringstream ss;
+	ss << c.Get("Account", "Port");
+	ss >> port;
+	std::cout << "Using port " << port << std::endl;
+	C_TcpSocket m_Incoming(port);
+	m_Incoming.M_Accept();
+	C_Selector s;
+	s.M_Add(m_Incoming);
+	C_Packet p;
+	while(run_threads)
+	{
+		s.M_Wait(2000);
+		if(s.M_IsReady(m_Incoming))
+		{
+			if(m_Incoming.M_Receive(p))
+			{
+			}
+		}
+	}
+	m_Incoming.M_Close();
 	return;
 }
 
 int main(int argc, char** argv)
 {
-	startup_init();
-	C_Thread network_thread(&network_startup);
+	std::string confpath=startup_init();
+	C_Thread network_thread(&network_startup, &confpath);
+	std::string cmd;
+	Config c(confpath);
+	while(run_threads)
+	{
+		std::cin >> cmd;
+		if(cmd=="q") run_threads=false;
+		else if(cmd=="add")
+		{
+			cmd.clear();
+			std::cout << "Input peer ip" << std::endl;
+			std::cin >> cmd;
+			bool ok=true;
+			C_IpAddress ip;
+			try
+			{
+				ip=cmd.c_str();
+			}
+			catch(...)
+			{
+				std::cout << "Invalid ip" << std::endl;
+				ok=false;
+			}
+			if(ok)
+			{
+				cmd.clear();
+				std::cout << "Input peer key file name" << std::endl;
+				std::cin >> cmd;
+				c.Set("Peers", ip.M_ToString());
+				c.Set(ip.M_ToString(), "Key", cmd);
+				std::cout << "Give nickname to peer" << std::endl;
+				std::cin >> cmd;
+				c.Set(ip.M_ToString(), "Nick", cmd);
+				c.Flush();
+				std::cout << "----\n" << cmd << " added successfully.\nIp: " << ip.M_ToString() << "\nKey file: " << c.Get(ip.M_ToString(), "Key") << "\n----" << std::endl;
+			}
+		}
+		else if(cmd=="peers")
+		{
+			std::vector<ConfigItem> peers=c.Get("Peers");
+			for(std::vector<ConfigItem>::const_iterator it=peers.begin(); it!=peers.end(); ++it)
+			{
+				std::cout << c.Get(it->Key(), "Nick") << ": " << it->Key() << std::endl;
+			}
+		}
+	}
 	network_thread.M_Join();
 }

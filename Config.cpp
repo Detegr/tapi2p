@@ -123,7 +123,7 @@ std::vector<ConfigItem> Config::Get(const std::string& section) const
 	std::vector<ConfigItem> ret;
 	for(std::vector<ConfigItem>::const_iterator it=m_ConfigItems.begin(); it!=m_ConfigItems.end(); ++it)
 	{
-		ret.push_back(*it);
+		if(it->m_Section == section) ret.push_back(*it);
 	}
 	return ret;
 }
