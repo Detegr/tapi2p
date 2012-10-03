@@ -3,8 +3,9 @@ cmake_minimum_required(VERSION 2.8)
 project(AEStest)
 
 add_definitions(-g3)
-add_executable(aestest AES.cpp Key.cpp PrivateKey.cpp PublicKey.cpp)
+add_executable(tapi2p_chat chat.cpp AES.cpp Key.cpp PrivateKey.cpp PublicKey.cpp Config.cpp)
 find_package(OpenSSL REQUIRED)
 
 include_directories($OpenSSL_INCLUDE_DIRS)
-target_link_libraries(aestest ssl crypto)
+find_library(DTGLIB_LIBRARY dtglib ${PROJECT_SOURCE_DIR}/dtglib)
+target_link_libraries(tapi2p_chat ssl crypto ${DTGLIB_LIBRARY} pthread)

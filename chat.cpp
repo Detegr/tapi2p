@@ -1,9 +1,13 @@
 #include "AES.h"
 #include "Config.h"
+#include "dtglib/Network.h"
+#include "dtglib/Concurrency.h"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <pwd.h>
+
+using namespace dtglib;
 
 void startup_init()
 {
@@ -27,7 +31,16 @@ void startup_init()
 	}
 }
 
+void network_startup(void* args)
+{
+	std::cout << "Network starting up..." << std::endl;
+	sleep(5);
+	return;
+}
+
 int main(int argc, char** argv)
 {
 	startup_init();
+	C_Thread network_thread(&network_startup);
+	network_thread.M_Join();
 }

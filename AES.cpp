@@ -128,7 +128,7 @@ std::vector<unsigned char>& AES::Decrypt(unsigned char* data, int len, const std
 
 	return m_DecData;
 }
-
+/*
 #include <fstream>
 
 int main()
@@ -151,3 +151,4 @@ int main()
 		std::cerr << e.what() << std::endl;
 	}
 }
+*/
