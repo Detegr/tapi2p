@@ -37,6 +37,7 @@ namespace tapi2p
 			void Clear()
 			{
 				wclear(win);
+				c=0;
 			}
 			void Redraw()
 			{

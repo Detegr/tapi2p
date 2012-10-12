@@ -89,6 +89,7 @@ void update_peer_display()
 		}
 		else tapi2p::UI::PeerContent.Write(c.Get((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + " [One-way]");
 	}
+	if(peers.empty()) tapi2p::UI::PeerContent.Write("");
 	PeerManager::Done();
 	tapi2p::UI::Unlock();
 }
@@ -122,6 +123,7 @@ static void peerloop(void* arg)
 			else
 			{
 				PeerManager::Remove(p);
+				update_peer_display();
 				break;
 			}
 		}
