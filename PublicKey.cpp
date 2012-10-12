@@ -1,9 +1,22 @@
 #include "PublicKey.h"
 #include <iostream>
+#include <fstream>
 
 void RSA_PublicKey::Load(const std::string& file)
 {
 	std::string f=file+".pub";
+	std::ifstream fi(f.c_str());
+	if(fi.is_open())
+	{
+		std::string s;
+		while(fi.good())
+		{
+			std::getline(fi,s);
+			if(fi.good()) s+="\n";
+			m_KeyAsText += s;
+		}
+		fi.close();
+	}
 	EVP_PKEY* pkey;
 	BIO_read_filename(m_Bio, f.c_str());
 	pkey = PEM_read_bio_PUBKEY(m_Bio, NULL, NULL, (void*)"");
@@ -11,6 +24,12 @@ void RSA_PublicKey::Load(const std::string& file)
 	m_Size=EVP_PKEY_size(pkey);
 	m_Ctx = EVP_PKEY_CTX_new(pkey, NULL);
 	EVP_PKEY_free(pkey);
+}
+
+std::ostream& operator<<(std::ostream& o, const RSA_PublicKey& k)
+{
+	o << k.m_KeyAsText;
+	return o;
 }
 
 void RSA_PublicKey::M_EncryptInit()

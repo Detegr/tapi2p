@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PrivateKey.h"
+#include "PublicKey.h"
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <string>
@@ -26,5 +27,7 @@ class AES
 		static int M_DecryptInit(const unsigned char* magic, const unsigned char* salt, const unsigned char* pass, RSA_PrivateKey& privatekey);
 	public:
 		static std::vector<unsigned char>& Encrypt(unsigned char* data, int len, const std::string& password, const std::string& keyname);
+		static std::vector<unsigned char>& Encrypt(unsigned char* data, int len, const std::string& password, RSA_PublicKey& key);
 		static std::vector<unsigned char>& Decrypt(unsigned char* data, int len, const std::string& keyname);
+		static std::vector<unsigned char>& Decrypt(unsigned char* data, int len, RSA_PrivateKey& key);
 };

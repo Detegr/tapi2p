@@ -29,6 +29,7 @@ void AES::M_EncryptInit(const std::string& pass)
 	EVP_CIPHER_CTX_init(&m_Encrypt);
 	if(!EVP_EncryptInit_ex(&m_Encrypt, EVP_aes_256_cbc(), NULL, key, iv)) throw KeyException("Encryptinit failed");
 
+	/*
 	std::cout << "key: ";
 	for(int i=0; i<32; ++i)
 	{
@@ -41,13 +42,18 @@ void AES::M_EncryptInit(const std::string& pass)
 		std::cout << std::hex << (int)iv[i] << "";
 	}
 	std::cout << std::endl;
+	*/
 }
 
 std::vector<unsigned char>& AES::Encrypt(unsigned char* data, int len, const std::string& password, const std::string& keyname)
 {
 	RSA_PublicKey pubkey;
 	pubkey.Load(keyname);
+	return AES::Encrypt(data,len,password,pubkey);
+}
 
+std::vector<unsigned char>& AES::Encrypt(unsigned char* data, int len, const std::string& password, RSA_PublicKey& pubkey)
+{
 	M_EncryptInit(password);
 
 	int c_len=len+AES::BLOCK_SIZE;
@@ -109,8 +115,13 @@ int AES::M_DecryptInit(const unsigned char* const magic, const unsigned char* co
 
 std::vector<unsigned char>& AES::Decrypt(unsigned char* data, int len, const std::string& keyname)
 {
-	RSA_PrivateKey privkey;
-	privkey.Load(keyname);
+	RSA_PrivateKey pk;
+	pk.Load(keyname);
+	return AES::Decrypt(data,len,pk);
+}
+
+std::vector<unsigned char>& AES::Decrypt(unsigned char* data, int len, RSA_PrivateKey& privkey)
+{
 	int passlen=M_DecryptInit(&data[0], &data[AES::MAGIC_LEN], &data[AES::MAGIC_LEN+PKCS5_SALT_LEN], privkey);
 	int llen=len-AES::MAGIC_LEN-PKCS5_SALT_LEN-passlen;
 	int p_len=llen;

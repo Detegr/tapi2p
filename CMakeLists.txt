@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8)
 project(AEStest)
 
 add_definitions(-g3)
-add_executable(tapi2p_chat chat.cpp AES.cpp Key.cpp PrivateKey.cpp PublicKey.cpp Config.cpp)
+add_executable(tapi2p_chat chat.cpp AES.cpp Key.cpp PrivateKey.cpp PublicKey.cpp Config.cpp KeyGenerator.cpp PathManager.cpp PeerManager.cpp)
 find_package(OpenSSL REQUIRED)
 
 include_directories($OpenSSL_INCLUDE_DIRS)
