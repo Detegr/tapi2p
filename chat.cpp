@@ -11,8 +11,10 @@
 #include "KeyGenerator.h"
 #include "PathManager.h"
 #include "PeerManager.h"
+#include "ui.h"
 
 using namespace dtglib;
+
 RSA_PrivateKey pkey;
 bool run_threads=true;
 
@@ -79,6 +81,7 @@ static void peerloop(void* arg)
 	Peer* p = (Peer*)arg;
 	C_Selector s;
 	s.M_Add(*p->Sock_In);
+	Config c(PathManager::ConfigPath());
 	while(run_threads)
 	{
 		s.M_Wait(1000);
@@ -89,7 +92,9 @@ static void peerloop(void* arg)
 				try
 				{
 					std::vector<unsigned char>& data=AES::Decrypt((unsigned char*)p->Packet.M_RawData(), p->Packet.M_Size(), pkey);
-					std::cout << (char*)&data[0] << std::flush;
+					tapi2p::UI::Lock();
+					tapi2p::UI::Content.Write(c.Get(p->Sock_In->M_Ip().M_ToString(), "Nick") + ": " + (char*)&data[0]);
+					tapi2p::UI::Unlock();
 				}
 				catch(KeyException& e)
 				{
@@ -99,7 +104,6 @@ static void peerloop(void* arg)
 			}
 			else
 			{
-				std::cout << "Connection closed." << std::endl;
 				PeerManager::Remove(p);
 				break;
 			}
@@ -116,7 +120,6 @@ void network_startup(void* args)
 	std::stringstream ss;
 	ss << c.Get("Account", "Port");
 	ss >> port;
-	std::cout << "Using port " << port << std::endl;
 	C_TcpSocket m_Incoming(port);
 	m_Incoming.M_Bind();
 	m_Incoming.M_Listen();
@@ -177,7 +180,7 @@ void network_startup(void* args)
 							{
 								try
 								{
-									std::cout << sock->M_Ip() << ":" << port << std::endl;
+									//std::cout << sock->M_Ip() << ":" << port << std::endl;
 									p->Sock_Out=C_TcpSocket(sock->M_Ip(), port);
 									p->Sock_Out.M_Connect();
 								}
@@ -239,11 +242,75 @@ int main(int argc, char** argv)
 	C_Thread network_thread(&network_startup);
 	std::string cmd;
 	Config c(PathManager::ConfigPath());
+	tapi2p::UI::Init();
+	char str[256];
 	while(run_threads)
 	{
-		std::cout << "tapi2p> ";
-		std::getline(std::cin, cmd);
-		if(cmd=="q" || cmd=="quit") run_threads=false;
+		memset(str, 0, 256);
+		clrtoeol();
+		getnstr(str, 256);
+		std::string cmd(str);
+		tapi2p::UI::Lock();
+		tapi2p::UI::CheckSize();
+		tapi2p::UI::Unlock();
+		if(cmd=="") continue;
+		if(cmd==":q" || cmd==":quit") run_threads=false;
+		else if(cmd==":c" || cmd==":connect")// || cmd==":connect")
+		{
+			std::vector<ConfigItem> peerconfs=c.Get("Peers");
+			for(std::vector<ConfigItem>::const_iterator it=peerconfs.begin(); it!=peerconfs.end(); ++it)
+			{
+				unsigned short port;
+				std::stringstream ss;
+				std::string portstr=c.Get(it->Key(), "Port");
+				ss << portstr; ss >> port;
+				Peer* p=NULL;
+				try
+				{
+					C_TcpSocket sock(it->Key().c_str(), port);
+					int yes=1;
+					setsockopt(sock.M_Fd(), SOL_SOCKET, O_NONBLOCK, (char*)&yes, sizeof(yes));
+					sock.M_Connect();
+					yes=0;
+					setsockopt(sock.M_Fd(), SOL_SOCKET, O_NONBLOCK, (char*)&yes, sizeof(yes));
+					p = new Peer(NULL);
+					p->Sock_Out=sock;
+					p->Key.Load(PathManager::KeyPath() + "/" + c.Get(it->Key(), "Key"));
+					PeerManager::Add(p);
+				}
+				catch(const std::runtime_error& e)
+				{
+					tapi2p::UI::Destroy();
+					std::cout << e.what() << std::endl;
+					if(p)
+					{
+						p->Sock_Out.M_Close();
+						PeerManager::Remove(p);
+					}
+				}
+				catch(const KeyException& e)
+				{
+					tapi2p::UI::Destroy();
+					std::cout << e.what() << std::endl;
+					if(p)
+					{
+						p->Sock_Out.M_Close();
+						PeerManager::Remove(p);
+					}
+				}
+			}
+		}
+		else
+		{
+			tapi2p::UI::Lock();
+			tapi2p::UI::CheckSize();
+			tapi2p::UI::Content.Write(c.Get("Account", "Nick") + ": " + cmd);
+			tapi2p::UI::PeerContent.Write("foobar");
+			tapi2p::UI::Unlock();
+			sendall(cmd);
+		}
+	}
+	/*
 		else if(cmd==":add" || cmd==":a")
 		{
 			cmd.clear();
@@ -285,55 +352,8 @@ int main(int argc, char** argv)
 				std::cout << c.Get(it->Key(), "Nick") << ": " << it->Key() << std::endl;
 			}
 		}
-		else if(cmd==":c" || cmd==":connect")
-		{
-			std::vector<ConfigItem> peerconfs=c.Get("Peers");
-			for(std::vector<ConfigItem>::const_iterator it=peerconfs.begin(); it!=peerconfs.end(); ++it)
-			{
-				unsigned short port;
-				std::stringstream ss;
-				std::string portstr=c.Get(it->Key(), "Port");
-				ss << portstr; ss >> port;
-				Peer* p=NULL;
-				try
-				{
-					std::cout << "Trying " << it->Key() << ":" << port << std::endl;
-					C_TcpSocket sock(it->Key().c_str(), port);
-					int yes=1;
-					setsockopt(sock.M_Fd(), SOL_SOCKET, O_NONBLOCK, (char*)&yes, sizeof(yes));
-					sock.M_Connect();
-					yes=0;
-					setsockopt(sock.M_Fd(), SOL_SOCKET, O_NONBLOCK, (char*)&yes, sizeof(yes));
-					p = new Peer(NULL);
-					p->Sock_Out=sock;
-					p->Key.Load(PathManager::KeyPath() + "/" + c.Get(it->Key(), "Key"));
-					PeerManager::Add(p);
-				}
-				catch(const std::runtime_error& e)
-				{
-					std::cout << e.what() << std::endl;
-					if(p)
-					{
-						std::cout << "foo" << std::endl;
-						p->Sock_Out.M_Close();
-						PeerManager::Remove(p);
-					}
-				}
-				catch(const KeyException& e)
-				{
-					std::cout << e.what() << std::endl;
-					if(p)
-					{
-						p->Sock_Out.M_Close();
-						PeerManager::Remove(p);
-					}
-				}
-			}
-		}
-		else
-		{
-			sendall(cmd);
-		}
 	}
+	*/
 	network_thread.M_Join();
+	tapi2p::UI::Destroy();
 }

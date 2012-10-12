@@ -1,67 +1,88 @@
-#include <ncurses.h>
+#include "ui.h"
 #include <string.h>
+#include <signal.h>
 
-class Window
+namespace tapi2p
 {
-	private:
-		int w;
-		int h;
-		int x;
-		int y;
-		WINDOW* win;
-	public:
-		Window(int w, int h, int x, int y) : w(w),h(h),x(x),y(y)
-		{
-			win=newwin(h,w,y,x);
-			wrefresh(win);
-		}
-		void SetBox()
-		{
-			box(win, 0, 0);
-			wrefresh(win);
-		}
-		~Window()
-		{
-			delwin(win);
-		}
-		WINDOW* Win() const
-		{
-			return win;
-		}
-};
+	Window		UI::App;
+	Window		UI::Content;
+	Window		UI::Peers;
+	Window		UI::PeerContent;
+	int			UI::m_PeerWidth;
+	const int	UI::m_InputHeight;
+	int			UI::x;
+	int			UI::y;
+	bool		UI::Resized;
+	C_Mutex		UI::m_Lock;
 
-int main()
-{
-	initscr();
-	cbreak();
-	char str[256];
-	refresh();
+	void UI::Init()
 	{
-		Window winborder(COLS, LINES-1, 0, 0);
-		winborder.SetBox();
-		Window main(COLS-23,LINES-3,2,1);
-		scrollok(main.Win(), 1);
-		Window peerw(20, LINES-1, COLS-20, 0);
-		peerw.SetBox();
-		mvprintw(LINES-1, 0, "%s", "tapi2p> ");
-		int y=0;
-		do
-		{
-			memset(str, 0, 256);
-			clrtoeol();
-			getstr(str);
-			if(y>getmaxy(main.Win())-1)
-			{
-				y=getmaxy(main.Win())-1;
-				wscrl(main.Win(), 1);
-			}
-			mvwprintw(main.Win(), y, 0, str);
-			int len=strlen(str);
-			for(int z=len; z>0; z-=COLS-23) y++;
-			//mvwaddstr(main.Win(), 2, 2, str);
-			wrefresh(main.Win());
-			move(LINES-1, 8);
-		} while(strcmp(str, "q"));
+		m_PeerWidth=20;
+
+		initscr();
+		refresh();
+		//noecho();
+		keypad(stdscr,TRUE);
+		cbreak();
+
+		App=Window(COLS, LINES-m_InputHeight, 0, 0);
+		App.SetBox();
+		
+		Content=Window(COLS-m_PeerWidth-3, LINES-m_InputHeight-2, 2, 1);
+		scrollok(Content.Win(), TRUE);
+
+		Peers=Window(m_PeerWidth, LINES-m_InputHeight, COLS-m_PeerWidth, 0);
+		Peers.SetBox();
+
+		PeerContent=Window(m_PeerWidth-4, LINES-m_InputHeight-2, COLS-m_PeerWidth+2, 1);
+
+		mvprintw(LINES-m_InputHeight, 0, "%s", "tapi2p> ");
+
+		refresh();
+		Resized=false;
+		x=COLS; y=LINES;
 	}
-	endwin();
+	void UI::CheckSize()
+	{
+		if(x != COLS || y != LINES)
+		{
+			if(x <= m_PeerWidth)
+			{
+				m_PeerWidth=0;
+			} else m_PeerWidth=20;
+			UI::x=COLS;
+			UI::y=LINES;
+			wresize(App.Win(), UI::y-m_InputHeight, UI::x);
+			wresize(Content.Win(), UI::y-m_InputHeight-2, UI::x-m_PeerWidth-3);
+			wresize(Peers.Win(), UI::y-m_InputHeight, m_PeerWidth);
+			wresize(PeerContent.Win(), UI::y-m_InputHeight-2, m_PeerWidth-4);
+			mvwin(PeerContent.Win(), 1, UI::x-m_PeerWidth+2);
+			mvwin(Peers.Win(), 0, UI::x-m_PeerWidth);
+			App.Clear();
+			Peers.Clear();
+			PeerContent.Clear();
+			App.SetBox();
+			if(m_PeerWidth) Peers.SetBox();
+			Content.Redraw();
+		}
+		mvprintw(LINES-m_InputHeight, 0, "%s", "tapi2p> ");
+		move(LINES-1, 8);
+	}
+
+	void UI::Destroy()
+	{
+		App.Delete();
+		Content.Delete();
+		Peers.Delete();
+		endwin();
+	}
+
+	void UI::Lock()
+	{
+		m_Lock.M_Lock();
+	}
+	void UI::Unlock()
+	{
+		m_Lock.M_Unlock();
+	}
 }
