@@ -75,6 +75,23 @@ void generate_self_keypair(Config& c, const std::string kp)
 		std::cout << "Keypair creation failed.\nReason: " << e.what() << std::endl;
 	}
 }
+void update_peer_display()
+{
+	Config c(PathManager::ConfigPath());
+	tapi2p::UI::Lock();
+	tapi2p::UI::PeerContent.Clear();
+	std::vector<Peer*> peers=PeerManager::Do();
+	for(std::vector<Peer*>::iterator pt=peers.begin(); pt!=peers.end(); ++pt)
+	{
+		if((*pt)->m_Connectable)
+		{
+			tapi2p::UI::PeerContent.Write(c.Get((*pt)->Sock_In->M_Ip().M_ToString(), "Nick"));
+		}
+		else tapi2p::UI::PeerContent.Write(c.Get((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + " [One-way]");
+	}
+	PeerManager::Done();
+	tapi2p::UI::Unlock();
+}
 
 static void peerloop(void* arg)
 {
@@ -158,6 +175,7 @@ void network_startup(void* args)
 								(*pt)->Sock_In = sock;
 								newconn=false;
 								(*pt)->Thread.M_Start(peerloop, *pt);
+								update_peer_display();
 								break;
 							}
 						}
@@ -189,6 +207,7 @@ void network_startup(void* args)
 									std::cout << "!!! One-way connection detected" << std::endl;
 									p->m_Connectable=false;
 									p->Sock_Out.M_Close();
+									update_peer_display();
 								}
 							}
 						}
@@ -199,6 +218,7 @@ void network_startup(void* args)
 				{
 					PeerManager::Add(p);
 					p->Thread.M_Start(peerloop, p);
+					update_peer_display();
 				}
 			}
 		}
@@ -220,6 +240,48 @@ void sendall(const std::string& msg)
 		} else std::cout << "Not connectable" << std::endl;
 	}
 	PeerManager::Done();
+}
+void connect_to_peers(Config& c)
+{
+	std::vector<ConfigItem> peerconfs=c.Get("Peers");
+	for(std::vector<ConfigItem>::const_iterator it=peerconfs.begin(); it!=peerconfs.end(); ++it)
+	{
+		unsigned short port;
+		std::stringstream ss;
+		std::string portstr=c.Get(it->Key(), "Port");
+		ss << portstr; ss >> port;
+		Peer* p=NULL;
+		try
+		{
+			C_TcpSocket sock(it->Key().c_str(), port);
+			int yes=1;
+			setsockopt(sock.M_Fd(), SOL_SOCKET, O_NONBLOCK, (char*)&yes, sizeof(yes));
+			sock.M_Connect();
+			yes=0;
+			setsockopt(sock.M_Fd(), SOL_SOCKET, O_NONBLOCK, (char*)&yes, sizeof(yes));
+			p = new Peer(NULL);
+			p->Sock_Out=sock;
+			p->Key.Load(PathManager::KeyPath() + "/" + c.Get(it->Key(), "Key"));
+			PeerManager::Add(p);
+		}
+		catch(const std::runtime_error& e)
+		{
+			if(p)
+			{
+				p->Sock_Out.M_Close();
+				PeerManager::Remove(p);
+			}
+		}
+		catch(const KeyException& e)
+		{
+			std::cout << e.what() << std::endl;
+			if(p)
+			{
+				p->Sock_Out.M_Close();
+				PeerManager::Remove(p);
+			}
+		}
+	}
 }
 
 int main(int argc, char** argv)
@@ -244,6 +306,7 @@ int main(int argc, char** argv)
 	Config c(PathManager::ConfigPath());
 	tapi2p::UI::Init();
 	char str[256];
+	connect_to_peers(c);
 	while(run_threads)
 	{
 		memset(str, 0, 256);
@@ -255,62 +318,7 @@ int main(int argc, char** argv)
 		tapi2p::UI::Unlock();
 		if(cmd=="") continue;
 		if(cmd==":q" || cmd==":quit") run_threads=false;
-		else if(cmd==":c" || cmd==":connect")// || cmd==":connect")
-		{
-			std::vector<ConfigItem> peerconfs=c.Get("Peers");
-			for(std::vector<ConfigItem>::const_iterator it=peerconfs.begin(); it!=peerconfs.end(); ++it)
-			{
-				unsigned short port;
-				std::stringstream ss;
-				std::string portstr=c.Get(it->Key(), "Port");
-				ss << portstr; ss >> port;
-				Peer* p=NULL;
-				try
-				{
-					C_TcpSocket sock(it->Key().c_str(), port);
-					int yes=1;
-					setsockopt(sock.M_Fd(), SOL_SOCKET, O_NONBLOCK, (char*)&yes, sizeof(yes));
-					sock.M_Connect();
-					yes=0;
-					setsockopt(sock.M_Fd(), SOL_SOCKET, O_NONBLOCK, (char*)&yes, sizeof(yes));
-					p = new Peer(NULL);
-					p->Sock_Out=sock;
-					p->Key.Load(PathManager::KeyPath() + "/" + c.Get(it->Key(), "Key"));
-					PeerManager::Add(p);
-				}
-				catch(const std::runtime_error& e)
-				{
-					tapi2p::UI::Destroy();
-					std::cout << e.what() << std::endl;
-					if(p)
-					{
-						p->Sock_Out.M_Close();
-						PeerManager::Remove(p);
-					}
-				}
-				catch(const KeyException& e)
-				{
-					tapi2p::UI::Destroy();
-					std::cout << e.what() << std::endl;
-					if(p)
-					{
-						p->Sock_Out.M_Close();
-						PeerManager::Remove(p);
-					}
-				}
-			}
-		}
-		else
-		{
-			tapi2p::UI::Lock();
-			tapi2p::UI::CheckSize();
-			tapi2p::UI::Content.Write(c.Get("Account", "Nick") + ": " + cmd);
-			tapi2p::UI::PeerContent.Write("foobar");
-			tapi2p::UI::Unlock();
-			sendall(cmd);
-		}
-	}
-	/*
+		/*
 		else if(cmd==":add" || cmd==":a")
 		{
 			cmd.clear();
@@ -344,16 +352,20 @@ int main(int argc, char** argv)
 				std::cout << "----\n" << cmd << " added successfully.\nIp: " << ip.M_ToString() << ":" << c.Get(ip.M_ToString(), "Port") << "\nKey file: " << c.Get(ip.M_ToString(), "Key") << "\n----" << std::endl;
 			}
 		}
-		else if(cmd==":peers" || cmd==":p")
+		else if(cmd==":c" || cmd==":connect")// || cmd==":connect")
 		{
-			std::vector<ConfigItem> peers=c.Get("Peers");
-			for(std::vector<ConfigItem>::const_iterator it=peers.begin(); it!=peers.end(); ++it)
-			{
-				std::cout << c.Get(it->Key(), "Nick") << ": " << it->Key() << std::endl;
-			}
+			connect_to_peers(c);
+		}
+		*/
+		else
+		{
+			tapi2p::UI::Lock();
+			tapi2p::UI::CheckSize();
+			tapi2p::UI::Content.Write(c.Get("Account", "Nick") + ": " + cmd);
+			tapi2p::UI::Unlock();
+			sendall(cmd);
 		}
 	}
-	*/
 	network_thread.M_Join();
 	tapi2p::UI::Destroy();
 }

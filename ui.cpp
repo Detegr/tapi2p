@@ -60,10 +60,10 @@ namespace tapi2p
 			mvwin(Peers.Win(), 0, UI::x-m_PeerWidth);
 			App.Clear();
 			Peers.Clear();
-			PeerContent.Clear();
 			App.SetBox();
 			if(m_PeerWidth) Peers.SetBox();
 			Content.Redraw();
+			PeerContent.Redraw();
 		}
 		mvprintw(LINES-m_InputHeight, 0, "%s", "tapi2p> ");
 		move(LINES-1, 8);
