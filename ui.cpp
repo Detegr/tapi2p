@@ -1,6 +1,9 @@
 #include "ui.h"
 #include <string.h>
 #include <signal.h>
+#include "PeerManager.h"
+#include "PathManager.h"
+#include "Config.h"
 
 namespace tapi2p
 {
@@ -67,6 +70,25 @@ namespace tapi2p
 		}
 		mvprintw(LINES-m_InputHeight, 0, "%s", "tapi2p> ");
 		move(LINES-1, 8);
+	}
+
+	void UI::Update()
+	{
+		Config& c = PathManager::GetConfig();
+		m_Lock.M_Lock();
+		PeerContent.Clear();
+		std::vector<Peer*> peers=PeerManager::Do();
+		for(std::vector<Peer*>::const_iterator pt=peers.begin(); pt!=peers.end(); ++pt)
+		{
+			if((*pt)->m_Connectable)
+			{
+				PeerContent.Write(c.Get((*pt)->Sock_In->M_Ip().M_ToString(), "Nick"));
+			}
+			else PeerContent.Write(c.Get((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + " [One-way]");
+		}
+		if(peers.empty()) tapi2p::UI::PeerContent.Write("");
+		PeerManager::Done();
+		m_Lock.M_Unlock();
 	}
 
 	void UI::Destroy()

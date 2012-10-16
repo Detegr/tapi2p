@@ -80,5 +80,6 @@ namespace tapi2p
 			static void CheckSize();
 			static void Lock();
 			static void Unlock();
+			static void Update();
 	};
 }

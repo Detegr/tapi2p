@@ -75,31 +75,13 @@ void generate_self_keypair(Config& c, const std::string kp)
 		std::cout << "Keypair creation failed.\nReason: " << e.what() << std::endl;
 	}
 }
-void update_peer_display()
-{
-	Config c(PathManager::ConfigPath());
-	tapi2p::UI::Lock();
-	tapi2p::UI::PeerContent.Clear();
-	std::vector<Peer*> peers=PeerManager::Do();
-	for(std::vector<Peer*>::iterator pt=peers.begin(); pt!=peers.end(); ++pt)
-	{
-		if((*pt)->m_Connectable)
-		{
-			tapi2p::UI::PeerContent.Write(c.Get((*pt)->Sock_In->M_Ip().M_ToString(), "Nick"));
-		}
-		else tapi2p::UI::PeerContent.Write(c.Get((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + " [One-way]");
-	}
-	if(peers.empty()) tapi2p::UI::PeerContent.Write("");
-	PeerManager::Done();
-	tapi2p::UI::Unlock();
-}
 
 static void peerloop(void* arg)
 {
 	Peer* p = (Peer*)arg;
 	C_Selector s;
 	s.M_Add(*p->Sock_In);
-	Config c(PathManager::ConfigPath());
+	Config& c = PathManager::GetConfig();
 	while(run_threads)
 	{
 		s.M_Wait(1000);
@@ -123,7 +105,7 @@ static void peerloop(void* arg)
 			else
 			{
 				PeerManager::Remove(p);
-				update_peer_display();
+				tapi2p::UI::Update();
 				break;
 			}
 		}
@@ -133,7 +115,7 @@ static void peerloop(void* arg)
 
 void network_startup(void* args)
 {
-	Config c(PathManager::ConfigPath());
+	Config& c = PathManager::GetConfig();
 
 	unsigned short port;
 	std::stringstream ss;
@@ -177,7 +159,7 @@ void network_startup(void* args)
 								(*pt)->Sock_In = sock;
 								newconn=false;
 								(*pt)->Thread.M_Start(peerloop, *pt);
-								update_peer_display();
+								tapi2p::UI::Update();
 								break;
 							}
 						}
@@ -209,7 +191,7 @@ void network_startup(void* args)
 									std::cout << "!!! One-way connection detected" << std::endl;
 									p->m_Connectable=false;
 									p->Sock_Out.M_Close();
-									update_peer_display();
+									tapi2p::UI::Update();
 								}
 							}
 						}
@@ -220,7 +202,7 @@ void network_startup(void* args)
 				{
 					PeerManager::Add(p);
 					p->Thread.M_Start(peerloop, p);
-					update_peer_display();
+					tapi2p::UI::Update();
 				}
 			}
 		}
@@ -243,8 +225,9 @@ void sendall(const std::string& msg)
 	}
 	PeerManager::Done();
 }
-void connect_to_peers(Config& c)
+void connect_to_peers()
 {
+	Config& c = PathManager::GetConfig();
 	std::vector<ConfigItem> peerconfs=c.Get("Peers");
 	for(std::vector<ConfigItem>::const_iterator it=peerconfs.begin(); it!=peerconfs.end(); ++it)
 	{
@@ -305,10 +288,10 @@ int main(int argc, char** argv)
 	}
 	C_Thread network_thread(&network_startup);
 	std::string cmd;
-	Config c(PathManager::ConfigPath());
+	Config& c = PathManager::GetConfig();
 	tapi2p::UI::Init();
 	char str[256];
-	connect_to_peers(c);
+	connect_to_peers();
 	while(run_threads)
 	{
 		memset(str, 0, 256);
@@ -363,7 +346,7 @@ int main(int argc, char** argv)
 		{
 			tapi2p::UI::Lock();
 			tapi2p::UI::CheckSize();
-			tapi2p::UI::Content.Write(c.Get("Account", "Nick") + ": " + cmd);
+			tapi2p::UI::Content.Write("[" + c.Get("Account", "Nick") + "] " + cmd);
 			tapi2p::UI::Unlock();
 			sendall(cmd);
 		}
