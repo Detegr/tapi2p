@@ -76,12 +76,31 @@ void generate_self_keypair(Config& c, const std::string kp)
 	}
 }
 
+void parsepacket(C_Packet& p, const std::string& nick)
+{
+	try
+	{
+		std::vector<unsigned char>& data=AES::Decrypt((unsigned char*)p.M_RawData(), p.M_Size(), pkey);
+		tapi2p::UI::Lock();
+		tapi2p::UI::Content.Write("[" + nick + "] " + (char*)&data[0]);
+		tapi2p::UI::Unlock();
+	}
+	catch(KeyException& e)
+	{
+		tapi2p::UI::Lock();
+		tapi2p::UI::Content.Write("Failed to decrypt incoming message from: " + nick);
+		tapi2p::UI::Unlock();
+	}
+	p.M_Clear();
+}
+
 static void peerloop(void* arg)
 {
 	Peer* p = (Peer*)arg;
 	C_Selector s;
 	s.M_Add(*p->Sock_In);
 	Config& c = PathManager::GetConfig();
+	const std::string& nick=c.Get(p->Sock_In->M_Ip().M_ToString(), "Nick");
 	while(run_threads)
 	{
 		s.M_Wait(1000);
@@ -89,18 +108,20 @@ static void peerloop(void* arg)
 		{
 			if(p->Sock_In->M_Receive(p->Packet, 1000))
 			{
-				try
-				{
-					std::vector<unsigned char>& data=AES::Decrypt((unsigned char*)p->Packet.M_RawData(), p->Packet.M_Size(), pkey);
-					tapi2p::UI::Lock();
-					tapi2p::UI::Content.Write(c.Get(p->Sock_In->M_Ip().M_ToString(), "Nick") + ": " + (char*)&data[0]);
-					tapi2p::UI::Unlock();
-				}
-				catch(KeyException& e)
-				{
-					std::cout << "Failed to decrypt incoming message!" << std::endl;
-				}
-				p->Packet.M_Clear();
+				parsepacket(p->Packet,nick);
+			}
+			else
+			{
+				PeerManager::Remove(p);
+				tapi2p::UI::Update();
+				break;
+			}
+		}
+		else if(s.M_IsReady(p->Sock_Out))
+		{
+			if(p->Sock_Out.M_Receive(p->Packet, 1000))
+			{
+				parsepacket(p->Packet,nick);
 			}
 			else
 			{
@@ -221,7 +242,7 @@ void sendall(const std::string& msg)
 		if((*it)->m_Connectable)
 		{
 			(*it)->Sock_Out.M_Send(p);
-		} else std::cout << "Not connectable" << std::endl;
+		} else (*it)->Sock_In->M_Send(p);
 	}
 	PeerManager::Done();
 }
@@ -353,4 +374,5 @@ int main(int argc, char** argv)
 	}
 	network_thread.M_Join();
 	tapi2p::UI::Destroy();
+	PathManager::Destroy();
 }
