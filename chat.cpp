@@ -97,16 +97,18 @@ void parsepacket(C_Packet& p, const std::string& nick)
 static void peerloop(void* arg)
 {
 	Peer* p = (Peer*)arg;
-	C_Selector s;
-	s.M_Add(*p->Sock_In);
+	p->m_Selector.M_Add(p->Sock_In);
+	p->m_Selector.M_Add(p->Sock_Out);
 	Config& c = PathManager::GetConfig();
-	const std::string& nick=c.Get(p->Sock_In->M_Ip().M_ToString(), "Nick");
+	std::string nick;
+	if(p->Sock_In.M_Fd()) nick=c.Get(p->Sock_In.M_Ip().M_ToString(), "Nick");
+	else nick=c.Get(p->Sock_Out.M_Ip().M_ToString(), "Nick");
 	while(run_threads)
 	{
-		s.M_Wait(1000);
-		if(s.M_IsReady(*p->Sock_In))
+		p->m_Selector.M_Wait(1000);
+		if(p->Sock_In.M_Fd()>0 && p->m_Selector.M_IsReady(p->Sock_In))
 		{
-			if(p->Sock_In->M_Receive(p->Packet, 1000))
+			if(p->Sock_In.M_Receive(p->Packet, 1000))
 			{
 				parsepacket(p->Packet,nick);
 			}
@@ -117,7 +119,7 @@ static void peerloop(void* arg)
 				break;
 			}
 		}
-		else if(s.M_IsReady(p->Sock_Out))
+		else if(p->Sock_Out.M_Fd()>0 && p->m_Selector.M_IsReady(p->Sock_Out))
 		{
 			if(p->Sock_Out.M_Receive(p->Packet, 1000))
 			{
@@ -161,6 +163,7 @@ void network_startup(void* args)
 				Peer* p=NULL;
 				for(std::vector<ConfigItem>::const_iterator it=known_peers.begin(); it!=known_peers.end(); ++it)
 				{
+
 					if(sock->M_Ip() == it->Key().c_str())
 					{
 						bool newconn=true;
@@ -173,22 +176,30 @@ void network_startup(void* args)
 						for(std::vector<Peer*>::iterator pt=peers.begin(); pt!=peers.end(); ++pt)
 						{
 							// If Sock_In!=NULL and ips and ports match, we have an existing connection
-							if((*pt)->Sock_In && (*pt)->Sock_In->M_Ip() == sock->M_Ip() && (*pt)->Sock_Out.M_Port() == port) newconn=false;
-							// If Sock_Out ip matches the current ip, and the ports match, we have an connection from out-only connection, so we make it bidirectional
-							else if((*pt)->Sock_Out.M_Ip() == sock->M_Ip() && (*pt)->Sock_Out.M_Port() == port)
+							if((*pt)->Sock_In.M_Fd() && (*pt)->Sock_In.M_Ip() == sock->M_Ip() && (*pt)->Sock_Out.M_Port() == port)
 							{
-								(*pt)->Sock_In = sock;
 								newconn=false;
-								(*pt)->Thread.M_Start(peerloop, *pt);
-								tapi2p::UI::Update();
 								break;
+							}
+							else if((*pt)->Sock_Out.M_Ip() == sock->M_Ip() && (*pt)->Sock_Out.M_Port() == port && (!(*pt)->m_Connectable))
+							{
+								newconn=false;
+								//(*pt)->Thread.M_Start(peerloop, *pt);
+								//tapi2p::UI::Update();
+								break;
+							}
+							else
+							{
+								(*pt)->Sock_In = *sock;
+								(*pt)->m_Selector.M_Add((*pt)->Sock_In);
+								newconn=false;
 							}
 						}
 						PeerManager::Done();
 
 						if(newconn)
 						{
-							p = new Peer(sock);
+							p = new Peer(*sock);
 							try
 							{
 								p->Key.Load(PathManager::KeyPath() + "/" + c.Get(it->Key(), "Key"));
@@ -209,21 +220,18 @@ void network_startup(void* args)
 								}
 								catch(const std::runtime_error& e)
 								{
-									std::cout << "!!! One-way connection detected" << std::endl;
 									p->m_Connectable=false;
-									p->Sock_Out.M_Close();
-									tapi2p::UI::Update();
+									p->Sock_Out.M_Disconnect();
+									p->Sock_Out.M_Clear();
 								}
+
+								PeerManager::Add(p);
+								p->Thread.M_Start(peerloop, p);
 							}
 						}
+						tapi2p::UI::Update();
 						break;
 					}
-				}
-				if(p)
-				{
-					PeerManager::Add(p);
-					p->Thread.M_Start(peerloop, p);
-					tapi2p::UI::Update();
 				}
 			}
 		}
@@ -239,13 +247,12 @@ void sendall(const std::string& msg)
 		std::vector<unsigned char>& data=AES::Encrypt((unsigned char*)msg.c_str(), msg.size()+1, "passwd", (*it)->Key);
 		C_Packet p;
 		for(int i=0; i<data.size(); ++i) p << data[i];
-		if((*it)->m_Connectable)
-		{
-			(*it)->Sock_Out.M_Send(p);
-		} else (*it)->Sock_In->M_Send(p);
+		if((*it)->m_Connectable) (*it)->Sock_Out.M_Send(p);
+		else (*it)->Sock_In.M_Send(p);
 	}
 	PeerManager::Done();
 }
+
 void connect_to_peers()
 {
 	Config& c = PathManager::GetConfig();
@@ -265,10 +272,11 @@ void connect_to_peers()
 			sock.M_Connect();
 			yes=0;
 			setsockopt(sock.M_Fd(), SOL_SOCKET, O_NONBLOCK, (char*)&yes, sizeof(yes));
-			p = new Peer(NULL);
+			p = new Peer();
 			p->Sock_Out=sock;
 			p->Key.Load(PathManager::KeyPath() + "/" + c.Get(it->Key(), "Key"));
 			PeerManager::Add(p);
+			p->Thread.M_Start(peerloop, p);
 		}
 		catch(const std::runtime_error& e)
 		{
@@ -288,6 +296,7 @@ void connect_to_peers()
 			}
 		}
 	}
+	tapi2p::UI::Update();
 }
 
 int main(int argc, char** argv)
@@ -358,11 +367,15 @@ int main(int argc, char** argv)
 				std::cout << "----\n" << cmd << " added successfully.\nIp: " << ip.M_ToString() << ":" << c.Get(ip.M_ToString(), "Port") << "\nKey file: " << c.Get(ip.M_ToString(), "Key") << "\n----" << std::endl;
 			}
 		}
+		*/
 		else if(cmd==":c" || cmd==":connect")// || cmd==":connect")
 		{
-			connect_to_peers(c);
+			connect_to_peers();
 		}
-		*/
+		else if(cmd==":u" || cmd==":update")
+		{
+			tapi2p::UI::Update();
+		}
 		else
 		{
 			tapi2p::UI::Lock();

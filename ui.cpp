@@ -80,11 +80,13 @@ namespace tapi2p
 		std::vector<Peer*> peers=PeerManager::Do();
 		for(std::vector<Peer*>::const_iterator pt=peers.begin(); pt!=peers.end(); ++pt)
 		{
-			if((*pt)->m_Connectable)
+			bool oneway=true;
+			if((*pt)->m_Connectable && (*pt)->Sock_In.M_Fd()>0)
 			{
-				PeerContent.Write(c.Get((*pt)->Sock_In->M_Ip().M_ToString(), "Nick"));
+				PeerContent.Write(c.Get((*pt)->Sock_In.M_Ip().M_ToString(), "Nick"));
+				oneway=false;
 			}
-			else PeerContent.Write(c.Get((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + " [One-way]");
+			else if(oneway) PeerContent.Write(c.Get((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + " [One-way]");
 		}
 		if(peers.empty()) tapi2p::UI::PeerContent.Write("");
 		PeerManager::Done();
