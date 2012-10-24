@@ -24,6 +24,8 @@ namespace tapi2p
 			}
 			void Write(const std::string& s, int x=0)
 			{
+				int ro,co;
+				getyx(stdscr,ro,co);
 				if(c>getmaxy(win)-1)
 				{
 					c=getmaxy(win)-1;
@@ -31,8 +33,9 @@ namespace tapi2p
 				}
 				mvwprintw(win, c, x, s.c_str());
 				for(int i=s.size(); i>0; i-=w) c++;
+				move(LINES-1, co);
 				wrefresh(win);
-				move(LINES-1, 8);
+				refresh();
 			}
 			void Clear()
 			{

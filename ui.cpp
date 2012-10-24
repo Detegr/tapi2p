@@ -44,6 +44,10 @@ namespace tapi2p
 		refresh();
 		Resized=false;
 		x=COLS; y=LINES;
+		Config& conf = PathManager::GetConfig();
+		m_Lock.M_Lock();
+		tapi2p::UI::Content.Write("Welcome to tapi2p, " + conf.Get("Account", "Nick"));
+		m_Lock.M_Unlock();
 	}
 	void UI::CheckSize()
 	{

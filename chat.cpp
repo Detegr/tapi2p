@@ -48,10 +48,6 @@ void startup_init(const char* custompath)
 		conf.Set("Account", "Port", data);
 		conf.Flush();
 	}
-	else
-	{
-		std::cout << "Welcome to tapi2p, " << conf.Get("Account", "Nick") << std::endl;
-	}
 	std::ifstream selfkey((PathManager::SelfKeyPath()+".pub").c_str());
 	if(selfkey.is_open()) selfkey.close();
 	else
