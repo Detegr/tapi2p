@@ -11,12 +11,17 @@ namespace tapi2p
 	Window		UI::Content;
 	Window		UI::Peers;
 	Window		UI::PeerContent;
+	Window		UI::Input;
 	int			UI::m_PeerWidth;
 	const int	UI::m_InputHeight;
 	int			UI::x;
 	int			UI::y;
 	bool		UI::Resized;
 	C_Mutex		UI::m_Lock;
+	int			UI::m_Cursor;
+	const int	UI::m_StringMax;
+	char		UI::m_Str[m_StringMax];
+	int			UI::m_StrLen;
 
 	void UI::Init()
 	{
@@ -24,7 +29,7 @@ namespace tapi2p
 
 		initscr();
 		refresh();
-		//noecho();
+		noecho();
 		keypad(stdscr,TRUE);
 		cbreak();
 
@@ -38,8 +43,7 @@ namespace tapi2p
 		Peers.SetBox();
 
 		PeerContent=Window(m_PeerWidth-4, LINES-m_InputHeight-2, COLS-m_PeerWidth+2, 1);
-
-		mvprintw(LINES-m_InputHeight, 0, "%s", "tapi2p> ");
+		Input=Window(COLS, m_InputHeight, 0, LINES-m_InputHeight);
 
 		refresh();
 		Resized=false;
@@ -72,8 +76,6 @@ namespace tapi2p
 			Content.Redraw();
 			PeerContent.Redraw();
 		}
-		mvprintw(LINES-m_InputHeight, 0, "%s", "tapi2p> ");
-		move(LINES-1, 8);
 	}
 
 	void UI::Update()
@@ -112,5 +114,73 @@ namespace tapi2p
 	void UI::Unlock()
 	{
 		m_Lock.M_Unlock();
+	}
+
+	std::string UI::HandleInput()
+	{
+		int ch=0;
+		memset(m_Str, 0, 255);
+		Input.Write(std::string("tapi2p> "));
+		
+		while(1)
+		{
+			int x, y;
+			getyx(stdscr, y, x);
+			ch=wgetch(stdscr);
+			if(ch == '\n') break;
+			else if(ch == KEY_LEFT)
+			{
+				move(y,x-1);
+				m_Cursor--;
+			}
+			else if(ch == KEY_UP || ch==KEY_DOWN)
+			{
+			}
+			else if(ch == KEY_BACKSPACE)
+			{
+				if(m_Cursor>0)
+				{
+					// Not working yet...
+					/*
+					if(m_Str[m_Cursor+1]==0) // We haven't gone back
+					{
+						m_Str[--m_Cursor]=0;
+					}
+					else
+					{
+						memmove(&m_Str[m_Cursor-1], &m_Str[m_Cursor], m_StrLen-m_Cursor);
+						memset(&m_Str[m_Cursor], 0, m_StrLen-m_Cursor);
+						m_Cursor--;
+					}
+					move(y,x-1);
+					m_StrLen--;
+					*/
+				}
+			}
+			else if(m_Cursor<m_StringMax-2)
+			{
+				if(m_Str[m_Cursor+1]==0) // We haven't gone back
+				{
+					m_Str[m_Cursor++]=ch;
+					m_StrLen++;
+				}
+				else if(m_StrLen<m_StringMax-1)
+				{
+					memmove(&m_Str[m_Cursor+1], &m_Str[m_Cursor], m_StrLen-m_Cursor);
+					m_Str[m_Cursor++]=ch;
+					m_StrLen++;
+				}
+				move(y,x+1);
+			}
+			Input.Write(std::string("tapi2p> ") + m_Str);
+		}
+		std::string cmd(m_Str);
+		tapi2p::UI::Lock();
+		tapi2p::UI::CheckSize();
+		tapi2p::UI::Unlock();
+		m_Cursor=0;
+		move(0,8);
+		werase(Input.Win());
+		return cmd;
 	}
 }

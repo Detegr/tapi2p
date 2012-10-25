@@ -66,8 +66,12 @@ namespace tapi2p
 	{
 		private:
 			static const int	m_InputHeight=1;
+			static const int	m_StringMax=256;
 			static int			m_PeerWidth;
 			static C_Mutex		m_Lock;
+			static char 		m_Str[m_StringMax];
+			static int 			m_StrLen;
+			static int			m_Cursor;
 
 		public:
 			static int x;
@@ -77,6 +81,7 @@ namespace tapi2p
 			static Window Content;
 			static Window Peers;
 			static Window PeerContent;
+			static Window Input;
 
 			static void Init();
 			static void Destroy();
@@ -84,5 +89,6 @@ namespace tapi2p
 			static void Lock();
 			static void Unlock();
 			static void Update();
+			static std::string HandleInput();
 	};
 }

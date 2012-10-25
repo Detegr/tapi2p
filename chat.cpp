@@ -102,6 +102,9 @@ static void peerloop(void* arg)
 	while(run_threads)
 	{
 		p->m_Selector.M_Wait(1000);
+		tapi2p::UI::Lock();
+		tapi2p::UI::Content.Write("test shit");
+		tapi2p::UI::Unlock();
 		if(p->Sock_In.M_Fd()>0 && p->m_Selector.M_IsReady(p->Sock_In))
 		{
 			if(p->Sock_In.M_Receive(p->Packet, 1000))
@@ -316,17 +319,11 @@ int main(int argc, char** argv)
 	std::string cmd;
 	Config& c = PathManager::GetConfig();
 	tapi2p::UI::Init();
-	char str[256];
+
 	connect_to_peers();
 	while(run_threads)
 	{
-		memset(str, 0, 256);
-		clrtoeol();
-		getnstr(str, 256);
-		std::string cmd(str);
-		tapi2p::UI::Lock();
-		tapi2p::UI::CheckSize();
-		tapi2p::UI::Unlock();
+		std::string cmd=tapi2p::UI::HandleInput();
 		if(cmd=="") continue;
 		if(cmd==":q" || cmd==":quit") run_threads=false;
 		/*
