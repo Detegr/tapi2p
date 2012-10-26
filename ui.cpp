@@ -120,7 +120,9 @@ namespace tapi2p
 	{
 		int ch=0;
 		memset(m_Str, 0, 255);
+		m_Lock.M_Lock();
 		Input.Write(std::string("tapi2p> "));
+		m_Lock.M_Unlock();
 		
 		while(1)
 		{
@@ -172,7 +174,9 @@ namespace tapi2p
 				}
 				move(y,x+1);
 			}
+			m_Lock.M_Lock();
 			Input.Write(std::string("tapi2p> ") + m_Str);
+			m_Lock.M_Unlock();
 		}
 		std::string cmd(m_Str);
 		tapi2p::UI::Lock();
