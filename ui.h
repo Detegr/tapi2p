@@ -72,6 +72,8 @@ namespace tapi2p
 			static wchar_t		m_Str[m_StringMax];
 			static int 			m_StrLen;
 			static int			m_Cursor;
+			static std::wstring m_Prompt;
+			static const int	m_PromptLen=8;
 
 		public:
 			static int x;

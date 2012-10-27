@@ -22,6 +22,8 @@ namespace tapi2p
 	const int	UI::m_StringMax;
 	wchar_t		UI::m_Str[m_StringMax];
 	int			UI::m_StrLen;
+	std::wstring UI::m_Prompt;
+	const int	UI::m_PromptLen;
 
 	void UI::Init()
 	{
@@ -52,7 +54,8 @@ namespace tapi2p
 		m_Lock.M_Lock();
 		tapi2p::UI::Content.Write(L"Welcome to tapi2p, " + conf.Getw("Account", "Nick"));
 		m_Lock.M_Unlock();
-		move(LINES-1, 8);
+		m_Prompt=L"tapi2p> ";
+		move(LINES-1, m_PromptLen);
 	}
 	void UI::CheckSize()
 	{
@@ -122,9 +125,10 @@ namespace tapi2p
 		wint_t ch=0;
 		memset(m_Str, 0, 255);
 		m_Lock.M_Lock();
-		Input.Write(std::wstring(L"tapi2p> "));
+		Input.Write(m_Prompt);
 		m_Lock.M_Unlock();
 		bool multibyte=false;
+		m_StrLen=0;
 		
 		while(1)
 		{
@@ -138,47 +142,67 @@ namespace tapi2p
 				move(y,x-1);
 				m_Cursor--;
 			}
+			else if(ch == KEY_RIGHT)
+			{
+				if(m_Cursor+1 <= m_StrLen)
+				{
+					move(y,x+1);
+					m_Cursor++;
+				}
+				else continue;
+			}
+			else if(ch == KEY_END)
+			{
+				move(y, x+(m_StrLen-m_Cursor));
+				m_Cursor=m_StrLen;
+				continue;
+			}
+			else if(ch == KEY_HOME)
+			{
+				move(y, m_PromptLen);
+				m_Cursor=0;
+			}
 			else if(ch == KEY_UP || ch==KEY_DOWN)
 			{
 			}
-			else if(ch == KEY_BACKSPACE)
+			else if(ch == KEY_BACKSPACE || ch==KEY_DC)
 			{
-				if(m_Cursor>0)
+				if(ch == KEY_BACKSPACE)
 				{
-					// Not working yet...
-					/*
-					if(m_Str[m_Cursor+1]==0) // We haven't gone back
-					{
-						m_Str[--m_Cursor]=0;
-					}
-					else
-					{
-						memmove(&m_Str[m_Cursor-1], &m_Str[m_Cursor], m_StrLen-m_Cursor);
-						memset(&m_Str[m_Cursor], 0, m_StrLen-m_Cursor);
-						m_Cursor--;
-					}
-					move(y,x-1);
-					m_StrLen--;
-					*/
+					if(m_Cursor==0) continue;
+					m_Cursor--;
 				}
+				if(m_StrLen>0)
+				{
+					memmove(&m_Str[m_Cursor], &m_Str[m_Cursor+1], m_StrLen*sizeof(wchar_t) - m_Cursor*sizeof(wchar_t) - 4);
+					m_Str[m_StrLen-1]=' ';
+					m_Lock.M_Lock();
+					Input.Write(m_Prompt + m_Str);
+					m_Lock.M_Unlock();
+					m_Str[m_StrLen-1]=0;
+					m_StrLen--;
+					if(ch==KEY_BACKSPACE) move(y,x-1);
+				}
+				continue;
 			}
-			else if(m_Cursor<m_StringMax-2)
+			else if(m_Cursor<m_StringMax-1)
 			{
-				if(m_Str[m_Cursor+1]==0) // We haven't gone back
+				if(m_Str[m_Cursor]==0) // We haven't gone back
 				{
 					m_Str[m_Cursor++]=ch;
 					m_StrLen++;
 				}
 				else if(m_StrLen<m_StringMax-1)
 				{
-					memmove(&m_Str[m_Cursor+1], &m_Str[m_Cursor], m_StrLen-m_Cursor);
+					memmove(&m_Str[m_Cursor+1], &m_Str[m_Cursor], m_StrLen*sizeof(wchar_t)-m_Cursor*sizeof(wchar_t));
 					m_Str[m_Cursor++]=ch;
 					m_StrLen++;
 				}
+				else continue;
 				move(y,x+1);
 			}
 			m_Lock.M_Lock();
-			Input.Write(std::wstring(L"tapi2p> ") + m_Str);
+			Input.Write(m_Prompt + m_Str);
 			m_Lock.M_Unlock();
 		}
 		std::wstring cmd(m_Str);
@@ -186,7 +210,7 @@ namespace tapi2p
 		tapi2p::UI::CheckSize();
 		tapi2p::UI::Unlock();
 		m_Cursor=0;
-		move(0,8);
+		move(0,m_PromptLen);
 		werase(Input.Win());
 		return cmd;
 	}
