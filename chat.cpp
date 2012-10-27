@@ -72,19 +72,19 @@ void generate_self_keypair(Config& c, const std::string kp)
 	}
 }
 
-void parsepacket(C_Packet& p, const std::string& nick)
+void parsepacket(C_Packet& p, const std::wstring& nick)
 {
 	try
 	{
 		std::vector<unsigned char>& data=AES::Decrypt((unsigned char*)p.M_RawData(), p.M_Size(), pkey);
 		tapi2p::UI::Lock();
-		tapi2p::UI::Content.Write("[" + nick + "] " + (char*)&data[0]);
+		tapi2p::UI::Content.Write(L"[" + nick + L"] " + (wchar_t*)&data[0]);
 		tapi2p::UI::Unlock();
 	}
 	catch(KeyException& e)
 	{
 		tapi2p::UI::Lock();
-		tapi2p::UI::Content.Write("Failed to decrypt incoming message from: " + nick);
+		tapi2p::UI::Content.Write(L"Failed to decrypt incoming message from: " + nick);
 		tapi2p::UI::Unlock();
 	}
 	p.M_Clear();
@@ -96,15 +96,12 @@ static void peerloop(void* arg)
 	p->m_Selector.M_Add(p->Sock_In);
 	p->m_Selector.M_Add(p->Sock_Out);
 	Config& c = PathManager::GetConfig();
-	std::string nick;
-	if(p->Sock_In.M_Fd()) nick=c.Get(p->Sock_In.M_Ip().M_ToString(), "Nick");
-	else nick=c.Get(p->Sock_Out.M_Ip().M_ToString(), "Nick");
+	std::wstring nick;
+	if(p->Sock_In.M_Fd()>0) nick=c.Getw(p->Sock_In.M_Ip().M_ToString(), "Nick");
+	else nick=c.Getw(p->Sock_Out.M_Ip().M_ToString(), "Nick");
 	while(run_threads)
 	{
 		p->m_Selector.M_Wait(1000);
-		tapi2p::UI::Lock();
-		tapi2p::UI::Content.Write("test");
-		tapi2p::UI::Unlock();
 		if(p->Sock_In.M_Fd()>0 && p->m_Selector.M_IsReady(p->Sock_In))
 		{
 			if(p->Sock_In.M_Receive(p->Packet, 1000))
@@ -238,12 +235,12 @@ void network_startup(void* args)
 	m_Incoming.M_Close();
 	return;
 }
-void sendall(const std::string& msg)
+void sendall(const std::wstring& msg)
 {
 	const std::vector<Peer*>& peers=PeerManager::Do();
 	for(std::vector<Peer*>::const_iterator it=peers.begin(); it!=peers.end(); ++it)
 	{
-		std::vector<unsigned char>& data=AES::Encrypt((unsigned char*)msg.c_str(), msg.size()+1, "passwd", (*it)->Key);
+		std::vector<unsigned char>& data=AES::Encrypt((unsigned char*)msg.c_str(), msg.size()*sizeof(wchar_t)+sizeof(wchar_t), "passwd", (*it)->Key);
 		C_Packet p;
 		for(int i=0; i<data.size(); ++i) p << data[i];
 		if((*it)->m_Connectable) (*it)->Sock_Out.M_Send(p);
@@ -300,6 +297,10 @@ void connect_to_peers()
 
 int main(int argc, char** argv)
 {
+	if(!setlocale(LC_CTYPE, ""))
+	{
+		std::cerr << "Cannot set specified locale!" << std::endl;
+	}
 	if(argc>1)
 	{
 		startup_init(argv[1]);
@@ -317,15 +318,15 @@ int main(int argc, char** argv)
 	}
 	tapi2p::UI::Init();
 
-	connect_to_peers();
 	C_Thread network_thread(&network_startup);
+	connect_to_peers();
 
 	Config& c = PathManager::GetConfig();
 	while(run_threads)
 	{
-		std::string cmd=tapi2p::UI::HandleInput();
-		if(cmd=="") continue;
-		if(cmd==":q" || cmd==":quit") run_threads=false;
+		std::wstring cmd=tapi2p::UI::HandleInput();
+		if(cmd==L"") continue;
+		if(cmd==L":q" || cmd==L":quit") run_threads=false;
 		/*
 		else if(cmd==":add" || cmd==":a")
 		{
@@ -361,11 +362,11 @@ int main(int argc, char** argv)
 			}
 		}
 		*/
-		else if(cmd==":c" || cmd==":connect")// || cmd==":connect")
+		else if(cmd==L":c" || cmd==L":connect")// || cmd==":connect")
 		{
 			connect_to_peers();
 		}
-		else if(cmd==":u" || cmd==":update")
+		else if(cmd==L":u" || cmd==L":update")
 		{
 			tapi2p::UI::Update();
 		}
@@ -373,7 +374,7 @@ int main(int argc, char** argv)
 		{
 			tapi2p::UI::Lock();
 			tapi2p::UI::CheckSize();
-			tapi2p::UI::Content.Write("[" + c.Get("Account", "Nick") + "] " + cmd);
+			tapi2p::UI::Content.Write(L"[" + c.Getw("Account", "Nick") + L"] " + cmd);
 			tapi2p::UI::Unlock();
 			sendall(cmd);
 		}

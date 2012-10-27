@@ -20,7 +20,7 @@ namespace tapi2p
 	C_Mutex		UI::m_Lock;
 	int			UI::m_Cursor;
 	const int	UI::m_StringMax;
-	char		UI::m_Str[m_StringMax];
+	wchar_t		UI::m_Str[m_StringMax];
 	int			UI::m_StrLen;
 
 	void UI::Init()
@@ -50,8 +50,9 @@ namespace tapi2p
 		x=COLS; y=LINES;
 		Config& conf = PathManager::GetConfig();
 		m_Lock.M_Lock();
-		tapi2p::UI::Content.Write("Welcome to tapi2p, " + conf.Get("Account", "Nick"));
+		tapi2p::UI::Content.Write(L"Welcome to tapi2p, " + conf.Getw("Account", "Nick"));
 		m_Lock.M_Unlock();
+		move(LINES-1, 8);
 	}
 	void UI::CheckSize()
 	{
@@ -89,12 +90,12 @@ namespace tapi2p
 			bool oneway=true;
 			if((*pt)->m_Connectable && (*pt)->Sock_In.M_Fd()>0)
 			{
-				PeerContent.Write(c.Get((*pt)->Sock_In.M_Ip().M_ToString(), "Nick"));
+				PeerContent.Write(c.Getw((*pt)->Sock_In.M_Ip().M_ToString(), "Nick"));
 				oneway=false;
 			}
-			else if(oneway) PeerContent.Write(c.Get((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + " [One-way]");
+			else if(oneway) PeerContent.Write(c.Getw((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + L" [One-way]");
 		}
-		if(peers.empty()) tapi2p::UI::PeerContent.Write("");
+		if(peers.empty()) tapi2p::UI::PeerContent.Write(L"");
 		PeerManager::Done();
 		m_Lock.M_Unlock();
 	}
@@ -116,20 +117,22 @@ namespace tapi2p
 		m_Lock.M_Unlock();
 	}
 
-	std::string UI::HandleInput()
+	std::wstring UI::HandleInput()
 	{
-		int ch=0;
+		wint_t ch=0;
 		memset(m_Str, 0, 255);
 		m_Lock.M_Lock();
-		Input.Write(std::string("tapi2p> "));
+		Input.Write(std::wstring(L"tapi2p> "));
 		m_Lock.M_Unlock();
+		bool multibyte=false;
 		
 		while(1)
 		{
 			int x, y;
 			getyx(stdscr, y, x);
-			ch=wgetch(stdscr);
-			if(ch == '\n') break;
+			get_wch(&ch);
+
+			if(ch == L'\n') break;
 			else if(ch == KEY_LEFT)
 			{
 				move(y,x-1);
@@ -175,10 +178,10 @@ namespace tapi2p
 				move(y,x+1);
 			}
 			m_Lock.M_Lock();
-			Input.Write(std::string("tapi2p> ") + m_Str);
+			Input.Write(std::wstring(L"tapi2p> ") + m_Str);
 			m_Lock.M_Unlock();
 		}
-		std::string cmd(m_Str);
+		std::wstring cmd(m_Str);
 		tapi2p::UI::Lock();
 		tapi2p::UI::CheckSize();
 		tapi2p::UI::Unlock();

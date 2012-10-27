@@ -20,7 +20,21 @@ class ConfigItem
 	public:
 		bool operator<(const ConfigItem& ConfigItem) const;
 		std::string Key() const { return m_Data; }
+		std::wstring Keyw() const
+		{
+			std::wstring ret;
+			ret.resize(m_Data.size());
+			std::copy(m_Data.begin(), m_Data.end(), ret.begin());
+			return ret;
+		}
 		std::string Value() const { return m_Value; }
+		std::wstring Valuew() const
+		{
+			std::wstring ret;
+			ret.resize(m_Value.size());
+			std::copy(m_Value.begin(), m_Value.end(), ret.begin());
+			return ret;
+		}
 };
 class Config
 {
@@ -35,6 +49,7 @@ class Config
 		void Set(const std::string& section, const std::string& data);
 		void Set(const std::string& section, const std::string& data, const std::string& value);
 		std::string Get(const std::string& section, const std::string& data) const;
+		std::wstring Getw(const std::string& section, const std::string& data) const;
 		std::vector<ConfigItem> Get(const std::string& section) const;
 		void Flush();
 		unsigned int Size() const;

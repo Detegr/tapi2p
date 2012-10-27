@@ -118,6 +118,14 @@ std::string Config::Get(const std::string& section, const std::string& data) con
 	}
 	return "";
 }
+std::wstring Config::Getw(const std::string& section, const std::string& data) const
+{
+	std::string str=Get(section,data);
+	std::wstring ret;
+	ret.resize(str.length());
+	std::copy(str.begin(), str.end(), ret.begin());
+	return ret;
+}
 std::vector<ConfigItem> Config::Get(const std::string& section) const
 {
 	std::vector<ConfigItem> ret;

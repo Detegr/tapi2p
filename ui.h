@@ -1,6 +1,6 @@
 #pragma once
 #include <string>
-#include <ncurses.h>
+#include <ncursesw/cursesw.h>
 #include "dtglib/Concurrency.h"
 using namespace dtglib;
 namespace tapi2p
@@ -22,7 +22,7 @@ namespace tapi2p
 				win=newwin(h,w,y,x);
 				wrefresh(win);
 			}
-			void Write(const std::string& s, int x=0)
+			void Write(const std::wstring& s, int x=0)
 			{
 				int ro,co;
 				getyx(stdscr,ro,co);
@@ -31,7 +31,7 @@ namespace tapi2p
 					c=getmaxy(win)-1;
 					wscrl(win,1);
 				}
-				mvwprintw(win, c, x, s.c_str());
+				mvwaddwstr(win, c, x, s.c_str());
 				for(int i=s.size(); i>0; i-=w) c++;
 				move(LINES-1, co);
 				wrefresh(win);
@@ -69,7 +69,7 @@ namespace tapi2p
 			static const int	m_StringMax=256;
 			static int			m_PeerWidth;
 			static C_Mutex		m_Lock;
-			static char 		m_Str[m_StringMax];
+			static wchar_t		m_Str[m_StringMax];
 			static int 			m_StrLen;
 			static int			m_Cursor;
 
@@ -89,6 +89,6 @@ namespace tapi2p
 			static void Lock();
 			static void Unlock();
 			static void Update();
-			static std::string HandleInput();
+			static std::wstring HandleInput();
 	};
 }
