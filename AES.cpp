@@ -11,7 +11,7 @@ std::vector<unsigned char> AES::m_DecData;
 unsigned char AES::m_Salt[8];
 const char* AES::m_Magic="TAPI2P__";
 
-void AES::M_EncryptInit(const std::string& pass)
+void AES::M_EncryptInit(const char* pw, size_t pwlen)
 {
 	unsigned char buf[48];
 	unsigned char key[32];
@@ -21,7 +21,7 @@ void AES::M_EncryptInit(const std::string& pass)
 	{
 		std::cerr << "PRNG _NOT_ SEEDED ENOUGH!!" << std::endl;
 	}
-	if(!PKCS5_PBKDF2_HMAC_SHA1(pass.c_str(), pass.size(), m_Salt, PKCS5_SALT_LEN, AES::ROUNDS, sizeof(buf), buf)) throw KeyException("Key derivation failed!");
+	if(!PKCS5_PBKDF2_HMAC_SHA1(pw, pwlen, m_Salt, PKCS5_SALT_LEN, AES::ROUNDS, sizeof(buf), buf)) throw KeyException("Key derivation failed!");
 	memcpy(key, buf, 32);
 	memcpy(iv, buf+32, 16);
 
@@ -30,27 +30,26 @@ void AES::M_EncryptInit(const std::string& pass)
 	if(!EVP_EncryptInit_ex(&m_Encrypt, EVP_aes_256_cbc(), NULL, key, iv)) throw KeyException("Encryptinit failed");
 
 }
-std::vector<unsigned char>& AES::Encrypt(unsigned char* data, int len, int pwlen, RSA_PublicKey& pubkey)
+std::vector<unsigned char>& AES::Encrypt(unsigned char* data, int len, size_t pwlen, RSA_PublicKey& pubkey)
 {
 	unsigned char pw[pwlen];
 	if(!RAND_bytes(pw, pwlen))
 	{
 		std::cerr << "PRNG _NOT_ SEEDED ENOUGH!!" << std::endl;
 	}
-	std::string pws((char*)pw);
-	return Encrypt(data, len, pws, pubkey);
+	return Encrypt(data, len, (const char*)pw, pwlen, pubkey);
 }
 
-std::vector<unsigned char>& AES::Encrypt(unsigned char* data, int len, const std::string& password, const std::string& keyname)
+std::vector<unsigned char>& AES::Encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, const std::string& keyname)
 {
 	RSA_PublicKey pubkey;
 	pubkey.Load(keyname);
-	return AES::Encrypt(data,len,password,pubkey);
+	return AES::Encrypt(data,len,pw,pwlen,pubkey);
 }
 
-std::vector<unsigned char>& AES::Encrypt(unsigned char* data, int len, const std::string& password, RSA_PublicKey& pubkey)
+std::vector<unsigned char>& AES::Encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, RSA_PublicKey& pubkey)
 {
-	M_EncryptInit(password);
+	M_EncryptInit(pw, pwlen);
 
 	int c_len=len+AES::BLOCK_SIZE;
 	int f_len=0;
@@ -63,7 +62,7 @@ std::vector<unsigned char>& AES::Encrypt(unsigned char* data, int len, const std
 
 	unsigned char* encpass;
 	size_t passlen;
-	pubkey.Encrypt((const unsigned char*)password.c_str(), password.size(), &encpass, &passlen);
+	pubkey.Encrypt((const unsigned char*)pw, pwlen, &encpass, &passlen);
 
 	m_EncData.resize(AES::MAGIC_LEN+PKCS5_SALT_LEN+sizeof(int)+passlen+c_len+f_len);
 	memcpy(&m_EncData[0], m_Magic, AES::MAGIC_LEN);

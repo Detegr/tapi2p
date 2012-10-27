@@ -23,12 +23,12 @@ class AES
 
 		static const char*					m_Magic;
 
-		static void M_EncryptInit(const std::string& pass);
+		static void M_EncryptInit(const char* pw, size_t pwlen);
 		static int M_DecryptInit(const unsigned char* magic, const unsigned char* salt, const unsigned char* pass, RSA_PrivateKey& privatekey);
 	public:
-		static std::vector<unsigned char>& Encrypt(unsigned char* data, int len, int pwlen, RSA_PublicKey& key);
-		static std::vector<unsigned char>& Encrypt(unsigned char* data, int len, const std::string& password, const std::string& keyname);
-		static std::vector<unsigned char>& Encrypt(unsigned char* data, int len, const std::string& password, RSA_PublicKey& key);
+		static std::vector<unsigned char>& Encrypt(unsigned char* data, int len, size_t pwlen, RSA_PublicKey& key);
+		static std::vector<unsigned char>& Encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, const std::string& keyname);
+		static std::vector<unsigned char>& Encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, RSA_PublicKey& pubkey);
 		static std::vector<unsigned char>& Decrypt(unsigned char* data, int len, const std::string& keyname);
 		static std::vector<unsigned char>& Decrypt(unsigned char* data, int len, RSA_PrivateKey& key);
 };
