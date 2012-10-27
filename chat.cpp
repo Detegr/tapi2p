@@ -240,7 +240,7 @@ void sendall(const std::wstring& msg)
 	const std::vector<Peer*>& peers=PeerManager::Do();
 	for(std::vector<Peer*>::const_iterator it=peers.begin(); it!=peers.end(); ++it)
 	{
-		std::vector<unsigned char>& data=AES::Encrypt((unsigned char*)msg.c_str(), msg.size()*sizeof(wchar_t)+sizeof(wchar_t), "passwd", (*it)->Key);
+		std::vector<unsigned char>& data=AES::Encrypt((unsigned char*)msg.c_str(), msg.size()*sizeof(wchar_t)+sizeof(wchar_t), 80, (*it)->Key);
 		C_Packet p;
 		for(int i=0; i<data.size(); ++i) p << data[i];
 		if((*it)->m_Connectable) (*it)->Sock_Out.M_Send(p);
@@ -373,7 +373,6 @@ int main(int argc, char** argv)
 		else
 		{
 			tapi2p::UI::Lock();
-			tapi2p::UI::CheckSize();
 			tapi2p::UI::Content.Write(L"[" + c.Getw("Account", "Nick") + L"] " + cmd);
 			tapi2p::UI::Unlock();
 			sendall(cmd);

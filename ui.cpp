@@ -123,7 +123,7 @@ namespace tapi2p
 	std::wstring UI::HandleInput()
 	{
 		wint_t ch=0;
-		memset(m_Str, 0, 255);
+		memset(m_Str, 0, m_StringMax-1);
 		m_Lock.M_Lock();
 		Input.Write(m_Prompt);
 		m_Lock.M_Unlock();
@@ -135,6 +135,10 @@ namespace tapi2p
 			int x, y;
 			getyx(stdscr, y, x);
 			get_wch(&ch);
+
+			tapi2p::UI::Lock();
+			tapi2p::UI::CheckSize();
+			tapi2p::UI::Unlock();
 
 			if(ch == L'\n') break;
 			else if(ch == KEY_LEFT)
@@ -206,9 +210,6 @@ namespace tapi2p
 			m_Lock.M_Unlock();
 		}
 		std::wstring cmd(m_Str);
-		tapi2p::UI::Lock();
-		tapi2p::UI::CheckSize();
-		tapi2p::UI::Unlock();
 		m_Cursor=0;
 		move(0,m_PromptLen);
 		werase(Input.Win());

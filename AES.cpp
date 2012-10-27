@@ -29,20 +29,17 @@ void AES::M_EncryptInit(const std::string& pass)
 	EVP_CIPHER_CTX_init(&m_Encrypt);
 	if(!EVP_EncryptInit_ex(&m_Encrypt, EVP_aes_256_cbc(), NULL, key, iv)) throw KeyException("Encryptinit failed");
 
-	/*
-	std::cout << "key: ";
-	for(int i=0; i<32; ++i)
+}
+std::vector<unsigned char>& AES::Encrypt(unsigned char* data, int len, int pwlen, RSA_PublicKey& pubkey)
+{
+	unsigned char pw[pwlen];
+	if(!RAND_bytes(pw, pwlen))
 	{
-		std::cout << std::hex << (int)key[i] << "";
+		std::cerr << "PRNG _NOT_ SEEDED ENOUGH!!" << std::endl;
 	}
-	std::cout << std::endl;
-	std::cout << "iv: ";
-	for(int i=0; i<16; ++i)
-	{
-		std::cout << std::hex << (int)iv[i] << "";
-	}
-	std::cout << std::endl;
-	*/
+	std::string pws((char*)pw);
+	std::cout << pws << std::endl;
+	return Encrypt(data, len, pws, pubkey);
 }
 
 std::vector<unsigned char>& AES::Encrypt(unsigned char* data, int len, const std::string& password, const std::string& keyname)
