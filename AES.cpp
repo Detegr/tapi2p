@@ -38,7 +38,6 @@ std::vector<unsigned char>& AES::Encrypt(unsigned char* data, int len, int pwlen
 		std::cerr << "PRNG _NOT_ SEEDED ENOUGH!!" << std::endl;
 	}
 	std::string pws((char*)pw);
-	std::cout << pws << std::endl;
 	return Encrypt(data, len, pws, pubkey);
 }
 
