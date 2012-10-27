@@ -30,9 +30,7 @@ namespace tapi2p
 		m_PeerWidth=20;
 
 		initscr();
-		refresh();
 		noecho();
-		keypad(stdscr,TRUE);
 		cbreak();
 
 		App=Window(COLS, LINES-m_InputHeight, 0, 0);
@@ -46,37 +44,34 @@ namespace tapi2p
 
 		PeerContent=Window(m_PeerWidth-4, LINES-m_InputHeight-2, COLS-m_PeerWidth+2, 1);
 		Input=Window(COLS, m_InputHeight, 0, LINES-m_InputHeight);
+		keypad(Input.Win(),TRUE);
+		keypad(stdscr,TRUE);
 
-		refresh();
 		Resized=false;
 		x=COLS; y=LINES;
 		Config& conf = PathManager::GetConfig();
-		m_Lock.M_Lock();
-		tapi2p::UI::Content.Write(L"Welcome to tapi2p, " + conf.Getw("Account", "Nick"));
-		m_Lock.M_Unlock();
+		Write(Content, L"Welcome to tapi2p, " + conf.Getw("Account", "Nick"));
 		m_Prompt=L"tapi2p> ";
-		move(LINES-1, m_PromptLen);
+		wmove(Input.Win(), 0, m_PromptLen);
 	}
 	void UI::CheckSize()
 	{
 		if(x != COLS || y != LINES)
 		{
-			if(x <= m_PeerWidth)
-			{
-				m_PeerWidth=0;
-			} else m_PeerWidth=20;
 			UI::x=COLS;
 			UI::y=LINES;
 			wresize(App.Win(), UI::y-m_InputHeight, UI::x);
+			wresize(Input.Win(), m_InputHeight, UI::x);
 			wresize(Content.Win(), UI::y-m_InputHeight-2, UI::x-m_PeerWidth-3);
 			wresize(Peers.Win(), UI::y-m_InputHeight, m_PeerWidth);
 			wresize(PeerContent.Win(), UI::y-m_InputHeight-2, m_PeerWidth-4);
 			mvwin(PeerContent.Win(), 1, UI::x-m_PeerWidth+2);
 			mvwin(Peers.Win(), 0, UI::x-m_PeerWidth);
+			mvwin(Input.Win(), UI::y-m_InputHeight, 0);
 			App.Clear();
 			Peers.Clear();
 			App.SetBox();
-			if(m_PeerWidth) Peers.SetBox();
+			Peers.SetBox();
 			Content.Redraw();
 			PeerContent.Redraw();
 		}
@@ -133,37 +128,33 @@ namespace tapi2p
 		while(1)
 		{
 			int x, y;
-			getyx(stdscr, y, x);
-			get_wch(&ch);
-
-			tapi2p::UI::Lock();
-			tapi2p::UI::CheckSize();
-			tapi2p::UI::Unlock();
+			getyx(Input.Win(), y, x);
+			wget_wch(Input.Win(), &ch);
 
 			if(ch == L'\n') break;
 			else if(ch == KEY_LEFT)
 			{
-				move(y,x-1);
+				wmove(Input.Win(), y,x-1);
 				m_Cursor--;
 			}
 			else if(ch == KEY_RIGHT)
 			{
 				if(m_Cursor+1 <= m_StrLen)
 				{
-					move(y,x+1);
+					wmove(Input.Win(), y,x+1);
 					m_Cursor++;
 				}
 				else continue;
 			}
 			else if(ch == KEY_END)
 			{
-				move(y, x+(m_StrLen-m_Cursor));
+				wmove(Input.Win(), y, x+(m_StrLen-m_Cursor));
 				m_Cursor=m_StrLen;
 				continue;
 			}
 			else if(ch == KEY_HOME)
 			{
-				move(y, m_PromptLen);
+				wmove(Input.Win(), y, m_PromptLen);
 				m_Cursor=0;
 			}
 			else if(ch == KEY_UP || ch==KEY_DOWN)
@@ -176,18 +167,23 @@ namespace tapi2p
 					if(m_Cursor==0) continue;
 					m_Cursor--;
 				}
+				else if(m_Cursor == m_StrLen && ch == KEY_DC) continue;
 				if(m_StrLen>0)
 				{
 					memmove(&m_Str[m_Cursor], &m_Str[m_Cursor+1], m_StrLen*sizeof(wchar_t) - m_Cursor*sizeof(wchar_t) - 4);
 					m_Str[m_StrLen-1]=' ';
-					m_Lock.M_Lock();
-					Input.Write(m_Prompt + m_Str);
-					m_Lock.M_Unlock();
+					Write(Input, m_Prompt + m_Str);
 					m_Str[m_StrLen-1]=0;
 					m_StrLen--;
-					if(ch==KEY_BACKSPACE) move(y,x-1);
+					if(ch==KEY_BACKSPACE) wmove(Input.Win(), y,x-1);
 				}
 				continue;
+			}
+			else if(ch == KEY_RESIZE)
+			{
+				tapi2p::UI::Lock();
+				tapi2p::UI::CheckSize();
+				tapi2p::UI::Unlock();
 			}
 			else if(m_Cursor<m_StringMax-1)
 			{
@@ -203,16 +199,26 @@ namespace tapi2p
 					m_StrLen++;
 				}
 				else continue;
-				move(y,x+1);
+				wmove(Input.Win(), 0, x+1);
 			}
 			m_Lock.M_Lock();
-			Input.Write(m_Prompt + m_Str);
+			Write(Input, m_Prompt + m_Str);
 			m_Lock.M_Unlock();
 		}
-		std::wstring cmd(m_Str);
 		m_Cursor=0;
-		move(0,m_PromptLen);
+		//wmove(Input.Win(), 0,m_PromptLen);
 		werase(Input.Win());
-		return cmd;
+		return m_Str;
+	}
+	
+	void UI::Write(Window& win, const std::wstring& s)
+	{
+		int ro,co;
+		m_Lock.M_Lock();
+		getyx(Input.Win(),ro,co);
+		win.Write(s);
+		wmove(Input.Win(), 0, co);
+		wrefresh(Input.Win());
+		m_Lock.M_Unlock();
 	}
 }

@@ -24,8 +24,6 @@ namespace tapi2p
 			}
 			void Write(const std::wstring& s, int x=0)
 			{
-				int ro,co;
-				getyx(stdscr,ro,co);
 				if(c>getmaxy(win)-1)
 				{
 					c=getmaxy(win)-1;
@@ -33,13 +31,12 @@ namespace tapi2p
 				}
 				mvwaddwstr(win, c, x, s.c_str());
 				for(int i=s.size(); i>0; i-=w) c++;
-				move(LINES-1, co);
 				wrefresh(win);
-				refresh();
 			}
 			void Clear()
 			{
 				wclear(win);
+				wrefresh(win);
 				c=0;
 			}
 			void Redraw()
@@ -91,6 +88,7 @@ namespace tapi2p
 			static void Lock();
 			static void Unlock();
 			static void Update();
+			static void Write(Window& win, const std::wstring& s);
 			static std::wstring HandleInput();
 	};
 }
