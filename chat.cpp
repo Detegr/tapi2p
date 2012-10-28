@@ -155,7 +155,6 @@ void network_startup(void* args)
 				Peer* p=NULL;
 				for(std::vector<ConfigItem>::const_iterator it=known_peers.begin(); it!=known_peers.end(); ++it)
 				{
-
 					if(sock->M_Ip() == it->Key().c_str())
 					{
 						bool newconn=true;
@@ -173,18 +172,12 @@ void network_startup(void* args)
 								newconn=false;
 								break;
 							}
-							else if((*pt)->Sock_Out.M_Ip() == sock->M_Ip() && (*pt)->Sock_Out.M_Port() == port && (!(*pt)->m_Connectable))
-							{
-								newconn=false;
-								//(*pt)->Thread.M_Start(peerloop, *pt);
-								//tapi2p::UI::Update();
-								break;
-							}
-							else
-							{
+							else if((*pt)->Sock_Out.M_Ip() == sock->M_Ip() && (*pt)->Sock_Out.M_Port() == port)
+							{// One-way to bi-directional
 								(*pt)->Sock_In = *sock;
 								(*pt)->m_Selector.M_Add((*pt)->Sock_In);
 								newconn=false;
+								break;
 							}
 						}
 						PeerManager::Done();
@@ -206,7 +199,6 @@ void network_startup(void* args)
 							{
 								try
 								{
-									//std::cout << sock->M_Ip() << ":" << port << std::endl;
 									p->Sock_Out=C_TcpSocket(sock->M_Ip(), port);
 									p->Sock_Out.M_Connect();
 								}
@@ -258,7 +250,7 @@ void connect(void* arg)
 	std::wstring ipw;
 	ipw.resize(ip.length());
 	std::copy(ip.begin(), ip.end(), ipw.begin());
-	tapi2p::UI::Write(tapi2p::UI::Content, L"Trying: " + ipw + L":" + portstr);
+	//tapi2p::UI::Write(tapi2p::UI::Content, L"Trying: " + ipw + L":" + portstr);
 	try
 	{
 		C_TcpSocket sock(ci.Key().c_str(), port);
@@ -269,13 +261,13 @@ void connect(void* arg)
 		sockargs |= O_NONBLOCK;
 		if(fcntl(sock.M_Fd(), F_SETFL, sockargs)<0)
 		{
-			tapi2p::UI::Write(tapi2p::UI::Content, L"Socket error.");
+			//tapi2p::UI::Write(tapi2p::UI::Content, L"Socket error.");
 		}
 		sock.M_Connect();
 		sockargs &= ~O_NONBLOCK;
 		if(fcntl(sock.M_Fd(), F_SETFL, sockargs)<0)
 		{
-			tapi2p::UI::Write(tapi2p::UI::Content, L"Socket error.");
+			//tapi2p::UI::Write(tapi2p::UI::Content, L"Socket error.");
 		}
 		C_Selector s;
 		s.M_Add(sock);
@@ -286,10 +278,10 @@ void connect(void* arg)
 			int errlen=sizeof(err);
 			if(getsockopt(sock.M_Fd(), SOL_SOCKET, SO_ERROR, (void*)&err, (socklen_t*)&errlen)<0 || err)
 			{
-				tapi2p::UI::Write(tapi2p::UI::Content, L"Fail.");
+				//tapi2p::UI::Write(tapi2p::UI::Content, L"Fail.");
 				return;
 			}
-			tapi2p::UI::Write(tapi2p::UI::Content, L"Connected.");
+			//tapi2p::UI::Write(tapi2p::UI::Content, L"Connected.");
 			p = new Peer();
 			p->Sock_Out=sock;
 			p->Key.Load(PathManager::KeyPath() + "/" + c.Get(ci.Key(), "Key"));
@@ -299,7 +291,7 @@ void connect(void* arg)
 	}
 	catch(const std::runtime_error& e)
 	{
-		tapi2p::UI::Write(tapi2p::UI::Content, L"Fail");
+		//tapi2p::UI::Write(tapi2p::UI::Content, L"Fail");
 		if(p)
 		{
 			p->Sock_Out.M_Disconnect();
