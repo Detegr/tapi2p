@@ -130,6 +130,15 @@ namespace tapi2p
 			int x, y;
 			getyx(Input.Win(), y, x);
 			wget_wch(Input.Win(), &ch);
+/*
+tapi2p::UI::Lock();
+std::wstringstream ss;
+std::wstring s;
+ss << ch;
+ss >> s;
+tapi2p::UI::Write(Content, s);
+tapi2p::UI::Unlock();
+*/
 
 			if(ch == L'\n') break;
 			else if(ch == KEY_LEFT)
@@ -160,9 +169,9 @@ namespace tapi2p
 			else if(ch == KEY_UP || ch==KEY_DOWN)
 			{
 			}
-			else if(ch == KEY_BACKSPACE || ch==KEY_DC)
+			else if(ch == KEY_BACKSPACE || ch == 127 || ch==KEY_DC)
 			{
-				if(ch == KEY_BACKSPACE)
+				if(ch == KEY_BACKSPACE || ch == 127)
 				{
 					if(m_Cursor==0) continue;
 					m_Cursor--;
@@ -175,7 +184,7 @@ namespace tapi2p
 					Write(Input, m_Prompt + m_Str);
 					m_Str[m_StrLen-1]=0;
 					m_StrLen--;
-					if(ch==KEY_BACKSPACE) wmove(Input.Win(), y,x-1);
+					if(ch==KEY_BACKSPACE || ch == 127) wmove(Input.Win(), y,x-1);
 				}
 				continue;
 			}
