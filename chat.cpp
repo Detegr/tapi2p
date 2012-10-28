@@ -245,73 +245,93 @@ void sendall(const std::wstring& msg)
 	PeerManager::Done();
 }
 
-void connect_to_peers()
+void connect(void* arg)
 {
 	Config& c = PathManager::GetConfig();
-	std::vector<ConfigItem> peerconfs=c.Get("Peers");
-	for(std::vector<ConfigItem>::const_iterator it=peerconfs.begin(); it!=peerconfs.end(); ++it)
+	const ConfigItem& ci=*(const ConfigItem*)arg;
+	unsigned short port;
+	std::wstringstream ss;
+	std::string ip=ci.Key();
+	std::wstring portstr=c.Getw(ci.Key(), "Port");
+	ss << portstr; ss >> port;
+	Peer* p=NULL;
+	std::wstring ipw;
+	ipw.resize(ip.length());
+	std::copy(ip.begin(), ip.end(), ipw.begin());
+	tapi2p::UI::Write(tapi2p::UI::Content, L"Trying: " + ipw + L":" + portstr);
+	try
 	{
-		unsigned short port;
-		std::wstringstream ss;
-		std::string ip=it->Key();
-		std::wstring portstr=c.Getw(it->Key(), "Port");
-		ss << portstr; ss >> port;
-		Peer* p=NULL;
-		/*
-		std::wstring ipw;
-		ipw.resize(ip.length());
-		std::copy(ip.begin(), ip.end(), ipw.begin());
-		tapi2p::UI::Write(tapi2p::UI::Content, L"Trying: " + ipw + L":" + portstr);
-		*/
-		try
-		{
-			C_TcpSocket sock(it->Key().c_str(), port);
+		C_TcpSocket sock(ci.Key().c_str(), port);
 
-			// We need to set the socket to nonblocking mode to not get blocked
-			// if we try to connect to a peer which is not online at the moment.
-			int sockargs=fcntl(sock.M_Fd(), F_GETFL, NULL);
-			sockargs |= O_NONBLOCK;
-			if(fcntl(sock.M_Fd(), F_SETFL, sockargs)<0)
-			{
-				tapi2p::UI::Write(tapi2p::UI::Content, L"Socket error.");
-			}
-			sock.M_Connect();
-			sockargs &= ~O_NONBLOCK;
-			if(fcntl(sock.M_Fd(), F_SETFL, sockargs)<0)
-			{
-				tapi2p::UI::Write(tapi2p::UI::Content, L"Socket error.");
-			}
-			C_Selector s;
-			s.M_Add(sock);
-			s.M_WaitWrite(0);
-			if(s.M_IsReady(sock))
-			{
-				p = new Peer();
-				p->Sock_Out=sock;
-				p->Key.Load(PathManager::KeyPath() + "/" + c.Get(it->Key(), "Key"));
-				PeerManager::Add(p);
-				p->Thread.M_Start(peerloop, p);
-			}
-		}
-		catch(const std::runtime_error& e)
+		// We need to set the socket to nonblocking mode to not get blocked
+		// if we try to connect to a peer which is not online at the moment.
+		int sockargs=fcntl(sock.M_Fd(), F_GETFL, NULL);
+		sockargs |= O_NONBLOCK;
+		if(fcntl(sock.M_Fd(), F_SETFL, sockargs)<0)
 		{
-			if(p)
-			{
-				p->Sock_Out.M_Disconnect();
-				PeerManager::Remove(p);
-			}
+			tapi2p::UI::Write(tapi2p::UI::Content, L"Socket error.");
 		}
-		catch(const KeyException& e)
+		sock.M_Connect();
+		sockargs &= ~O_NONBLOCK;
+		if(fcntl(sock.M_Fd(), F_SETFL, sockargs)<0)
 		{
-			std::cout << e.what() << std::endl;
-			if(p)
+			tapi2p::UI::Write(tapi2p::UI::Content, L"Socket error.");
+		}
+		C_Selector s;
+		s.M_Add(sock);
+		s.M_WaitWrite(5000);
+		if(s.M_IsReady(sock))
+		{
+			int err=0;
+			int errlen=sizeof(err);
+			if(getsockopt(sock.M_Fd(), SOL_SOCKET, SO_ERROR, (void*)&err, (socklen_t*)&errlen)<0 || err)
 			{
-				p->Sock_Out.M_Disconnect();
-				PeerManager::Remove(p);
+				tapi2p::UI::Write(tapi2p::UI::Content, L"Fail.");
+				return;
 			}
+			tapi2p::UI::Write(tapi2p::UI::Content, L"Connected.");
+			p = new Peer();
+			p->Sock_Out=sock;
+			p->Key.Load(PathManager::KeyPath() + "/" + c.Get(ci.Key(), "Key"));
+			PeerManager::Add(p);
+			p->Thread.M_Start(peerloop, p);
+		}
+	}
+	catch(const std::runtime_error& e)
+	{
+		tapi2p::UI::Write(tapi2p::UI::Content, L"Fail");
+		if(p)
+		{
+			p->Sock_Out.M_Disconnect();
+			PeerManager::Remove(p);
+		}
+	}
+	catch(const KeyException& e)
+	{
+		std::cout << e.what() << std::endl;
+		if(p)
+		{
+			p->Sock_Out.M_Disconnect();
+			PeerManager::Remove(p);
 		}
 	}
 	tapi2p::UI::Update();
+}
+
+void connect_to_peers(void*)
+{
+	Config& c = PathManager::GetConfig();
+	std::vector<ConfigItem> peerconfs=c.Get("Peers");
+	std::vector<C_Thread*> connections;
+	for(std::vector<ConfigItem>::const_iterator it=peerconfs.begin(); it!=peerconfs.end(); ++it)
+	{
+		connections.push_back(new C_Thread(connect, (void*)&*it));
+	}
+	for(std::vector<C_Thread*>::const_iterator it=connections.begin(); it!=connections.end(); ++it)
+	{
+		(*it)->M_Join();
+		delete *it;
+	}
 }
 
 int main(int argc, char** argv)
@@ -338,7 +358,7 @@ int main(int argc, char** argv)
 	tapi2p::UI::Init();
 
 	C_Thread network_thread(&network_startup);
-	connect_to_peers();
+	C_Thread connection_thread(connect_to_peers);
 
 	Config& c = PathManager::GetConfig();
 	while(run_threads)
@@ -383,7 +403,7 @@ int main(int argc, char** argv)
 		*/
 		else if(cmd==L":c" || cmd==L":connect")// || cmd==":connect")
 		{
-			connect_to_peers();
+			//connect_to_peers(NULL);
 		}
 		else if(cmd==L":u" || cmd==L":update")
 		{
@@ -395,6 +415,7 @@ int main(int argc, char** argv)
 			sendall(cmd);
 		}
 	}
+	connection_thread.M_Join();
 	network_thread.M_Join();
 	tapi2p::UI::Destroy();
 	PathManager::Destroy();
