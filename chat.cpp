@@ -257,10 +257,12 @@ void connect_to_peers()
 		std::wstring portstr=c.Getw(it->Key(), "Port");
 		ss << portstr; ss >> port;
 		Peer* p=NULL;
+		/*
 		std::wstring ipw;
 		ipw.resize(ip.length());
 		std::copy(ip.begin(), ip.end(), ipw.begin());
 		tapi2p::UI::Write(tapi2p::UI::Content, L"Trying: " + ipw + L":" + portstr);
+		*/
 		try
 		{
 			C_TcpSocket sock(it->Key().c_str(), port);
@@ -269,16 +271,27 @@ void connect_to_peers()
 			// if we try to connect to a peer which is not online at the moment.
 			int sockargs=fcntl(sock.M_Fd(), F_GETFL, NULL);
 			sockargs |= O_NONBLOCK;
-			fcntl(sock.M_Fd(), F_SETFL, sockargs);
+			if(fcntl(sock.M_Fd(), F_SETFL, sockargs)<0)
+			{
+				tapi2p::UI::Write(tapi2p::UI::Content, L"Socket error.");
+			}
 			sock.M_Connect();
 			sockargs &= ~O_NONBLOCK;
-			fcntl(sock.M_Fd(), F_SETFL, sockargs);
-
-			p = new Peer();
-			p->Sock_Out=sock;
-			p->Key.Load(PathManager::KeyPath() + "/" + c.Get(it->Key(), "Key"));
-			PeerManager::Add(p);
-			p->Thread.M_Start(peerloop, p);
+			if(fcntl(sock.M_Fd(), F_SETFL, sockargs)<0)
+			{
+				tapi2p::UI::Write(tapi2p::UI::Content, L"Socket error.");
+			}
+			C_Selector s;
+			s.M_Add(sock);
+			s.M_WaitWrite(0);
+			if(s.M_IsReady(sock))
+			{
+				p = new Peer();
+				p->Sock_Out=sock;
+				p->Key.Load(PathManager::KeyPath() + "/" + c.Get(it->Key(), "Key"));
+				PeerManager::Add(p);
+				p->Thread.M_Start(peerloop, p);
+			}
 		}
 		catch(const std::runtime_error& e)
 		{
