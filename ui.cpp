@@ -80,6 +80,7 @@ namespace tapi2p
 	void UI::Update()
 	{
 		Config& c = PathManager::GetConfig();
+		m_Lock.M_Lock();
 		PeerContent.Clear();
 		std::vector<Peer*> peers=PeerManager::Do();
 		for(std::vector<Peer*>::const_iterator pt=peers.begin(); pt!=peers.end(); ++pt)
@@ -94,6 +95,7 @@ namespace tapi2p
 		}
 		if(peers.empty()) tapi2p::UI::Write(PeerContent, L"");
 		PeerManager::Done();
+		m_Lock.M_Unlock();
 	}
 
 	void UI::Destroy()

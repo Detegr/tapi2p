@@ -252,18 +252,28 @@ void connect_to_peers()
 	for(std::vector<ConfigItem>::const_iterator it=peerconfs.begin(); it!=peerconfs.end(); ++it)
 	{
 		unsigned short port;
-		std::stringstream ss;
-		std::string portstr=c.Get(it->Key(), "Port");
+		std::wstringstream ss;
+		std::string ip=it->Key();
+		std::wstring portstr=c.Getw(it->Key(), "Port");
 		ss << portstr; ss >> port;
 		Peer* p=NULL;
+		std::wstring ipw;
+		ipw.resize(ip.length());
+		std::copy(ip.begin(), ip.end(), ipw.begin());
+		tapi2p::UI::Write(tapi2p::UI::Content, L"Trying: " + ipw + L":" + portstr);
 		try
 		{
 			C_TcpSocket sock(it->Key().c_str(), port);
-			int yes=1;
-			setsockopt(sock.M_Fd(), SOL_SOCKET, O_NONBLOCK, (char*)&yes, sizeof(yes));
+
+			// We need to set the socket to nonblocking mode to not get blocked
+			// if we try to connect to a peer which is not online at the moment.
+			int sockargs=fcntl(sock.M_Fd(), F_GETFL, NULL);
+			sockargs |= O_NONBLOCK;
+			fcntl(sock.M_Fd(), F_SETFL, sockargs);
 			sock.M_Connect();
-			yes=0;
-			setsockopt(sock.M_Fd(), SOL_SOCKET, O_NONBLOCK, (char*)&yes, sizeof(yes));
+			sockargs &= ~O_NONBLOCK;
+			fcntl(sock.M_Fd(), F_SETFL, sockargs);
+
 			p = new Peer();
 			p->Sock_Out=sock;
 			p->Key.Load(PathManager::KeyPath() + "/" + c.Get(it->Key(), "Key"));
@@ -274,7 +284,7 @@ void connect_to_peers()
 		{
 			if(p)
 			{
-				p->Sock_Out.M_Close();
+				p->Sock_Out.M_Disconnect();
 				PeerManager::Remove(p);
 			}
 		}
@@ -283,7 +293,7 @@ void connect_to_peers()
 			std::cout << e.what() << std::endl;
 			if(p)
 			{
-				p->Sock_Out.M_Close();
+				p->Sock_Out.M_Disconnect();
 				PeerManager::Remove(p);
 			}
 		}
