@@ -80,7 +80,6 @@ namespace tapi2p
 	void UI::Update()
 	{
 		Config& c = PathManager::GetConfig();
-		m_Lock.M_Lock();
 		PeerContent.Clear();
 		std::vector<Peer*> peers=PeerManager::Do();
 		for(std::vector<Peer*>::const_iterator pt=peers.begin(); pt!=peers.end(); ++pt)
@@ -88,14 +87,13 @@ namespace tapi2p
 			bool oneway=true;
 			if((*pt)->m_Connectable && (*pt)->Sock_In.M_Fd()>0)
 			{
-				PeerContent.Write(c.Getw((*pt)->Sock_In.M_Ip().M_ToString(), "Nick"));
+				Write(PeerContent, c.Getw((*pt)->Sock_In.M_Ip().M_ToString(), "Nick"));
 				oneway=false;
 			}
-			else if(oneway) PeerContent.Write(c.Getw((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + L" [One-way]");
+			else if(oneway) Write(PeerContent, c.Getw((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + L" [One-way]");
 		}
-		if(peers.empty()) tapi2p::UI::PeerContent.Write(L"");
+		if(peers.empty()) tapi2p::UI::Write(PeerContent, L"");
 		PeerManager::Done();
-		m_Lock.M_Unlock();
 	}
 
 	void UI::Destroy()
