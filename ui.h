@@ -74,6 +74,7 @@ namespace tapi2p
 			void Delete()
 			{
 				delwin(win);
+				win=NULL;
 			}
 			WINDOW* Win() const
 			{
@@ -105,6 +106,17 @@ namespace tapi2p
 			{
 				m_TabWindows.push_back(TabWindow(Window(w,h,x,y,false), s));
 				scrollok(m_TabWindows.back().w.Win(), TRUE);
+			}
+			void DeleteCurrent()
+			{
+				if(m_Active!=0)
+				{
+					std::vector<TabWindow>::iterator it = m_TabWindows.begin()+m_Active;
+					TabWindow tw=*it;
+					m_TabWindows.erase(it);
+					m_Active--;
+					tw.w.Delete();
+				}
 			}
 			void Next()
 			{
@@ -153,6 +165,7 @@ namespace tapi2p
 			static void Unlock();
 			static void Update();
 			static void AddTab(const std::wstring& s);
+			static void DelTab();
 			static void NextTab();
 			static void PrevTab();
 			static void Write(Window& win, const std::wstring& s);

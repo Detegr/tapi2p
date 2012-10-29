@@ -284,6 +284,16 @@ tapi2p::UI::Unlock();
 		m_Lock.M_Unlock();
 		Tabs.Draw();
 	}
+	void UI::DelTab()
+	{
+		m_Lock.M_Lock();
+		Tabs.DeleteCurrent();
+		Tabs.Clear();
+		Active().Redraw();
+		wrefresh(Active().Win());
+		m_Lock.M_Unlock();
+		Tabs.Draw();
+	}
 	void UI::NextTab()
 	{
 		m_Lock.M_Lock();
