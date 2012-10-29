@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <list>
+#include <vector>
 #include <ncursesw/cursesw.h>
 #include "dtglib/Concurrency.h"
 using namespace dtglib;
@@ -15,13 +16,34 @@ namespace tapi2p
 			int y;
 			int c;
 			WINDOW* win;
-			bool copied;
 		public:
 			Window() : w(0),h(0),x(0),y(0),c(0),win(NULL) {}
-			Window(int w, int h, int x, int y) : w(w),h(h),x(x),y(y),c(0)
+			Window(int w, int h, int x, int y, bool activate=true) : w(w),h(h),x(x),y(y),c(0)
 			{
 				win=newwin(h,w,y,x);
-				wrefresh(win);
+				if(activate) wrefresh(win);
+			}
+			Window(const Window& rhs)
+			{
+				w=rhs.w;
+				h=rhs.h;
+				x=rhs.x;
+				y=rhs.y;
+				c=rhs.c;
+				win=rhs.win;
+			}
+			Window& operator=(const Window& rhs)
+			{
+				if(&rhs != this)
+				{
+					w=rhs.w;
+					h=rhs.h;
+					x=rhs.x;
+					y=rhs.y;
+					c=rhs.c;
+					win=rhs.win;
+				}
+				return *this;
 			}
 			void Write(const std::wstring& s, int x=0)
 			{
@@ -60,21 +82,36 @@ namespace tapi2p
 			}
 	};
 
+	struct TabWindow
+	{
+		Window w;
+		std::wstring t;
+		TabWindow(Window w, const std::wstring& t) : w(w), t(t) {}
+	};
+
 	class TabBar
 	{
 		friend class UI;
 		private:
 			int						m_Active;
 			Window					m_Tabs;
-			std::list<std::wstring>	m_TabTexts;
+			std::vector<TabWindow>	m_TabWindows;
 			static const int		m_TabSpacing=2;
 		public:
 			TabBar() : m_Active(0) {}
 			void Init(int w, int h);
 			void Draw();
-			void Add(const std::wstring& s)
+			Window& Active() { return m_TabWindows[m_Active].w; }
+			void Add(const std::wstring& s, int w, int h, int x, int y)
 			{
-				m_TabTexts.push_back(s);
+				m_TabWindows.push_back(TabWindow(Window(w,h,x,y,false), s));
+				scrollok(m_TabWindows.back().w.Win(), TRUE);
+			}
+			void Next()
+			{
+				m_Active = (m_Active+1) % m_TabWindows.size();
+				m_TabWindows[m_Active].w.Redraw();
+				wrefresh(m_TabWindows[m_Active].w.Win());
 			}
 			WINDOW* Win() const { return m_Tabs.Win(); }
 			void Clear() { m_Tabs.Clear(); }
@@ -98,7 +135,6 @@ namespace tapi2p
 			static int y;
 			static bool Resized;
 			static Window App;
-			static Window Content;
 			static Window Peers;
 			static Window PeerContent;
 			static Window Input;
@@ -111,7 +147,10 @@ namespace tapi2p
 			static void Unlock();
 			static void Update();
 			static void AddTab(const std::wstring& s);
+			static void NextTab();
 			static void Write(Window& win, const std::wstring& s);
+			static Window& Active() { return Tabs.Active(); }
+			static Window& Main() { return Tabs.m_TabWindows[0].w; }
 			static std::wstring HandleInput();
 	};
 }
