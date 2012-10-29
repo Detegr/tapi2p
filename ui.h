@@ -54,7 +54,6 @@ namespace tapi2p
 				}
 				mvwaddwstr(win, c, x, s.c_str());
 				for(int i=s.size(); i>0; i-=w) c++;
-				wrefresh(win);
 			}
 			void Clear()
 			{
@@ -113,6 +112,13 @@ namespace tapi2p
 				m_TabWindows[m_Active].w.Redraw();
 				wrefresh(m_TabWindows[m_Active].w.Win());
 			}
+			void Prev()
+			{
+				m_Active--;
+				if(m_Active<0) m_Active=m_TabWindows.size()-1;
+				m_TabWindows[m_Active].w.Redraw();
+				wrefresh(m_TabWindows[m_Active].w.Win());
+			}
 			WINDOW* Win() const { return m_Tabs.Win(); }
 			void Clear() { m_Tabs.Clear(); }
 	};
@@ -148,6 +154,7 @@ namespace tapi2p
 			static void Update();
 			static void AddTab(const std::wstring& s);
 			static void NextTab();
+			static void PrevTab();
 			static void Write(Window& win, const std::wstring& s);
 			static Window& Active() { return Tabs.Active(); }
 			static Window& Main() { return Tabs.m_TabWindows[0].w; }

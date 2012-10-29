@@ -173,7 +173,7 @@ std::wstringstream ss;
 std::wstring s;
 ss << ch;
 ss >> s;
-tapi2p::UI::Write(Content, s);
+tapi2p::UI::Write(Active(), s);
 tapi2p::UI::Unlock();
 */
 
@@ -235,6 +235,10 @@ tapi2p::UI::Unlock();
 			{
 				tapi2p::UI::NextTab();
 			}
+			else if(ch == 353) // shift-tab
+			{
+				tapi2p::UI::PrevTab();
+			}
 			else if(m_Cursor<m_StringMax-1)
 			{
 				if(m_Str[m_Cursor]==0) // We haven't gone back
@@ -267,6 +271,7 @@ tapi2p::UI::Unlock();
 		m_Lock.M_Lock();
 		getyx(Input.Win(),ro,co);
 		win.Write(s);
+		if(Active().Win() == win.Win()) wrefresh(win.Win());
 		wmove(Input.Win(), 0, co);
 		wrefresh(Input.Win());
 		m_Lock.M_Unlock();
@@ -283,6 +288,14 @@ tapi2p::UI::Unlock();
 	{
 		m_Lock.M_Lock();
 		Tabs.Next();
+		Tabs.Clear();
+		m_Lock.M_Unlock();
+		Tabs.Draw();
+	}
+	void UI::PrevTab()
+	{
+		m_Lock.M_Lock();
+		Tabs.Prev();
 		Tabs.Clear();
 		m_Lock.M_Unlock();
 		Tabs.Draw();
