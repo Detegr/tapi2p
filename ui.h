@@ -10,83 +10,92 @@ namespace tapi2p
 	class Window
 	{
 		private:
-			int w;
-			int h;
-			int x;
-			int y;
-			int c;
-			WINDOW* win;
+			int m_Width;
+			int m_Height;
+			int m_PosX;
+			int m_PosY;
+			int m_Cursor;
+			WINDOW* m_Window;
 		public:
-			Window() : w(0),h(0),x(0),y(0),c(0),win(NULL) {}
-			Window(int w, int h, int x, int y, bool activate=true) : w(w),h(h),x(x),y(y),c(0)
+			Window() : m_Width(0), m_Height(0), m_PosX(0), m_PosY(0), m_Cursor(0), m_Window(NULL) {}
+			Window(int w, int h, int x, int y, bool activate=true) : m_Width(w), m_Height(h), m_PosX(x), m_PosY(y), m_Cursor(0)
 			{
-				win=newwin(h,w,y,x);
-				if(activate) wrefresh(win);
+				m_Window=newwin(h,w,y,x);
+				if(activate) Refresh();
 			}
 			Window(const Window& rhs)
 			{
-				w=rhs.w;
-				h=rhs.h;
-				x=rhs.x;
-				y=rhs.y;
-				c=rhs.c;
-				win=rhs.win;
+				m_Width=rhs.m_Width;
+				m_Height=rhs.m_Height;
+				m_PosX=rhs.m_PosX;
+				m_PosY=rhs.m_PosY;
+				m_Cursor=rhs.m_Cursor;
+				m_Window=rhs.m_Window;
 			}
 			Window& operator=(const Window& rhs)
 			{
 				if(&rhs != this)
 				{
-					w=rhs.w;
-					h=rhs.h;
-					x=rhs.x;
-					y=rhs.y;
-					c=rhs.c;
-					win=rhs.win;
+					m_Width=rhs.m_Width;
+					m_Height=rhs.m_Height;
+					m_PosX=rhs.m_PosX;
+					m_PosY=rhs.m_PosY;
+					m_Cursor=rhs.m_Cursor;
+					m_Window=rhs.m_Window;
 				}
 				return *this;
 			}
 			void Write(const std::wstring& s, int x=0)
 			{
-				if(c>getmaxy(win)-1)
+				if(m_Cursor>getmaxy(m_Window)-1)
 				{
-					c=getmaxy(win)-1;
-					wscrl(win,1);
+					m_Cursor=getmaxy(m_Window)-1;
+					wscrl(m_Window,1);
 				}
-				mvwaddwstr(win, c, x, s.c_str());
-				for(int i=s.size(); i>0; i-=w) c++;
+				mvwaddwstr(m_Window, m_Cursor, m_PosX, s.c_str());
+				for(int i=s.size(); i>0; i-=m_Width) m_Cursor++;
 			}
 			void Clear()
 			{
-				werase(win);
-				//wrefresh(win);
-				c=0;
+				werase(m_Window);
+				m_Cursor=0;
 			}
 			void Redraw()
 			{
-				redrawwin(win);
-				wrefresh(win);
+				redrawwin(m_Window);
+				wrefresh(m_Window);
 			}
 			void SetBox()
 			{
-				box(win, 0, 0);
-				wrefresh(win);
+				box(m_Window, 0, 0);
+				wrefresh(m_Window);
 			}
 			void Delete()
 			{
-				delwin(win);
-				win=NULL;
+				delwin(m_Window);
+				m_Window=NULL;
+			}
+			void Refresh()
+			{
+				wrefresh(m_Window);
 			}
 			WINDOW* Win() const
 			{
-				return win;
+				return m_Window;
 			}
 	};
 
-	struct TabWindow
+	class TabWindow : public Window
 	{
-		Window w;
-		std::wstring t;
-		TabWindow(Window w, const std::wstring& t) : w(w), t(t) {}
+		private:
+			bool			m_Static;
+			std::wstring	m_Name;
+		public:
+			TabWindow() : m_Static(false) {}
+			TabWindow(const std::wstring& name, int w, int h, int x, int y, bool activate=true) : m_Static(false), m_Name(name), Window(w,h,x,y,activate) {}
+			const std::wstring& Name() const { return m_Name; }
+			void SetStatic() { m_Static=true; }
+			bool Static() const { return m_Static; }
 	};
 
 	class TabBar
@@ -101,11 +110,16 @@ namespace tapi2p
 			TabBar() : m_Active(0) {}
 			void Init(int w, int h);
 			void Draw();
-			Window& Active() { return m_TabWindows[m_Active].w; }
+			TabWindow& Active() { return m_TabWindows[m_Active]; }
 			void Add(const std::wstring& s, int w, int h, int x, int y)
 			{
-				m_TabWindows.push_back(TabWindow(Window(w,h,x,y,false), s));
-				scrollok(m_TabWindows.back().w.Win(), TRUE);
+				m_TabWindows.push_back(TabWindow(s,w,h,x,y,false));
+				scrollok(m_TabWindows.back().Win(), TRUE);
+			}
+			void Add(const TabWindow& w)
+			{
+				m_TabWindows.push_back(w);
+				scrollok(m_TabWindows.back().Win(), TRUE);
 			}
 			void DeleteCurrent()
 			{
@@ -115,26 +129,33 @@ namespace tapi2p
 					TabWindow tw=*it;
 					m_TabWindows.erase(it);
 					m_Active--;
-					tw.w.Delete();
+					if(!tw.Static()) tw.Delete();
 				}
 			}
 			void Next()
 			{
 				m_Active = (m_Active+1) % m_TabWindows.size();
-				m_TabWindows[m_Active].w.Redraw();
-				wrefresh(m_TabWindows[m_Active].w.Win());
+				m_TabWindows[m_Active].Redraw();
+				m_TabWindows[m_Active].Refresh();
 			}
 			void Prev()
 			{
 				m_Active--;
 				if(m_Active<0) m_Active=m_TabWindows.size()-1;
-				m_TabWindows[m_Active].w.Redraw();
-				wrefresh(m_TabWindows[m_Active].w.Win());
+				m_TabWindows[m_Active].Redraw();
+				m_TabWindows[m_Active].Refresh();
+			}
+			void SetDirty(const TabWindow& w, bool dirty)
+			{
 			}
 			WINDOW* Win() const { return m_Tabs.Win(); }
 			void Clear() { m_Tabs.Clear(); }
 	};
-
+/*
+	class PeerWindow : public TabWindow
+	{
+	};
+*/
 	class UI
 	{
 		private:
@@ -153,9 +174,8 @@ namespace tapi2p
 			static int y;
 			static bool Resized;
 			static Window App;
-			static Window Peers;
-			static Window PeerContent;
 			static Window Input;
+			static TabWindow Peers;
 			static TabBar Tabs;
 
 			static void Init();
@@ -170,7 +190,7 @@ namespace tapi2p
 			static void PrevTab();
 			static void Write(Window& win, const std::wstring& s);
 			static Window& Active() { return Tabs.Active(); }
-			static Window& Main() { return Tabs.m_TabWindows[0].w; }
+			static Window& Main() { return Tabs.m_TabWindows[0]; }
 			static std::wstring HandleInput();
 	};
 }

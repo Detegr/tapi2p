@@ -8,8 +8,7 @@
 namespace tapi2p
 {
 	Window		UI::App;
-	Window		UI::Peers;
-	Window		UI::PeerContent;
+	TabWindow	UI::Peers;
 	Window		UI::Input;
 	TabBar		UI::Tabs;
 	int			UI::m_PeerWidth;
@@ -28,7 +27,7 @@ namespace tapi2p
 	void TabBar::Init(int w, int h)
 	{
 		m_Tabs=Window(w, h, 0, 0);
-		UI::AddTab(L"Main");
+		UI::AddTab(L"Chat");
 	}
 
 	void TabBar::Draw()
@@ -42,10 +41,10 @@ namespace tapi2p
 			for(int i=0; i<m_TabSpacing; ++i, ++j) waddch(m_Tabs.Win(), ACS_HLINE);
 			waddch(m_Tabs.Win(), ACS_RTEE);
 			if(z==m_Active) wattron(m_Tabs.Win(), A_UNDERLINE);
-			waddwstr(m_Tabs.Win(), it->t.c_str());
+			waddwstr(m_Tabs.Win(), it->Name().c_str());
 			wattroff(m_Tabs.Win(), A_UNDERLINE);
 			waddch(m_Tabs.Win(), ACS_LTEE);
-			j += 2 + it->t.length();
+			j += 2 + it->Name().length();
 		}
 		for(int k=0; k<(UI::x-j); ++k) waddch(m_Tabs.Win(), ACS_HLINE);
 		waddch(m_Tabs.Win(), ACS_TTEE);
@@ -65,12 +64,14 @@ namespace tapi2p
 		x=COLS; y=LINES;
 		App.SetBox();
 
-		Tabs.Init(x-m_PeerWidth+1, 1);
+		Tabs.Init(x-1, 1);
+		Peers=TabWindow(L"Peers", x, y-2, 1, 1);
+		Tabs.Add(Peers);
 		
-		Peers=Window(m_PeerWidth, LINES-m_InputHeight, COLS-m_PeerWidth, 0);
-		Peers.SetBox();
+		//Peers=Window(m_PeerWidth, LINES-m_InputHeight, COLS-m_PeerWidth, 0);
+		//Peers.SetBox();
 
-		PeerContent=Window(m_PeerWidth-4, LINES-m_InputHeight-2, COLS-m_PeerWidth+2, 1);
+		//PeerContent=Window(m_PeerWidth-4, LINES-m_InputHeight-2, COLS-m_PeerWidth+2, 1);
 		Input=Window(COLS, m_InputHeight, 0, LINES-m_InputHeight);
 		Tabs.Draw();
 		keypad(Input.Win(),TRUE);
@@ -89,25 +90,18 @@ namespace tapi2p
 			UI::x=COLS;
 			UI::y=LINES;
 			wresize(App.Win(), UI::y-m_InputHeight, UI::x);
-			wresize(Tabs.Win(), 1, UI::x-m_PeerWidth+1);
+			wresize(Tabs.Win(), 1, UI::x-1);
 			wresize(Input.Win(), m_InputHeight, UI::x);
 			for(std::vector<TabWindow>::iterator it=Tabs.m_TabWindows.begin(); it!=Tabs.m_TabWindows.end(); ++it)
 			{
-				wresize(it->w.Win(), UI::y-m_InputHeight-2, UI::x-m_PeerWidth-3);
+				wresize(it->Win(), UI::y-m_InputHeight-2, UI::x);
 			}
-			wresize(Peers.Win(), UI::y-m_InputHeight, m_PeerWidth);
-			wresize(PeerContent.Win(), UI::y-m_InputHeight-2, m_PeerWidth-4);
-			mvwin(PeerContent.Win(), 1, UI::x-m_PeerWidth+2);
-			mvwin(Peers.Win(), 0, UI::x-m_PeerWidth);
 			mvwin(Input.Win(), UI::y-m_InputHeight, 0);
 			App.Clear();
-			Peers.Clear();
 			App.SetBox();
-			Peers.SetBox();
 			Tabs.Clear();
 			Tabs.Draw();
 			Active().Redraw();
-			PeerContent.Redraw();
 		}
 	}
 
@@ -115,19 +109,19 @@ namespace tapi2p
 	{
 		Config& c = PathManager::GetConfig();
 		m_Lock.M_Lock();
-		PeerContent.Clear();
+		Peers.Clear();
 		std::vector<Peer*> peers=PeerManager::Do();
 		for(std::vector<Peer*>::const_iterator pt=peers.begin(); pt!=peers.end(); ++pt)
 		{
 			bool oneway=true;
 			if((*pt)->m_Connectable && (*pt)->Sock_In.M_Fd()>0)
 			{
-				Write(PeerContent, c.Getw((*pt)->Sock_In.M_Ip().M_ToString(), "Nick"));
+				Write(Peers, c.Getw((*pt)->Sock_In.M_Ip().M_ToString(), "Nick"));
 				oneway=false;
 			}
-			else if(oneway) Write(PeerContent, c.Getw((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + L" [One-way]");
+			else if(oneway) Write(Peers, c.Getw((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + L" [One-way]");
 		}
-		if(peers.empty()) tapi2p::UI::Write(PeerContent, L"");
+		if(peers.empty()) tapi2p::UI::Write(Peers, L"");
 		PeerManager::Done();
 		m_Lock.M_Unlock();
 	}
@@ -137,7 +131,7 @@ namespace tapi2p
 		App.Delete();
 		for(std::vector<TabWindow>::iterator it=Tabs.m_TabWindows.begin(); it!=Tabs.m_TabWindows.end(); ++it)
 		{
-			it->w.Delete();
+			it->Delete();
 		}
 		Peers.Delete();
 		endwin();
@@ -271,7 +265,7 @@ tapi2p::UI::Unlock();
 		m_Lock.M_Lock();
 		getyx(Input.Win(),ro,co);
 		win.Write(s);
-		if(Active().Win() == win.Win() || win.Win() == PeerContent.Win()) wrefresh(win.Win());
+		if(Active().Win() == win.Win()) wrefresh(win.Win());
 		wmove(Input.Win(), 0, co);
 		wrefresh(Input.Win());
 		m_Lock.M_Unlock();
@@ -279,7 +273,7 @@ tapi2p::UI::Unlock();
 	void UI::AddTab(const std::wstring& s)
 	{
 		m_Lock.M_Lock();
-		Tabs.Add(s, x-m_PeerWidth-3, y-m_InputHeight-2, 2, 1);
+		Tabs.Add(s, x, y-2, 1, 1);
 		Tabs.Clear();
 		m_Lock.M_Unlock();
 		Tabs.Draw();
