@@ -271,7 +271,7 @@ tapi2p::UI::Unlock();
 		m_Lock.M_Lock();
 		getyx(Input.Win(),ro,co);
 		win.Write(s);
-		if(Active().Win() == win.Win()) wrefresh(win.Win());
+		if(Active().Win() == win.Win() || win.Win() == PeerContent.Win()) wrefresh(win.Win());
 		wmove(Input.Win(), 0, co);
 		wrefresh(Input.Win());
 		m_Lock.M_Unlock();
