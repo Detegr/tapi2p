@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <list>
 #include <ncursesw/cursesw.h>
 #include "dtglib/Concurrency.h"
 using namespace dtglib;
@@ -59,6 +60,26 @@ namespace tapi2p
 			}
 	};
 
+	class TabBar
+	{
+		friend class UI;
+		private:
+			int						m_Active;
+			Window					m_Tabs;
+			std::list<std::wstring>	m_TabTexts;
+			static const int		m_TabSpacing=2;
+		public:
+			TabBar() : m_Active(0) {}
+			void Init(int w, int h);
+			void Draw();
+			void Add(const std::wstring& s)
+			{
+				m_TabTexts.push_back(s);
+			}
+			WINDOW* Win() const { return m_Tabs.Win(); }
+			void Clear() { m_Tabs.Clear(); }
+	};
+
 	class UI
 	{
 		private:
@@ -81,6 +102,7 @@ namespace tapi2p
 			static Window Peers;
 			static Window PeerContent;
 			static Window Input;
+			static TabBar Tabs;
 
 			static void Init();
 			static void Destroy();
@@ -88,6 +110,7 @@ namespace tapi2p
 			static void Lock();
 			static void Unlock();
 			static void Update();
+			static void AddTab(const std::wstring& s);
 			static void Write(Window& win, const std::wstring& s);
 			static std::wstring HandleInput();
 	};

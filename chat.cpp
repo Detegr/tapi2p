@@ -397,6 +397,10 @@ int main(int argc, char** argv)
 		{
 			//connect_to_peers(NULL);
 		}
+		else if(cmd==L":t")
+		{
+			tapi2p::UI::AddTab(L"newtab");
+		}
 		else if(cmd==L":u" || cmd==L":update")
 		{
 			tapi2p::UI::Update();

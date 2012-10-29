@@ -12,6 +12,7 @@ namespace tapi2p
 	Window		UI::Peers;
 	Window		UI::PeerContent;
 	Window		UI::Input;
+	TabBar		UI::Tabs;
 	int			UI::m_PeerWidth;
 	const int	UI::m_InputHeight;
 	int			UI::x;
@@ -25,6 +26,34 @@ namespace tapi2p
 	std::wstring UI::m_Prompt;
 	const int	UI::m_PromptLen;
 
+	void TabBar::Init(int w, int h)
+	{
+		m_Tabs=Window(w, h, 0, 0);
+		Add(L"Main");
+	}
+
+	void TabBar::Draw()
+	{
+		tapi2p::UI::Lock();
+		waddch(m_Tabs.Win(), ACS_ULCORNER);
+		int j=1;
+		int z=0;
+		for(std::list<std::wstring>::const_iterator it=m_TabTexts.begin(); it!=m_TabTexts.end(); ++it, ++z)
+		{
+			for(int i=0; i<m_TabSpacing; ++i, ++j) waddch(m_Tabs.Win(), ACS_HLINE);
+			waddch(m_Tabs.Win(), ACS_RTEE);
+			if(z==m_Active) wattron(m_Tabs.Win(), A_UNDERLINE);
+			waddwstr(m_Tabs.Win(), it->c_str());
+			wattroff(m_Tabs.Win(), A_UNDERLINE);
+			waddch(m_Tabs.Win(), ACS_LTEE);
+			j += 2 + it->length();
+		}
+		for(int k=0; k<(UI::x-j); ++k) waddch(m_Tabs.Win(), ACS_HLINE);
+		waddch(m_Tabs.Win(), ACS_TTEE);
+		wrefresh(m_Tabs.Win());
+		tapi2p::UI::Unlock();
+	}
+
 	void UI::Init()
 	{
 		m_PeerWidth=20;
@@ -34,7 +63,12 @@ namespace tapi2p
 		cbreak();
 
 		App=Window(COLS, LINES-m_InputHeight, 0, 0);
+		x=COLS; y=LINES;
 		App.SetBox();
+
+		Tabs.Init(x-m_PeerWidth+1, 1);
+		//Tabs.Add(L"Tab1");
+		//Tabs.Add(L"Tab2");
 		
 		Content=Window(COLS-m_PeerWidth-3, LINES-m_InputHeight-2, 2, 1);
 		scrollok(Content.Win(), TRUE);
@@ -44,11 +78,11 @@ namespace tapi2p
 
 		PeerContent=Window(m_PeerWidth-4, LINES-m_InputHeight-2, COLS-m_PeerWidth+2, 1);
 		Input=Window(COLS, m_InputHeight, 0, LINES-m_InputHeight);
+		Tabs.Draw();
 		keypad(Input.Win(),TRUE);
 		keypad(stdscr,TRUE);
 
 		Resized=false;
-		x=COLS; y=LINES;
 		Config& conf = PathManager::GetConfig();
 		Write(Content, L"Welcome to tapi2p, " + conf.Getw("Account", "Nick"));
 		m_Prompt=L"tapi2p> ";
@@ -61,6 +95,7 @@ namespace tapi2p
 			UI::x=COLS;
 			UI::y=LINES;
 			wresize(App.Win(), UI::y-m_InputHeight, UI::x);
+			wresize(Tabs.Win(), 1, UI::x-m_PeerWidth+1);
 			wresize(Input.Win(), m_InputHeight, UI::x);
 			wresize(Content.Win(), UI::y-m_InputHeight-2, UI::x-m_PeerWidth-3);
 			wresize(Peers.Win(), UI::y-m_InputHeight, m_PeerWidth);
@@ -72,6 +107,8 @@ namespace tapi2p
 			Peers.Clear();
 			App.SetBox();
 			Peers.SetBox();
+			Tabs.Clear();
+			Tabs.Draw();
 			Content.Redraw();
 			PeerContent.Redraw();
 		}
@@ -229,5 +266,13 @@ tapi2p::UI::Unlock();
 		wmove(Input.Win(), 0, co);
 		wrefresh(Input.Win());
 		m_Lock.M_Unlock();
+	}
+	void UI::AddTab(const std::wstring& s)
+	{
+		m_Lock.M_Lock();
+		Tabs.Add(s);
+		Tabs.Clear();
+		m_Lock.M_Unlock();
+		Tabs.Draw();
 	}
 }
