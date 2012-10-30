@@ -409,6 +409,10 @@ int main(int argc, char** argv)
 		{
 			tapi2p::UI::DelTab();
 		}
+		else if(cmd==L":p")
+		{
+			tapi2p::UI::AddTab(tapi2p::UI::Peers);
+		}
 		else
 		{
 			tapi2p::UI::Write(tapi2p::UI::Main(), L"[" + c.Getw("Account", "Nick") + L"] " + cmd);

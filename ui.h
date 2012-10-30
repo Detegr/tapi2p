@@ -87,15 +87,24 @@ namespace tapi2p
 
 	class TabWindow : public Window
 	{
+		friend class TabBar;
 		private:
+			bool			m_Added;
 			bool			m_Static;
+			bool			m_Dirty;
 			std::wstring	m_Name;
 		public:
-			TabWindow() : m_Static(false) {}
-			TabWindow(const std::wstring& name, int w, int h, int x, int y, bool activate=true) : m_Static(false), m_Name(name), Window(w,h,x,y,activate) {}
+			TabWindow() : m_Added(false), m_Static(false), m_Dirty(false) {}
+			TabWindow(const std::wstring& name, int w, int h, int x, int y, bool activate=true) : m_Added(false), m_Static(false), m_Dirty(false), m_Name(name), Window(w,h,x,y,activate) {}
 			const std::wstring& Name() const { return m_Name; }
 			void SetStatic() { m_Static=true; }
 			bool Static() const { return m_Static; }
+			bool Dirty() const { return m_Dirty; }
+			bool Added() const { return m_Added; }
+			void SetDirty(bool dirty)
+			{
+				m_Dirty=dirty;
+			}
 	};
 
 	class TabBar
@@ -104,49 +113,64 @@ namespace tapi2p
 		private:
 			int						m_Active;
 			Window					m_Tabs;
-			std::vector<TabWindow>	m_TabWindows;
+			std::vector<TabWindow*>	m_TabWindows;
 			static const int		m_TabSpacing=2;
 		public:
 			TabBar() : m_Active(0) {}
+			void Delete()
+			{
+				for(std::vector<TabWindow*>::iterator it=m_TabWindows.begin(); it!=m_TabWindows.end(); ++it)
+				{
+					bool s=(*it)->Static();
+					(*it)->Delete();
+					if(!s) delete *it;
+				}
+			}
 			void Init(int w, int h);
 			void Draw();
-			TabWindow& Active() { return m_TabWindows[m_Active]; }
+			TabWindow& Active() { return *m_TabWindows[m_Active]; }
 			void Add(const std::wstring& s, int w, int h, int x, int y)
 			{
-				m_TabWindows.push_back(TabWindow(s,w,h,x,y,false));
-				scrollok(m_TabWindows.back().Win(), TRUE);
+				m_TabWindows.push_back(new TabWindow(s,w,h,x,y,false));
+				scrollok(m_TabWindows.back()->Win(), TRUE);
+				m_TabWindows.back()->m_Added=true;
 			}
-			void Add(const TabWindow& w)
+			void Add(TabWindow& w)
 			{
-				m_TabWindows.push_back(w);
-				scrollok(m_TabWindows.back().Win(), TRUE);
+				m_TabWindows.push_back(&w);
+				scrollok(m_TabWindows.back()->Win(), TRUE);
+				m_TabWindows.back()->m_Added=true;
 			}
 			void DeleteCurrent()
 			{
 				if(m_Active!=0)
 				{
-					std::vector<TabWindow>::iterator it = m_TabWindows.begin()+m_Active;
-					TabWindow tw=*it;
+					std::vector<TabWindow*>::iterator it = m_TabWindows.begin()+m_Active;
+					TabWindow* tw=*it;
 					m_TabWindows.erase(it);
 					m_Active--;
-					if(!tw.Static()) tw.Delete();
+					tw->m_Added=false;
+					if(!tw->Static())
+					{
+						tw->Delete();
+						delete tw;
+					}
 				}
 			}
 			void Next()
 			{
 				m_Active = (m_Active+1) % m_TabWindows.size();
-				m_TabWindows[m_Active].Redraw();
-				m_TabWindows[m_Active].Refresh();
+				m_TabWindows[m_Active]->Redraw();
+				m_TabWindows[m_Active]->Refresh();
+				m_TabWindows[m_Active]->SetDirty(false);
 			}
 			void Prev()
 			{
 				m_Active--;
 				if(m_Active<0) m_Active=m_TabWindows.size()-1;
-				m_TabWindows[m_Active].Redraw();
-				m_TabWindows[m_Active].Refresh();
-			}
-			void SetDirty(const TabWindow& w, bool dirty)
-			{
+				m_TabWindows[m_Active]->Redraw();
+				m_TabWindows[m_Active]->Refresh();
+				m_TabWindows[m_Active]->SetDirty(false);
 			}
 			WINDOW* Win() const { return m_Tabs.Win(); }
 			void Clear() { m_Tabs.Clear(); }
@@ -185,12 +209,14 @@ namespace tapi2p
 			static void Unlock();
 			static void Update();
 			static void AddTab(const std::wstring& s);
+			static void AddTab(TabWindow& tw);
 			static void DelTab();
 			static void NextTab();
 			static void PrevTab();
 			static void Write(Window& win, const std::wstring& s);
-			static Window& Active() { return Tabs.Active(); }
-			static Window& Main() { return Tabs.m_TabWindows[0]; }
+			static void Write(TabWindow& win, const std::wstring& s);
+			static TabWindow& Active() { return Tabs.Active(); }
+			static TabWindow& Main() { return *Tabs.m_TabWindows[0]; }
 			static std::wstring HandleInput();
 	};
 }

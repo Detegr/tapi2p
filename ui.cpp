@@ -36,15 +36,17 @@ namespace tapi2p
 		waddch(m_Tabs.Win(), ACS_LTEE);
 		int j=1;
 		int z=0;
-		for(std::vector<TabWindow>::iterator it=m_TabWindows.begin(); it!=m_TabWindows.end(); ++it, ++z)
+		for(std::vector<TabWindow*>::iterator it=m_TabWindows.begin(); it!=m_TabWindows.end(); ++it, ++z)
 		{
 			for(int i=0; i<m_TabSpacing; ++i, ++j) waddch(m_Tabs.Win(), ACS_HLINE);
 			waddch(m_Tabs.Win(), ACS_RTEE);
 			if(z==m_Active) wattron(m_Tabs.Win(), A_UNDERLINE);
-			waddwstr(m_Tabs.Win(), it->Name().c_str());
+			if((*it)->Dirty()) wattron(m_Tabs.Win(), A_STANDOUT);
+			waddwstr(m_Tabs.Win(), (*it)->Name().c_str());
 			wattroff(m_Tabs.Win(), A_UNDERLINE);
+			wattroff(m_Tabs.Win(), A_STANDOUT);
 			waddch(m_Tabs.Win(), ACS_LTEE);
-			j += 2 + it->Name().length();
+			j += 2 + (*it)->Name().length();
 		}
 		for(int k=0; k<(UI::x-j); ++k) waddch(m_Tabs.Win(), ACS_HLINE);
 		m_Tabs.Refresh();
@@ -68,6 +70,7 @@ namespace tapi2p
 
 		Tabs.Init(x-1, 1);
 		Peers=TabWindow(L"Peers", x-3, y-2-m_InputHeight, 1, 1);
+		Peers.SetStatic();
 		Tabs.Add(Peers);
 		
 		Input=Window(COLS, m_InputHeight, 0, LINES-m_InputHeight);
@@ -91,9 +94,9 @@ namespace tapi2p
 			wresize(App.Win(), UI::y-m_InputHeight, UI::x);
 			wresize(Tabs.Win(), 1, UI::x-1);
 			wresize(Input.Win(), m_InputHeight, UI::x);
-			for(std::vector<TabWindow>::iterator it=Tabs.m_TabWindows.begin(); it!=Tabs.m_TabWindows.end(); ++it)
+			for(std::vector<TabWindow*>::iterator it=Tabs.m_TabWindows.begin(); it!=Tabs.m_TabWindows.end(); ++it)
 			{
-				wresize(it->Win(), UI::y-m_InputHeight-2, UI::x-3);
+				wresize((*it)->Win(), UI::y-m_InputHeight-2, UI::x-3);
 			}
 			mvwin(Input.Win(), UI::y-m_InputHeight, 0);
 			App.Clear();
@@ -128,12 +131,9 @@ namespace tapi2p
 
 	void UI::Destroy()
 	{
-		App.Delete();
-		for(std::vector<TabWindow>::iterator it=Tabs.m_TabWindows.begin(); it!=Tabs.m_TabWindows.end(); ++it)
-		{
-			it->Delete();
-		}
 		Peers.Delete();
+		Tabs.Delete();
+		App.Delete();
 		endwin();
 	}
 
@@ -267,8 +267,18 @@ tapi2p::UI::Unlock();
 		win.Write(s);
 		if(Active().Win() == win.Win()) wrefresh(win.Win());
 		wmove(Input.Win(), 0, co);
-		wrefresh(Input.Win());
+		Input.Refresh();
 		m_Lock.M_Unlock();
+	}
+	void UI::Write(TabWindow& win, const std::wstring& s)
+	{
+		Write((Window&)win,s);
+		if(Active().Win() != win.Win())
+		{
+			win.SetDirty(true);
+			Tabs.Clear();
+			Tabs.Draw();
+		}
 	}
 	void UI::AddTab(const std::wstring& s)
 	{
@@ -278,13 +288,24 @@ tapi2p::UI::Unlock();
 		m_Lock.M_Unlock();
 		Tabs.Draw();
 	}
+	void UI::AddTab(TabWindow& tw)
+	{
+		if(!tw.Added())
+		{
+			m_Lock.M_Lock();
+			Tabs.Add(tw);
+			Tabs.Clear();
+			m_Lock.M_Unlock();
+			Tabs.Draw();
+		}
+	}
 	void UI::DelTab()
 	{
 		m_Lock.M_Lock();
 		Tabs.DeleteCurrent();
 		Tabs.Clear();
 		Active().Redraw();
-		wrefresh(Active().Win());
+		Active().Refresh();
 		m_Lock.M_Unlock();
 		Tabs.Draw();
 	}
