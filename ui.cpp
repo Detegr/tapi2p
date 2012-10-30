@@ -33,7 +33,7 @@ namespace tapi2p
 	void TabBar::Draw()
 	{
 		tapi2p::UI::Lock();
-		waddch(m_Tabs.Win(), ACS_ULCORNER);
+		waddch(m_Tabs.Win(), ACS_LTEE);
 		int j=1;
 		int z=0;
 		for(std::vector<TabWindow>::iterator it=m_TabWindows.begin(); it!=m_TabWindows.end(); ++it, ++z)
@@ -47,8 +47,7 @@ namespace tapi2p
 			j += 2 + it->Name().length();
 		}
 		for(int k=0; k<(UI::x-j); ++k) waddch(m_Tabs.Win(), ACS_HLINE);
-		waddch(m_Tabs.Win(), ACS_TTEE);
-		wrefresh(m_Tabs.Win());
+		m_Tabs.Refresh();
 		tapi2p::UI::Unlock();
 	}
 
@@ -62,17 +61,17 @@ namespace tapi2p
 
 		App=Window(COLS, LINES-m_InputHeight, 0, 0);
 		x=COLS; y=LINES;
-		App.SetBox();
+		//App.SetBox();
+		wborder(App.Win(), ' ', ' ', 'c', ACS_HLINE, 'e', ACS_RTEE, ACS_HLINE, ACS_HLINE);
+		App.Refresh();
+		
 
 		Tabs.Init(x-1, 1);
-		Peers=TabWindow(L"Peers", x, y-2, 1, 1);
+		Peers=TabWindow(L"Peers", x-3, y-2-m_InputHeight, 1, 1);
 		Tabs.Add(Peers);
 		
-		//Peers=Window(m_PeerWidth, LINES-m_InputHeight, COLS-m_PeerWidth, 0);
-		//Peers.SetBox();
-
-		//PeerContent=Window(m_PeerWidth-4, LINES-m_InputHeight-2, COLS-m_PeerWidth+2, 1);
 		Input=Window(COLS, m_InputHeight, 0, LINES-m_InputHeight);
+		Tabs.Clear();
 		Tabs.Draw();
 		keypad(Input.Win(),TRUE);
 		keypad(stdscr,TRUE);
@@ -94,11 +93,12 @@ namespace tapi2p
 			wresize(Input.Win(), m_InputHeight, UI::x);
 			for(std::vector<TabWindow>::iterator it=Tabs.m_TabWindows.begin(); it!=Tabs.m_TabWindows.end(); ++it)
 			{
-				wresize(it->Win(), UI::y-m_InputHeight-2, UI::x);
+				wresize(it->Win(), UI::y-m_InputHeight-2, UI::x-3);
 			}
 			mvwin(Input.Win(), UI::y-m_InputHeight, 0);
 			App.Clear();
-			App.SetBox();
+			wborder(App.Win(), ' ', ' ', 'c', ACS_HLINE, 'e', ACS_RTEE, ACS_HLINE, ACS_HLINE);
+			App.Refresh();
 			Tabs.Clear();
 			Tabs.Draw();
 			Active().Redraw();
@@ -273,7 +273,7 @@ tapi2p::UI::Unlock();
 	void UI::AddTab(const std::wstring& s)
 	{
 		m_Lock.M_Lock();
-		Tabs.Add(s, x, y-2, 1, 1);
+		Tabs.Add(s, x-2, y-2-m_InputHeight, 1, 1);
 		Tabs.Clear();
 		m_Lock.M_Unlock();
 		Tabs.Draw();
