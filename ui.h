@@ -10,6 +10,7 @@ namespace tapi2p
 	class Window
 	{
 		private:
+			static const int MAXMSG=100;
 			int m_Width;
 			int m_Height;
 			int m_PosX;
@@ -17,6 +18,7 @@ namespace tapi2p
 			int m_Cursor;
 			WINDOW* m_Window;
 		public:
+			std::vector<std::wstring> m_Messages;
 			Window() : m_Width(0), m_Height(0), m_PosX(0), m_PosY(0), m_Cursor(0), m_Window(NULL) {}
 			Window(int w, int h, int x, int y, bool activate=true) : m_Width(w), m_Height(h), m_PosX(x), m_PosY(y), m_Cursor(0)
 			{
@@ -45,15 +47,33 @@ namespace tapi2p
 				}
 				return *this;
 			}
-			void Write(const std::wstring& s, int x=0)
+
+			void Write(const std::wstring& s)
+			{
+				mvwaddwstr(m_Window, 0, 0, s.c_str());
+			}
+
+			void WriteLine(const std::wstring& s)
 			{
 				if(m_Cursor>getmaxy(m_Window)-1)
 				{
 					m_Cursor=getmaxy(m_Window)-1;
 					wscrl(m_Window,1);
 				}
-				mvwaddwstr(m_Window, m_Cursor, m_PosX, s.c_str());
-				for(int i=s.size(); i>0; i-=m_Width) m_Cursor++;
+				std::wstring str=s;
+				str+=L"\n";
+				m_Messages.push_back(str);
+				if(m_Messages.size() > MAXMSG) m_Messages.erase(m_Messages.begin());
+				waddwstr(m_Window, str.c_str());
+			}
+			void WriteMsg(const std::wstring& s)
+			{
+				if(m_Cursor>getmaxy(m_Window)-1)
+				{
+					m_Cursor=getmaxy(m_Window)-1;
+					wscrl(m_Window,1);
+				}
+				waddwstr(m_Window, s.c_str());
 			}
 			void Clear()
 			{
@@ -192,6 +212,7 @@ namespace tapi2p
 			static int			m_Cursor;
 			static std::wstring m_Prompt;
 			static const int	m_PromptLen=8;
+			static void Write(Window& win, const std::wstring& s, bool line);
 
 		public:
 			static int x;
@@ -214,7 +235,8 @@ namespace tapi2p
 			static void NextTab();
 			static void PrevTab();
 			static void Write(Window& win, const std::wstring& s);
-			static void Write(TabWindow& win, const std::wstring& s);
+			static void WriteLine(Window& win, const std::wstring& s);
+			static void WriteLine(TabWindow& win, const std::wstring& s);
 			static TabWindow& Active() { return Tabs.Active(); }
 			static TabWindow& Main() { return *Tabs.m_TabWindows[0]; }
 			static std::wstring HandleInput();

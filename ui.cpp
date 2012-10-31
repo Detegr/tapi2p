@@ -81,7 +81,7 @@ namespace tapi2p
 
 		Resized=false;
 		Config& conf = PathManager::GetConfig();
-		Write(Main(), L"Welcome to tapi2p, " + conf.Getw("Account", "Nick"));
+		WriteLine(Main(), L"Welcome to tapi2p, " + conf.Getw("Account", "Nick"));
 		m_Prompt=L"tapi2p> ";
 		wmove(Input.Win(), 0, m_PromptLen);
 	}
@@ -104,7 +104,12 @@ namespace tapi2p
 			App.Refresh();
 			Tabs.Clear();
 			Tabs.Draw();
-			Active().Redraw();
+			Active().Clear();
+			for(std::vector<std::wstring>::const_iterator it=Active().m_Messages.begin(); it!=Active().m_Messages.end(); ++it)
+			{
+				Active().WriteMsg(*it);
+			}
+			Active().Refresh();
 		}
 	}
 
@@ -119,12 +124,12 @@ namespace tapi2p
 			bool oneway=true;
 			if((*pt)->m_Connectable && (*pt)->Sock_In.M_Fd()>0)
 			{
-				Write(Peers, c.Getw((*pt)->Sock_In.M_Ip().M_ToString(), "Nick"));
+				WriteLine(Peers, c.Getw((*pt)->Sock_In.M_Ip().M_ToString(), "Nick"));
 				oneway=false;
 			}
-			else if(oneway) Write(Peers, c.Getw((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + L" [One-way]");
+			else if(oneway) WriteLine(Peers, c.Getw((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + L" [One-way]");
 		}
-		if(peers.empty()) tapi2p::UI::Write(Peers, L"");
+		if(peers.empty()) tapi2p::UI::WriteLine(Peers, L"");
 		PeerManager::Done();
 		m_Lock.M_Unlock();
 	}
@@ -259,20 +264,31 @@ tapi2p::UI::Unlock();
 		return m_Str;
 	}
 	
-	void UI::Write(Window& win, const std::wstring& s)
+	void UI::Write(Window& win, const std::wstring& s, bool line)
 	{
 		int ro,co;
 		m_Lock.M_Lock();
 		getyx(Input.Win(),ro,co);
-		win.Write(s);
+		if(line) win.WriteLine(s);
+		else win.Write(s);
 		if(Active().Win() == win.Win()) wrefresh(win.Win());
 		wmove(Input.Win(), 0, co);
 		Input.Refresh();
 		m_Lock.M_Unlock();
 	}
-	void UI::Write(TabWindow& win, const std::wstring& s)
+	void UI::Write(Window& win, const std::wstring& s)
 	{
-		Write((Window&)win,s);
+		Write(win,s,false);
+	}
+
+	void UI::WriteLine(Window& win, const std::wstring& s)
+	{
+		Write(win,s,true);
+	} 
+
+	void UI::WriteLine(TabWindow& win, const std::wstring& s)
+	{
+		Write((Window&)win,s, true);
 		if(Active().Win() != win.Win())
 		{
 			win.SetDirty(true);

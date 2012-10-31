@@ -77,11 +77,11 @@ void parsepacket(C_Packet& p, const std::wstring& nick)
 	try
 	{
 		std::vector<unsigned char>& data=AES::Decrypt((unsigned char*)p.M_RawData(), p.M_Size(), pkey);
-		tapi2p::UI::Write(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
+		tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
 	}
 	catch(KeyException& e)
 	{
-		tapi2p::UI::Write(tapi2p::UI::Main(), L"Failed to decrypt incoming message from: " + nick);
+		tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"Failed to decrypt incoming message from: " + nick);
 	}
 	p.M_Clear();
 }
@@ -415,7 +415,7 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			tapi2p::UI::Write(tapi2p::UI::Main(), L"[" + c.Getw("Account", "Nick") + L"] " + cmd);
+			tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + c.Getw("Account", "Nick") + L"] " + cmd);
 			sendall(cmd);
 		}
 	}
