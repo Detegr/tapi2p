@@ -76,8 +76,24 @@ void parsepacket(C_Packet& p, const std::wstring& nick)
 {
 	try
 	{
-		std::vector<unsigned char>& data=AES::Decrypt((unsigned char*)p.M_RawData(), p.M_Size(), pkey);
-		tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
+		unsigned char* np=(unsigned char*)memmem(p.M_RawData()+AES::MAGIC_LEN, p.M_Size()-AES::MAGIC_LEN, AES::Magic(), AES::MAGIC_LEN);
+		if(np)
+		{
+			while(np)
+			{
+				std::vector<unsigned char>& data=AES::Decrypt((unsigned char*)p.M_RawData(), np-p.M_RawData(), pkey);
+				p.M_Pop(np-p.M_RawData());
+				tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
+				np=(unsigned char*)memmem(p.M_RawData()+AES::MAGIC_LEN, p.M_Size()-AES::MAGIC_LEN, AES::Magic(), AES::MAGIC_LEN);
+			}
+			std::vector<unsigned char>& data=AES::Decrypt((unsigned char*)p.M_RawData(), p.M_Size(), pkey);
+			tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
+		}
+		else
+		{
+			std::vector<unsigned char>& data=AES::Decrypt((unsigned char*)p.M_RawData(), p.M_Size(), pkey);
+			tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
+		}
 	}
 	catch(KeyException& e)
 	{
@@ -225,14 +241,35 @@ void network_startup(void* args)
 }
 void sendall(const std::wstring& msg)
 {
+	C_Selector s;
 	const std::vector<Peer*>& peers=PeerManager::Do();
+	C_Packet p;
 	for(std::vector<Peer*>::const_iterator it=peers.begin(); it!=peers.end(); ++it)
 	{
-		std::vector<unsigned char>& data=AES::Encrypt((unsigned char*)msg.c_str(), msg.size()*sizeof(wchar_t)+sizeof(wchar_t), 80, (*it)->Key);
-		C_Packet p;
+		std::vector<unsigned char>& data=AES::Encrypt((unsigned char*)msg.c_str(), (msg.size()*sizeof(wchar_t))+sizeof(wchar_t), 80, (*it)->Key);
 		for(int i=0; i<data.size(); ++i) p << data[i];
-		if((*it)->m_Connectable) (*it)->Sock_Out.M_Send(p);
-		else (*it)->Sock_In.M_Send(p);
+		if((*it)->m_Connectable)
+		{
+			s.M_Add((*it)->Sock_Out);
+			s.M_WaitWrite(1000);
+			if(s.M_IsReady((*it)->Sock_Out))
+			{
+				(*it)->Sock_Out.M_Send(p);
+			}
+			else tapi2p::UI::WriteLine(tapi2p::UI::Active(), L"Failed to write sockout");
+		}
+		else
+		{
+			s.M_Add((*it)->Sock_In);
+			s.M_WaitWrite(1000);
+			if(s.M_IsReady((*it)->Sock_In))
+			{
+				(*it)->Sock_In.M_Send(p);
+			}
+			else tapi2p::UI::WriteLine(tapi2p::UI::Active(), L"Failed to write sockin");
+		}
+		s.M_Clear();
+		p.M_Clear();
 	}
 	PeerManager::Done();
 }

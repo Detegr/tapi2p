@@ -12,7 +12,6 @@ class AES
 	private:
 		static const unsigned int			ROUNDS=1;
 		static const unsigned int			BLOCK_SIZE=16;
-		static const unsigned int			MAGIC_LEN=8;
 		static EVP_CIPHER_CTX				m_Encrypt;
 		static EVP_CIPHER_CTX				m_Decrypt;
 
@@ -26,9 +25,11 @@ class AES
 		static void M_EncryptInit(const char* pw, size_t pwlen);
 		static int M_DecryptInit(const unsigned char* magic, const unsigned char* salt, const unsigned char* pass, RSA_PrivateKey& privatekey);
 	public:
-		static std::vector<unsigned char>& Encrypt(unsigned char* data, int len, size_t pwlen, RSA_PublicKey& key);
-		static std::vector<unsigned char>& Encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, const std::string& keyname);
-		static std::vector<unsigned char>& Encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, RSA_PublicKey& pubkey);
-		static std::vector<unsigned char>& Decrypt(unsigned char* data, int len, const std::string& keyname);
-		static std::vector<unsigned char>& Decrypt(unsigned char* data, int len, RSA_PrivateKey& key);
+		static const unsigned int			MAGIC_LEN=8;
+		static const char*					Magic() { return m_Magic; }
+		static std::vector<unsigned char>& 	Encrypt(unsigned char* data, int len, size_t pwlen, RSA_PublicKey& key);
+		static std::vector<unsigned char>& 	Encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, const std::string& keyname);
+		static std::vector<unsigned char>& 	Encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, RSA_PublicKey& pubkey);
+		static std::vector<unsigned char>& 	Decrypt(unsigned char* data, int len, const std::string& keyname);
+		static std::vector<unsigned char>& 	Decrypt(unsigned char* data, int len, RSA_PrivateKey& key);
 };
