@@ -154,13 +154,13 @@ namespace tapi2p
 	std::wstring UI::HandleInput()
 	{
 		wint_t ch=0;
-		memset(m_Str, 0, m_StringMax-1);
+		memset(m_Str, 0, (m_StringMax-1)*sizeof(wchar_t));
 		m_Lock.M_Lock();
 		Input.Write(m_Prompt);
 		m_Lock.M_Unlock();
-		bool multibyte=false;
 		m_StrLen=0;
-		
+		m_Cursor=0;
+		WriteLine(Main(), L"Reset");
 		while(1)
 		{
 			int x, y;
@@ -255,7 +255,11 @@ tapi2p::UI::Unlock();
 				wmove(Input.Win(), 0, x+1);
 			}
 			m_Lock.M_Lock();
-			Write(Input, m_Prompt + m_Str);
+			if((m_StrLen + m_PromptLen) > UI::x-1)
+			{
+				Write(Input, m_Prompt + &m_Str[m_StrLen - (UI::x - m_PromptLen - 1)]);
+			}
+			else Write(Input, m_Prompt + m_Str);
 			m_Lock.M_Unlock();
 		}
 		m_Cursor=0;
