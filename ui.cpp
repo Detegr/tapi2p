@@ -160,7 +160,6 @@ namespace tapi2p
 		m_Lock.M_Unlock();
 		m_StrLen=0;
 		m_Cursor=0;
-		WriteLine(Main(), L"Reset");
 		while(1)
 		{
 			int x, y;
