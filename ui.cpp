@@ -18,6 +18,7 @@ namespace tapi2p
 	bool		UI::Resized;
 	C_Mutex		UI::m_Lock;
 	int			UI::m_Cursor;
+	int			UI::m_CursorOffset;
 	const int	UI::m_StringMax;
 	wchar_t		UI::m_Str[m_StringMax];
 	int			UI::m_StrLen;
@@ -160,6 +161,7 @@ namespace tapi2p
 		m_Lock.M_Unlock();
 		m_StrLen=0;
 		m_Cursor=0;
+		m_CursorOffset=0;
 		while(1)
 		{
 			int x, y;
@@ -178,8 +180,18 @@ tapi2p::UI::Unlock();
 			if(ch == L'\n') break;
 			else if(ch == KEY_LEFT)
 			{
-				wmove(Input.Win(), y,x-1);
-				m_Cursor--;
+				if(m_Cursor>0)
+				{
+					std::wstringstream ss;
+					std::wstring s;
+					ss << m_Cursor;
+					ss >> s;
+					tapi2p::UI::WriteLine(Main(), s);
+					//else if(m_CursorOffset>0 && m_Cursor <= m_PromptLen) m_CursorOffset--;
+					if(m_Cursor>m_CursorOffset) wmove(Input.Win(), y,x-1);
+					else if(m_CursorOffset>0) m_CursorOffset--;
+					m_Cursor--;
+				}
 			}
 			else if(ch == KEY_RIGHT)
 			{
@@ -187,6 +199,7 @@ tapi2p::UI::Unlock();
 				{
 					wmove(Input.Win(), y,x+1);
 					m_Cursor++;
+					//if(m_Cursor + m_PromptLen > UI::x) m_CursorOffset++;
 				}
 				else continue;
 			}
@@ -250,13 +263,13 @@ tapi2p::UI::Unlock();
 					m_Str[m_Cursor++]=ch;
 					m_StrLen++;
 				}
-				else continue;
+				if((m_Cursor + m_PromptLen) > UI::x-1) m_CursorOffset++;
 				wmove(Input.Win(), 0, x+1);
 			}
 			m_Lock.M_Lock();
-			if((m_StrLen + m_PromptLen) > UI::x-1)
+			if(m_CursorOffset>0)
 			{
-				Write(Input, m_Prompt + &m_Str[m_StrLen - (UI::x - m_PromptLen - 1)]);
+				Write(Input, m_Prompt + &m_Str[m_CursorOffset]);
 			}
 			else Write(Input, m_Prompt + m_Str);
 			m_Lock.M_Unlock();

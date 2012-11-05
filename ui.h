@@ -210,6 +210,7 @@ namespace tapi2p
 			static wchar_t		m_Str[m_StringMax];
 			static int 			m_StrLen;
 			static int			m_Cursor;
+			static int			m_CursorOffset;
 			static std::wstring m_Prompt;
 			static const int	m_PromptLen=8;
 			static void Write(Window& win, const std::wstring& s, bool line);
