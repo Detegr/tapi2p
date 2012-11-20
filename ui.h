@@ -4,23 +4,47 @@
 #include <vector>
 #include <ncursesw/cursesw.h>
 #include "dtglib/Concurrency.h"
+#include <iostream>
+
 using namespace dtglib;
 namespace tapi2p
 {
-	class Window
+	class WindowBase
 	{
-		private:
-			static const int MAXMSG=100;
+		protected:
+			WindowBase() : m_Width(0), m_Height(0), m_PosX(0), m_PosY(0), m_Window(NULL) {}
+			WindowBase(int w, int h, int x, int y) :
+				m_Width(w), m_Height(h), m_PosX(x), m_PosY(y), m_Window(NULL) {}
+
 			int m_Width;
 			int m_Height;
 			int m_PosX;
 			int m_PosY;
-			int m_Cursor;
 			WINDOW* m_Window;
 		public:
+			virtual void Clear()=0;
+			virtual void Redraw()=0;
+			virtual void Delete()=0;
+			virtual void Refresh()=0;
+			virtual WINDOW* Win() const
+			{
+				return m_Window;
+			}
+			virtual void Write(const std::wstring& s)=0;
+			virtual void WriteLine(const std::wstring& s)=0;
+			virtual void Resize(int x, int y)=0;
+	};
+
+	class Window : public WindowBase
+	{
+		private:
+			static const int MAXMSG=100;
+			int m_Cursor;
+		public:
 			std::vector<std::wstring> m_Messages;
-			Window() : m_Width(0), m_Height(0), m_PosX(0), m_PosY(0), m_Cursor(0), m_Window(NULL) {}
-			Window(int w, int h, int x, int y, bool activate=true) : m_Width(w), m_Height(h), m_PosX(x), m_PosY(y), m_Cursor(0)
+			Window() : WindowBase(), m_Cursor(0) {}
+			Window(int w, int h, int x, int y, bool activate=true) :
+				WindowBase(w,h,x,y), m_Cursor(0)
 			{
 				m_Window=newwin(h,w,y,x);
 				if(activate) Refresh();
@@ -48,12 +72,12 @@ namespace tapi2p
 				return *this;
 			}
 
-			void Write(const std::wstring& s)
+			virtual void Write(const std::wstring& s)
 			{
 				mvwaddwstr(m_Window, 0, 0, s.c_str());
 			}
 
-			void WriteLine(const std::wstring& s)
+			virtual void WriteLine(const std::wstring& s)
 			{
 				if(m_Cursor>getmaxy(m_Window)-1)
 				{
@@ -75,33 +99,102 @@ namespace tapi2p
 				}
 				waddwstr(m_Window, s.c_str());
 			}
-			void Clear()
+			virtual void Clear()
 			{
 				werase(m_Window);
 				m_Cursor=0;
 			}
-			void Redraw()
+			virtual void Redraw()
 			{
 				redrawwin(m_Window);
 				wrefresh(m_Window);
 			}
-			void SetBox()
-			{
-				box(m_Window, 0, 0);
-				wrefresh(m_Window);
-			}
-			void Delete()
+			virtual void Delete()
 			{
 				delwin(m_Window);
 				m_Window=NULL;
 			}
-			void Refresh()
+			virtual void Refresh()
 			{
 				wrefresh(m_Window);
 			}
-			WINDOW* Win() const
+			virtual void Resize(int x, int y)
 			{
-				return m_Window;
+				wresize(m_Window, y, x);
+			}
+	};
+
+	class Pad : public WindowBase
+	{
+		private:
+			int m_CursorX;
+			int m_CursorY;
+		public:
+			Pad() {}
+			Pad(int w, int h, int w2, int h2, int x, int y) :
+				WindowBase(w2,h2,x,y), m_CursorX(0), m_CursorY(0)
+			{
+				m_Window=newpad(h,w);
+			}
+			Pad(const Pad& rhs)
+			{
+				m_CursorX=rhs.m_CursorX;
+				m_CursorY=rhs.m_CursorY;
+				m_Width=rhs.m_Width;
+				m_Height=rhs.m_Height;
+				m_PosX=rhs.m_PosX;
+				m_PosY=rhs.m_PosY;
+				m_Window=rhs.m_Window;
+			}
+			Pad& operator=(const Pad& rhs)
+			{
+				if(this!=&rhs)
+				{
+					m_CursorX=rhs.m_CursorX;
+					m_CursorY=rhs.m_CursorY;
+					m_Width=rhs.m_Width;
+					m_Height=rhs.m_Height;
+					m_PosX=rhs.m_PosX;
+					m_PosY=rhs.m_PosY;
+					m_Window=rhs.m_Window;
+				}
+			}
+			virtual void Clear()
+			{
+				werase(m_Window);
+			}
+			virtual void Redraw()
+			{
+				redrawwin(m_Window);
+				Refresh();
+			}
+			virtual void Refresh()
+			{
+				prefresh(m_Window, m_CursorY, m_CursorX, m_PosY, m_PosX, m_PosY+m_Height, m_Width-1);
+			}
+			virtual void Delete()
+			{
+				delwin(m_Window);
+				m_Window=NULL;
+			}
+			virtual void Write(const std::wstring& s)
+			{
+				mvwaddwstr(m_Window, 0, 0, s.c_str());
+			}
+			virtual void WriteLine(const std::wstring& s)
+			{
+				mvwaddwstr(m_Window, 0, 0, s.c_str());
+			}
+			void Resize(int w, int h, int x, int y)
+			{
+				m_Width=w;
+				m_Height=h;
+				m_PosX=x;
+				m_PosY=y;
+				Refresh();
+			}
+			virtual void Resize(int x, int y)
+			{
 			}
 	};
 
@@ -213,14 +306,15 @@ namespace tapi2p
 			static int			m_CursorOffset;
 			static std::wstring m_Prompt;
 			static const int	m_PromptLen=8;
-			static void Write(Window& win, const std::wstring& s, bool line);
+			static void Write(WindowBase& win, const std::wstring& s, bool line);
 
 		public:
 			static int x;
 			static int y;
 			static bool Resized;
 			static Window App;
-			static Window Input;
+			static Window Prompt;
+			static Pad Input;
 			static TabWindow Peers;
 			static TabBar Tabs;
 
@@ -235,7 +329,7 @@ namespace tapi2p
 			static void DelTab();
 			static void NextTab();
 			static void PrevTab();
-			static void Write(Window& win, const std::wstring& s);
+			static void Write(WindowBase& win, const std::wstring& s);
 			static void WriteLine(Window& win, const std::wstring& s);
 			static void WriteLine(TabWindow& win, const std::wstring& s);
 			static TabWindow& Active() { return Tabs.Active(); }

@@ -8,14 +8,14 @@
 namespace tapi2p
 {
 	Window		UI::App;
+	Window		UI::Prompt;
 	TabWindow	UI::Peers;
-	Window		UI::Input;
+	Pad			UI::Input;
 	TabBar		UI::Tabs;
 	int			UI::m_PeerWidth;
 	const int	UI::m_InputHeight;
 	int			UI::x;
 	int			UI::y;
-	bool		UI::Resized;
 	C_Mutex		UI::m_Lock;
 	int			UI::m_Cursor;
 	int			UI::m_CursorOffset;
@@ -64,27 +64,27 @@ namespace tapi2p
 
 		App=Window(COLS, LINES-m_InputHeight, 0, 0);
 		x=COLS; y=LINES;
-		//App.SetBox();
 		wborder(App.Win(), ' ', ' ', 'c', ACS_HLINE, 'e', ACS_RTEE, ACS_HLINE, ACS_HLINE);
 		App.Refresh();
 		
-
 		Tabs.Init(x-1, 1);
 		Peers=TabWindow(L"Peers", x-3, y-2-m_InputHeight, 1, 1);
 		Peers.SetStatic();
 		Tabs.Add(Peers);
+
+		Prompt=Window(m_PromptLen+1, m_InputHeight, 0, LINES-m_InputHeight);
+		m_Prompt=L"tapi2p> ";
+		Write(Prompt, m_Prompt);
+		Prompt.Refresh();
 		
-		Input=Window(COLS, m_InputHeight, 0, LINES-m_InputHeight);
+		Input=Pad(UI::m_StringMax, m_InputHeight, COLS-m_PromptLen, m_InputHeight, m_PromptLen, LINES-m_InputHeight);
 		Tabs.Clear();
 		Tabs.Draw();
 		keypad(Input.Win(),TRUE);
 		keypad(stdscr,TRUE);
 
-		Resized=false;
 		Config& conf = PathManager::GetConfig();
 		WriteLine(Main(), L"Welcome to tapi2p, " + conf.Getw("Account", "Nick"));
-		m_Prompt=L"tapi2p> ";
-		wmove(Input.Win(), 0, m_PromptLen);
 	}
 	void UI::CheckSize()
 	{
@@ -94,15 +94,15 @@ namespace tapi2p
 			UI::y=LINES;
 			wresize(App.Win(), UI::y-m_InputHeight, UI::x);
 			wresize(Tabs.Win(), 1, UI::x-1);
-			wresize(Input.Win(), m_InputHeight, UI::x);
+			mvwin(Prompt.Win(), UI::y-m_InputHeight, 0);
 			for(std::vector<TabWindow*>::iterator it=Tabs.m_TabWindows.begin(); it!=Tabs.m_TabWindows.end(); ++it)
 			{
 				wresize((*it)->Win(), UI::y-m_InputHeight-2, UI::x-3);
 			}
-			mvwin(Input.Win(), UI::y-m_InputHeight, 0);
 			App.Clear();
 			wborder(App.Win(), ' ', ' ', 'c', ACS_HLINE, 'e', ACS_RTEE, ACS_HLINE, ACS_HLINE);
 			App.Refresh();
+			Input.Resize(UI::x-m_PromptLen, m_InputHeight, m_PromptLen, UI::y-m_InputHeight);
 			Tabs.Clear();
 			Tabs.Draw();
 			Active().Clear();
@@ -111,6 +111,9 @@ namespace tapi2p
 				Active().WriteMsg(*it);
 			}
 			Active().Refresh();
+			Prompt.Clear();
+			Write(Prompt, m_Prompt);
+			Prompt.Refresh();
 		}
 	}
 
@@ -138,6 +141,8 @@ namespace tapi2p
 	void UI::Destroy()
 	{
 		Peers.Delete();
+		Input.Delete();
+		Prompt.Delete();
 		Tabs.Delete();
 		App.Delete();
 		endwin();
@@ -156,9 +161,7 @@ namespace tapi2p
 	{
 		wint_t ch=0;
 		memset(m_Str, 0, (m_StringMax-1)*sizeof(wchar_t));
-		m_Lock.M_Lock();
-		Input.Write(m_Prompt);
-		m_Lock.M_Unlock();
+		Input.Refresh();
 		m_StrLen=0;
 		m_Cursor=0;
 		m_CursorOffset=0;
@@ -211,7 +214,7 @@ tapi2p::UI::Unlock();
 			}
 			else if(ch == KEY_HOME)
 			{
-				wmove(Input.Win(), y, m_PromptLen);
+				wmove(Input.Win(), y, 0);
 				m_Cursor=0;
 			}
 			else if(ch == KEY_UP || ch==KEY_DOWN)
@@ -229,7 +232,7 @@ tapi2p::UI::Unlock();
 				{
 					memmove(&m_Str[m_Cursor], &m_Str[m_Cursor+1], m_StrLen*sizeof(wchar_t) - m_Cursor*sizeof(wchar_t) - 4);
 					m_Str[m_StrLen-1]=' ';
-					Write(Input, m_Prompt + m_Str);
+					Write(Input, m_Str);
 					m_Str[m_StrLen-1]=0;
 					m_StrLen--;
 					if(ch==KEY_BACKSPACE || ch == 127) wmove(Input.Win(), y,x-1);
@@ -269,30 +272,30 @@ tapi2p::UI::Unlock();
 			m_Lock.M_Lock();
 			if(m_CursorOffset>0)
 			{
-				Write(Input, m_Prompt + &m_Str[m_CursorOffset]);
+				Write(Input, &m_Str[m_CursorOffset]);
 			}
-			else Write(Input, m_Prompt + m_Str);
+			else Write(Input, m_Str);
 			m_Lock.M_Unlock();
 		}
 		m_Cursor=0;
-		//wmove(Input.Win(), 0,m_PromptLen);
-		werase(Input.Win());
+		Input.Clear();
 		return m_Str;
 	}
 	
-	void UI::Write(Window& win, const std::wstring& s, bool line)
+	void UI::Write(WindowBase& win, const std::wstring& s, bool line)
 	{
 		int ro,co;
 		m_Lock.M_Lock();
 		getyx(Input.Win(),ro,co);
 		if(line) win.WriteLine(s);
 		else win.Write(s);
-		if(Active().Win() == win.Win()) wrefresh(win.Win());
+		if(Active().Win() == win.Win()) win.Refresh();
 		wmove(Input.Win(), 0, co);
 		Input.Refresh();
 		m_Lock.M_Unlock();
 	}
-	void UI::Write(Window& win, const std::wstring& s)
+
+	void UI::Write(WindowBase& win, const std::wstring& s)
 	{
 		Write(win,s,false);
 	}
