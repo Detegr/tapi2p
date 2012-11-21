@@ -123,7 +123,6 @@ static void peerloop(void* arg)
 			else
 			{
 				PeerManager::Remove(p);
-				tapi2p::UI::Update();
 				break;
 			}
 		}
@@ -136,7 +135,6 @@ static void peerloop(void* arg)
 			else
 			{
 				PeerManager::Remove(p);
-				tapi2p::UI::Update();
 				break;
 			}
 		}
@@ -229,7 +227,6 @@ void network_startup(void* args)
 								p->Thread.M_Start(peerloop, p);
 							}
 						}
-						tapi2p::UI::Update();
 						break;
 					}
 				}
@@ -344,7 +341,6 @@ void connect(void* arg)
 			PeerManager::Remove(p);
 		}
 	}
-	tapi2p::UI::Update();
 }
 
 void connect_to_peers(void*)
@@ -392,69 +388,8 @@ int main(int argc, char** argv)
 	Config& c = PathManager::GetConfig();
 	while(run_threads)
 	{
-		std::wstring cmd=tapi2p::UI::HandleInput();
-		if(cmd==L"") continue;
-		if(cmd==L":q" || cmd==L":quit") run_threads=false;
-		/*
-		else if(cmd==":add" || cmd==":a")
-		{
-			cmd.clear();
-			std::cout << "Input peer ip" << std::endl;
-			std::getline(std::cin, cmd);
-			bool ok=true;
-			C_IpAddress ip;
-			try
-			{
-				ip=cmd.c_str();
-			}
-			catch(...)
-			{
-				std::cout << "Invalid ip" << std::endl;
-				ok=false;
-			}
-			if(ok)
-			{
-				cmd.clear();
-				std::cout << "Input peer's port" << std::endl;
-				std::getline(std::cin, cmd);
-				c.Set("Peers", ip.M_ToString());
-				c.Set(ip.M_ToString(), "Port", cmd);
-				std::cout << "Input peer key file name" << std::endl;
-				std::getline(std::cin, cmd);
-				c.Set(ip.M_ToString(), "Key", cmd);
-				std::cout << "Give nickname to peer" << std::endl;
-				std::getline(std::cin, cmd);
-				c.Set(ip.M_ToString(), "Nick", cmd);
-				c.Flush();
-				std::cout << "----\n" << cmd << " added successfully.\nIp: " << ip.M_ToString() << ":" << c.Get(ip.M_ToString(), "Port") << "\nKey file: " << c.Get(ip.M_ToString(), "Key") << "\n----" << std::endl;
-			}
-		}
-		*/
-		else if(cmd==L":c" || cmd==L":connect")// || cmd==":connect")
-		{
-			//connect_to_peers(NULL);
-		}
-		else if(cmd==L":t")
-		{
-			tapi2p::UI::AddTab(L"newtab");
-		}
-		else if(cmd==L":u" || cmd==L":update")
-		{
-			tapi2p::UI::Update();
-		}
-		else if(cmd==L":d")
-		{
-			tapi2p::UI::DelTab();
-		}
-		else if(cmd==L":p")
-		{
-			tapi2p::UI::AddTab(tapi2p::UI::Peers);
-		}
-		else
-		{
-			tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + c.Getw("Account", "Nick") + L"] " + cmd);
-			sendall(cmd);
-		}
+		Event e=poll_event();
+		sendall(cmd);
 	}
 	connection_thread.M_Join();
 	network_thread.M_Join();
