@@ -26,9 +26,10 @@ int core_fd;
 void startup_init(const char* custompath=NULL);
 void generate_self_keypair(Config& c, const std::string kp);
 
-int setup_local_socket(const char* name)
+int setup_local_socket(const std::string& name)
 {
 	struct sockaddr_un u;
+	unlink(name.c_str());
 	int fd=socket(AF_UNIX, SOCK_STREAM, 0);
 	if(fd<=0)
 	{
@@ -37,17 +38,17 @@ int setup_local_socket(const char* name)
 	}
 	memset(&u, 0, sizeof(struct sockaddr_un));
 	u.sun_family=AF_UNIX;
-	strncpy(u.sun_path, name, sizeof(u.sun_path)-1);
+	strncpy(u.sun_path, name.c_str(), sizeof(u.sun_path)-1);
 	if(bind(fd, (struct sockaddr*)&u, sizeof(u)) == -1)
 	{
 		std::cerr << "Failed to bind unix socket" << std::endl;
-		unlink(name);
+		unlink(name.c_str());
 		return -1;
 	}
 	if(listen(fd, 10) == -1)
 	{
 		std::cerr << "Failed to listen unix socket" << std::endl;
-		unlink(name);
+		unlink(name.c_str());
 		return -1;
 	}
 	return fd;
@@ -86,7 +87,7 @@ void startup_init(const char* custompath)
 	{
 		generate_self_keypair(conf,PathManager::SelfKeyPath());
 	}
-	core_fd=setup_local_socket("t2p_core");
+	core_fd=setup_local_socket(tapipath + "/t2p_core");
 	if(core_fd==-1)
 	{
 		exit(EXIT_FAILURE);
@@ -148,7 +149,7 @@ void parsepacket(C_Packet& p, const std::wstring& nick)
 			{
 				PipeManager::Remove(*it);
 			}
-			std::wcout << (wchar_t*)&data[0] << std::endl;
+			//std::wcout << (wchar_t*)&data[0] << std::endl;
 			//tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
 		}
 	}
