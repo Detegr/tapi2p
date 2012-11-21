@@ -185,6 +185,11 @@ namespace tapi2p
 			{
 				mvwaddwstr(m_Window, 0, 0, s.c_str());
 			}
+			void Move(int amountx, int amounty)
+			{
+				m_PosX+=amountx;
+				m_PosY+=amounty;
+			}
 			void Resize(int w, int h, int x, int y)
 			{
 				m_Width=w;
@@ -303,7 +308,6 @@ namespace tapi2p
 			static wchar_t		m_Str[m_StringMax];
 			static int 			m_StrLen;
 			static int			m_Cursor;
-			static int			m_CursorOffset;
 			static std::wstring m_Prompt;
 			static const int	m_PromptLen=8;
 			static void Write(WindowBase& win, const std::wstring& s, bool line);
@@ -311,7 +315,6 @@ namespace tapi2p
 		public:
 			static int x;
 			static int y;
-			static bool Resized;
 			static Window App;
 			static Window Prompt;
 			static Pad Input;
