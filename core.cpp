@@ -11,9 +11,11 @@
 #include "KeyGenerator.h"
 #include "PathManager.h"
 #include "PeerManager.h"
+#include "PipeManager.h"
 #include "Event.h"
 #include <arpa/inet.h>
 #include <sys/un.h>
+#include <signal.h>
 
 using namespace dtglib;
 
@@ -129,9 +131,23 @@ void parsepacket(C_Packet& p, const std::wstring& nick)
 		else
 		{
 			std::vector<unsigned char>& data=AES::Decrypt((unsigned char*)p.M_RawData(), p.M_Size(), pkey);
-			int b=write(core_fd, (char*)&data[0], data.size());
-			perror("write");
-			std::wcout << b << std::endl;
+			
+			const std::vector<int>& fds=PipeManager::Container();
+			std::vector<int> disconnected;
+			PipeManager::Lock();
+			for(std::vector<int>::const_iterator it=fds.begin(); it!=fds.end(); ++it)
+			{
+				int b=send(*it, (char*)&data[0], data.size(), 0);
+				if(b<=0)
+				{
+					disconnected.push_back(*it);
+				}
+			}
+			PipeManager::Unlock();
+			for(std::vector<int>::const_iterator it=disconnected.begin(); it!=disconnected.end(); ++it)
+			{
+				PipeManager::Remove(*it);
+			}
 			std::wcout << (wchar_t*)&data[0] << std::endl;
 			//tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
 		}
@@ -400,8 +416,29 @@ void connect_to_peers(void*)
 	}
 }
 
+void pipe_accept(void*)
+{
+	struct timeval to;
+	fd_set orig;
+	FD_SET(core_fd, &orig);
+	fd_set set;
+	while(run_threads)
+	{
+		set=orig;
+		to.tv_sec=1;
+		to.tv_usec=0;
+		int nfds=select(core_fd+1, &set, NULL, NULL, &to);
+		if(nfds>0 && FD_ISSET(core_fd, &set))
+		{
+			int fd=accept(core_fd, NULL, NULL);
+			if(fd>0) PipeManager::Add(fd);
+		}
+	}
+}
+
 int main(int argc, char** argv)
 {
+	signal(SIGPIPE, SIG_IGN); // We don't need SIGPIPE when AF_UNIX socket is disconnected.
 	if(!setlocale(LC_CTYPE, ""))
 	{
 		std::cerr << "Cannot set specified locale!" << std::endl;
@@ -421,8 +458,10 @@ int main(int argc, char** argv)
 		std::cout << e.what() << std::endl;
 		return 1;
 	}
+
 	C_Thread network_thread(&network_startup);
 	C_Thread connection_thread(connect_to_peers);
+	C_Thread pipe_thread(pipe_accept);
 
 	Config& c = PathManager::GetConfig();
 	while(run_threads)
