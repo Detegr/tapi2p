@@ -11,15 +11,45 @@
 #include "KeyGenerator.h"
 #include "PathManager.h"
 #include "PeerManager.h"
-#include "ui.h"
+#include "Event.h"
+#include <arpa/inet.h>
+#include <sys/un.h>
 
 using namespace dtglib;
 
 RSA_PrivateKey pkey;
 bool run_threads=true;
+int core_fd;
 
 void startup_init(const char* custompath=NULL);
 void generate_self_keypair(Config& c, const std::string kp);
+
+int setup_local_socket(const char* name)
+{
+	struct sockaddr_un u;
+	int fd=socket(AF_UNIX, SOCK_STREAM, 0);
+	if(fd<=0)
+	{
+		std::cerr << "Error creating unix socket!" << std::endl;
+		return -1;
+	}
+	memset(&u, 0, sizeof(struct sockaddr_un));
+	u.sun_family=AF_UNIX;
+	strncpy(u.sun_path, name, sizeof(u.sun_path)-1);
+	if(bind(fd, (struct sockaddr*)&u, sizeof(u)) == -1)
+	{
+		std::cerr << "Failed to bind unix socket" << std::endl;
+		unlink(name);
+		return -1;
+	}
+	if(listen(fd, 10) == -1)
+	{
+		std::cerr << "Failed to listen unix socket" << std::endl;
+		unlink(name);
+		return -1;
+	}
+	return fd;
+}
 
 void startup_init(const char* custompath)
 {
@@ -54,6 +84,11 @@ void startup_init(const char* custompath)
 	{
 		generate_self_keypair(conf,PathManager::SelfKeyPath());
 	}
+	core_fd=setup_local_socket("t2p_core");
+	if(core_fd==-1)
+	{
+		exit(EXIT_FAILURE);
+	}
 }
 
 void generate_self_keypair(Config& c, const std::string kp)
@@ -83,21 +118,27 @@ void parsepacket(C_Packet& p, const std::wstring& nick)
 			{
 				std::vector<unsigned char>& data=AES::Decrypt((unsigned char*)p.M_RawData(), np-p.M_RawData(), pkey);
 				p.M_Pop(np-p.M_RawData());
-				tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
+				std::wcout << L"1" << (wchar_t*)&data[0] << std::endl;
+				//tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
 				np=(unsigned char*)memmem(p.M_RawData()+AES::MAGIC_LEN, p.M_Size()-AES::MAGIC_LEN, AES::Magic(), AES::MAGIC_LEN);
 			}
 			std::vector<unsigned char>& data=AES::Decrypt((unsigned char*)p.M_RawData(), p.M_Size(), pkey);
-			tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
+			std::wcout << L"2" << (wchar_t*)&data[0] << std::endl;
+			//tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
 		}
 		else
 		{
 			std::vector<unsigned char>& data=AES::Decrypt((unsigned char*)p.M_RawData(), p.M_Size(), pkey);
-			tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
+			int b=write(core_fd, (char*)&data[0], data.size());
+			perror("write");
+			std::wcout << b << std::endl;
+			std::wcout << (wchar_t*)&data[0] << std::endl;
+			//tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + (wchar_t*)&data[0]);
 		}
 	}
 	catch(KeyException& e)
 	{
-		tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"Failed to decrypt incoming message from: " + nick);
+		//tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"Failed to decrypt incoming message from: " + nick);
 	}
 	p.M_Clear();
 }
@@ -253,7 +294,7 @@ void sendall(const std::wstring& msg)
 			{
 				(*it)->Sock_Out.M_Send(p);
 			}
-			else tapi2p::UI::WriteLine(tapi2p::UI::Active(), L"Failed to write sockout");
+			//else tapi2p::UI::WriteLine(tapi2p::UI::Active(), L"Failed to write sockout");
 		}
 		else
 		{
@@ -263,7 +304,7 @@ void sendall(const std::wstring& msg)
 			{
 				(*it)->Sock_In.M_Send(p);
 			}
-			else tapi2p::UI::WriteLine(tapi2p::UI::Active(), L"Failed to write sockin");
+			//else tapi2p::UI::WriteLine(tapi2p::UI::Active(), L"Failed to write sockin");
 		}
 		s.M_Clear();
 		p.M_Clear();
@@ -380,19 +421,17 @@ int main(int argc, char** argv)
 		std::cout << e.what() << std::endl;
 		return 1;
 	}
-	tapi2p::UI::Init();
-
 	C_Thread network_thread(&network_startup);
 	C_Thread connection_thread(connect_to_peers);
 
 	Config& c = PathManager::GetConfig();
 	while(run_threads)
 	{
-		Event e=poll_event();
-		sendall(cmd);
+		//Event e=poll_event();
+		sleep(1);
+		sendall(L"foobar");
 	}
 	connection_thread.M_Join();
 	network_thread.M_Join();
-	tapi2p::UI::Destroy();
 	PathManager::Destroy();
 }
