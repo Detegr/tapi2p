@@ -11,5 +11,6 @@ class PipeManager
 		static void Remove(int fd);
 		static void Lock();
 		static void Unlock();
+		static int Max();
 		static const std::vector<int>& Container();
 };

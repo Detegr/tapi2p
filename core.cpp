@@ -436,6 +436,41 @@ void pipe_accept(void*)
 	}
 }
 
+Event poll_event()
+{
+	Event e;
+	const std::vector<int>& fds=PipeManager::Container();
+	fd_set set;
+	PipeManager::Lock();
+	int max=0;
+	for(std::vector<int>::const_iterator it=fds.begin(); it!=fds.end(); ++it)
+	{
+		if(*it > max) max=*it;
+		FD_SET(*it, &set);
+	}
+	PipeManager::Unlock();
+	struct timeval to;
+	to.tv_sec=1;
+	to.tv_usec=0;
+	int nfds=select(max+1, &set, NULL, NULL, &to);
+	for(std::vector<int>::const_iterator it=fds.begin(); it!=fds.end(); ++it)
+	{
+		if(e.Type() != Event::None) e.next=new Event();
+		if(FD_ISSET(*it, &set))
+		{
+			char buf[4096];
+			memset(buf, 0, 4096);
+			recv(*it, buf, 4096, 0);
+
+			if(strncmp(buf, "EMSG", 4) == 0)
+			{
+				e.SetType(Event::Message);
+			}
+		}
+	}
+	return e;
+}
+
 int main(int argc, char** argv)
 {
 	signal(SIGPIPE, SIG_IGN); // We don't need SIGPIPE when AF_UNIX socket is disconnected.
@@ -466,7 +501,7 @@ int main(int argc, char** argv)
 	Config& c = PathManager::GetConfig();
 	while(run_threads)
 	{
-		//Event e=poll_event();
+		Event e=poll_event();
 		sleep(1);
 		sendall(L"foobar");
 	}
