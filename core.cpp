@@ -1,32 +1,77 @@
-#include "AES.h"
-#include "Config.h"
-#include "dtglib/Network.h"
-#include "dtglib/Concurrency.h"
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <pwd.h>
-#include "PrivateKey.h"
-#include "PublicKey.h"
-#include "KeyGenerator.h"
-#include "PathManager.h"
-#include "PeerManager.h"
-#include "PipeManager.h"
-#include "Event.h"
+#include "core.h"
 #include <arpa/inet.h>
 #include <sys/un.h>
 #include <signal.h>
 
 using namespace dtglib;
+RSA_PrivateKey Core::pkey;
+bool Core::run_threads;
+int Core::core_fd;
 
-RSA_PrivateKey pkey;
-bool run_threads=true;
-int core_fd;
-
-void startup_init(const char* custompath=NULL);
+void network_startup(void* args);
+void connect_to_peers(void*);
+void pipe_accept(void*);
+Event poll_event();
+void sendall(const std::wstring& msg);
 void generate_self_keypair(Config& c, const std::string kp);
+int setup_local_socket(const std::string& name);
 
-int setup_local_socket(const std::string& name)
+void sig(int signal)
+{
+	Core::Stop();
+}
+
+int Core::Start(int argc, char** argv)
+{
+	run_threads=true;
+	signal(SIGPIPE, SIG_IGN); // We don't need SIGPIPE when AF_UNIX socket is disconnected.
+	if(!setlocale(LC_CTYPE, ""))
+	{
+		std::cerr << "Cannot set specified locale!" << std::endl;
+	}
+	if(argc>1)
+	{
+		startup_init(argv[1]);
+	}
+	else startup_init();
+	try
+	{
+		pkey.Load(PathManager::SelfKeyPath());
+	}
+	catch(KeyException& e)
+	{
+		std::cout << "Failed to start tapi2p!" << std::endl;
+		std::cout << e.what() << std::endl;
+		return 1;
+	}
+
+	C_Thread network_thread(&network_startup);
+	C_Thread connection_thread(connect_to_peers);
+	C_Thread pipe_thread(pipe_accept);
+
+	Config& c = PathManager::GetConfig();
+	while(run_threads)
+	{
+		Event evtlist=poll_event();
+		for(Event* e=&evtlist; e; e=e->next)
+		{
+			if(e->Type() == Event::Message)
+			{
+				sendall(e->Data());
+			}
+		}
+	}
+	connection_thread.M_Join();
+	network_thread.M_Join();
+	PathManager::Destroy();
+}
+
+void Core::Stop()
+{
+	run_threads=false;
+}
+
+int Core::setup_local_socket(const std::string& name)
 {
 	struct sockaddr_un u;
 	unlink(name.c_str());
@@ -54,7 +99,7 @@ int setup_local_socket(const std::string& name)
 	return fd;
 }
 
-void startup_init(const char* custompath)
+void Core::startup_init(const char* custompath)
 {
 	std::string tapipath;
 	struct passwd* pw=NULL;
@@ -110,7 +155,7 @@ void generate_self_keypair(Config& c, const std::string kp)
 	}
 }
 
-void parsepacket(C_Packet& p, const std::wstring& nick)
+void Core::ParsePacket(C_Packet& p, const std::wstring& nick)
 {
 	try
 	{
@@ -169,14 +214,14 @@ static void peerloop(void* arg)
 	std::wstring nick;
 	if(p->Sock_In.M_Fd()>0) nick=c.Getw(p->Sock_In.M_Ip().M_ToString(), "Nick");
 	else nick=c.Getw(p->Sock_Out.M_Ip().M_ToString(), "Nick");
-	while(run_threads)
+	while(Core::Running())
 	{
 		p->m_Selector.M_Wait(1000);
 		if(p->Sock_In.M_Fd()>0 && p->m_Selector.M_IsReady(p->Sock_In))
 		{
 			if(p->Sock_In.M_Receive(p->Packet, 1000))
 			{
-				parsepacket(p->Packet,nick);
+				Core::ParsePacket(p->Packet,nick);
 			}
 			else
 			{
@@ -188,7 +233,7 @@ static void peerloop(void* arg)
 		{
 			if(p->Sock_Out.M_Receive(p->Packet, 1000))
 			{
-				parsepacket(p->Packet,nick);
+				Core::ParsePacket(p->Packet,nick);
 			}
 			else
 			{
@@ -216,7 +261,7 @@ void network_startup(void* args)
 	C_Packet p;
 
 	std::vector<ConfigItem> known_peers=c.Get("Peers");
-	while(run_threads)
+	while(Core::Running())
 	{
 		s.M_Wait(2000);
 		if(s.M_IsReady(m_Incoming))
@@ -309,7 +354,14 @@ void sendall(const std::wstring& msg)
 			s.M_WaitWrite(1000);
 			if(s.M_IsReady((*it)->Sock_Out))
 			{
-				(*it)->Sock_Out.M_Send(p);
+				try
+				{
+					(*it)->Sock_Out.M_Send(p);
+				}
+				catch(const std::runtime_error& e)
+				{
+					PeerManager::Remove(*it);
+				}
 			}
 			//else tapi2p::UI::WriteLine(tapi2p::UI::Active(), L"Failed to write sockout");
 		}
@@ -319,7 +371,14 @@ void sendall(const std::wstring& msg)
 			s.M_WaitWrite(1000);
 			if(s.M_IsReady((*it)->Sock_In))
 			{
-				(*it)->Sock_In.M_Send(p);
+				try
+				{
+					(*it)->Sock_In.M_Send(p);
+				}
+				catch(const std::runtime_error& e)
+				{
+					PeerManager::Remove(*it);
+				}
 			}
 			//else tapi2p::UI::WriteLine(tapi2p::UI::Active(), L"Failed to write sockin");
 		}
@@ -421,57 +480,78 @@ void pipe_accept(void*)
 {
 	struct timeval to;
 	fd_set orig;
-	FD_SET(core_fd, &orig);
+	FD_SET(Core::Socket(), &orig);
 	fd_set set;
-	while(run_threads)
+	while(Core::Running())
 	{
 		set=orig;
 		to.tv_sec=1;
 		to.tv_usec=0;
-		int nfds=select(core_fd+1, &set, NULL, NULL, &to);
-		if(nfds>0 && FD_ISSET(core_fd, &set))
+		int nfds=select(Core::Socket()+1, &set, NULL, NULL, &to);
+		if(nfds>0 && FD_ISSET(Core::Socket(), &set))
 		{
-			int fd=accept(core_fd, NULL, NULL);
+			int fd=accept(Core::Socket(), NULL, NULL);
 			if(fd>0) PipeManager::Add(fd);
 		}
 	}
 }
 
+Event poll_event()
+{
+	Event ret;
+	Event* e=&ret;
+	const std::vector<int>& fds=PipeManager::Container();
+	fd_set set;
+	PipeManager::Lock();
+	int max=0;
+	for(std::vector<int>::const_iterator it=fds.begin(); it!=fds.end(); ++it)
+	{
+		if(*it > max) max=*it;
+		FD_SET(*it, &set);
+	}
+	PipeManager::Unlock();
+	struct timeval to;
+	to.tv_sec=1;
+	to.tv_usec=0;
+	int nfds=select(max+1, &set, NULL, NULL, &to);
+	for(std::vector<int>::const_iterator it=fds.begin(); it!=fds.end(); ++it)
+	{
+		if(e->Type() != Event::None)
+		{
+			e->next=new Event();
+			e = e->next;
+		}
+		if(FD_ISSET(*it, &set))
+		{
+			int EVENT_MAX=4096;
+			int EVENT_LEN=5;
+			char buf[EVENT_MAX];
+			bool more=false;
+			do
+			{
+				memset(buf, 0, EVENT_MAX);
+				int b=recv(*it, buf, EVENT_MAX, 0);
+				if(b == EVENT_MAX) more=true;
+				if(!more)
+				{
+					for(int i=EVENT_LEN; i<=b; ++i) *e << buf[i];
+					if(strncmp(buf, "EMSG:", EVENT_LEN) == 0)
+					{
+						e->SetType(Event::Message);
+					}
+				}
+				else
+				{
+					for(int i=0; i<b; ++i) *e << buf[i];
+				}
+			} while(more);
+		}
+	}
+	return ret;
+}
+
 int main(int argc, char** argv)
 {
-	signal(SIGPIPE, SIG_IGN); // We don't need SIGPIPE when AF_UNIX socket is disconnected.
-	if(!setlocale(LC_CTYPE, ""))
-	{
-		std::cerr << "Cannot set specified locale!" << std::endl;
-	}
-	if(argc>1)
-	{
-		startup_init(argv[1]);
-	}
-	else startup_init();
-	try
-	{
-		pkey.Load(PathManager::SelfKeyPath());
-	}
-	catch(KeyException& e)
-	{
-		std::cout << "Failed to start tapi2p!" << std::endl;
-		std::cout << e.what() << std::endl;
-		return 1;
-	}
-
-	C_Thread network_thread(&network_startup);
-	C_Thread connection_thread(connect_to_peers);
-	C_Thread pipe_thread(pipe_accept);
-
-	Config& c = PathManager::GetConfig();
-	while(run_threads)
-	{
-		//Event e=poll_event();
-		sleep(1);
-		sendall(L"foobar");
-	}
-	connection_thread.M_Join();
-	network_thread.M_Join();
-	PathManager::Destroy();
+	signal(SIGINT, sig);
+	return Core::Start(argc, argv);
 }
