@@ -13,5 +13,6 @@ class PathManager
 		static const std::string 	ConfigPath();
 		static const std::string 	KeyPath();
 		static const std::string 	SelfKeyPath();
+		static const std::string	SocketPath();
 		static void					Setup(const std::string&);
 };

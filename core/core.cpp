@@ -1,7 +1,6 @@
 #include "core.h"
 #include <arpa/inet.h>
 #include <sys/un.h>
-#include <signal.h>
 
 using namespace dtglib;
 RSA_PrivateKey Core::pkey;
@@ -15,11 +14,6 @@ Event poll_event();
 void sendall(const std::wstring& msg);
 void generate_self_keypair(Config& c, const std::string kp);
 int setup_local_socket(const std::string& name);
-
-void sig(int signal)
-{
-	Core::Stop();
-}
 
 int Core::Start(int argc, char** argv)
 {
@@ -131,7 +125,7 @@ void Core::startup_init(const char* custompath)
 	{
 		generate_self_keypair(conf,PathManager::SelfKeyPath());
 	}
-	core_fd=setup_local_socket(tapipath + "/t2p_core");
+	core_fd=setup_local_socket(PathManager::SocketPath());
 	if(core_fd==-1)
 	{
 		exit(EXIT_FAILURE);
@@ -547,11 +541,4 @@ Event poll_event()
 		}
 	}
 	return ret;
-}
-
-int main(int argc, char** argv)
-{
-	signal(SIGINT, sig);
-	signal(SIGPIPE, SIG_IGN); // We don't need SIGPIPE when AF_UNIX socket is disconnected.
-	return Core::Start(argc, argv);
 }

@@ -12,6 +12,7 @@ include_directories(${PROJECT_SOURCE_DIR}/core)
 include_directories(${PROJECT_SOURCE_DIR}/crypt)
 add_library(dtglib STATIC dtglib/Concurrency.cpp dtglib/Network.cpp dtglib/Packet.cpp)
 add_executable(tapi2p_core \\
+			   core/main.cpp \\
 			   core/core.cpp \\
 			   core/config.cpp \\
 			   core/pathmanager.cpp \\
