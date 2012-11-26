@@ -1,4 +1,4 @@
-#include "Config.h"
+#include "config.h"
 
 Config::Config(const std::string& f, bool replace) : m_FileName(f)
 {

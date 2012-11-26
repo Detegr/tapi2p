@@ -1,8 +1,8 @@
 #pragma once
-#include "dtglib/Network.h"
-#include "dtglib/Packet.h"
-#include "dtglib/Concurrency.h"
-#include "PublicKey.h"
+#include "Network.h"
+#include "Packet.h"
+#include "Concurrency.h"
+#include "publickey.h"
 
 using namespace dtglib;
 

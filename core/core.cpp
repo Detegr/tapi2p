@@ -24,7 +24,6 @@ void sig(int signal)
 int Core::Start(int argc, char** argv)
 {
 	run_threads=true;
-	signal(SIGPIPE, SIG_IGN); // We don't need SIGPIPE when AF_UNIX socket is disconnected.
 	if(!setlocale(LC_CTYPE, ""))
 	{
 		std::cerr << "Cannot set specified locale!" << std::endl;
@@ -553,5 +552,6 @@ Event poll_event()
 int main(int argc, char** argv)
 {
 	signal(SIGINT, sig);
+	signal(SIGPIPE, SIG_IGN); // We don't need SIGPIPE when AF_UNIX socket is disconnected.
 	return Core::Start(argc, argv);
 }

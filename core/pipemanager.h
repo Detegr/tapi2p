@@ -1,5 +1,5 @@
 #include <vector>
-#include "dtglib/Concurrency.h"
+#include "Concurrency.h"
 
 class PipeManager
 {

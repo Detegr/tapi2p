@@ -1,5 +1,5 @@
-#include "KeyGenerator.h"
-#include "KeyException.h"
+#include "keygenerator.h"
+#include "keyexception.h"
 
 EVP_PKEY*				RSA_KeyGenerator::m_EvpKey;
 RSA*					RSA_KeyGenerator::m_Rsa;

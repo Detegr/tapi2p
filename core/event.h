@@ -1,4 +1,4 @@
-#include "dtglib/Packet.h"
+#include "Packet.h"
 
 class Event
 {

@@ -1,4 +1,4 @@
-#include "PrivateKey.h"
+#include "privatekey.h"
 #include <iostream>
 
 void RSA_PrivateKey::Load(const std::string& file)

@@ -1,4 +1,4 @@
-#include "PathManager.h"
+#include "pathmanager.h"
 
 Config* PathManager::m_Config;
 std::string PathManager::m_BasePath;

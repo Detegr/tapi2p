@@ -1,4 +1,4 @@
-#include "PublicKey.h"
+#include "publickey.h"
 #include <iostream>
 #include <fstream>
 

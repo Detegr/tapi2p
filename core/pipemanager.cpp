@@ -1,4 +1,4 @@
-#include "PipeManager.h"
+#include "pipemanager.h"
 #include <algorithm>
 
 std::vector<int>	PipeManager::m_FdVec;
@@ -20,12 +20,4 @@ void PipeManager::Remove(int fd)
 }
 void PipeManager::Lock() { m_Lock.M_Lock(); }
 void PipeManager::Unlock() { m_Lock.M_Unlock(); }
-int PipeManager::Max()
-{
-	Lock();
-	std::sort(m_FdVec.begin(), m_FdVec.end());
-	int ret=m_FdVec.back();
-	Unlock();
-	return ret;
-}
 const std::vector<int>& PipeManager::Container() { return m_FdVec; }

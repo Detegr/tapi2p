@@ -1,16 +1,16 @@
-#include "AES.h"
-#include "Config.h"
+#include "aes.h"
+#include "privatekey.h"
+#include "publickey.h"
+#include "keygenerator.h"
+#include "pathmanager.h"
+#include "peermanager.h"
+#include "pipemanager.h"
+#include "config.h"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <pwd.h>
-#include "PrivateKey.h"
-#include "PublicKey.h"
-#include "KeyGenerator.h"
-#include "PathManager.h"
-#include "PeerManager.h"
-#include "PipeManager.h"
-#include "Event.h"
+#include "event.h"
 
 class Core
 {

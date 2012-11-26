@@ -1,4 +1,4 @@
-#include "PeerManager.h"
+#include "peermanager.h"
 
 C_Mutex PeerManager::m_PeerLock;
 std::vector<Peer*> PeerManager::m_Peers;

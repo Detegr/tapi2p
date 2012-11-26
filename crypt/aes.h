@@ -1,7 +1,7 @@
 #pragma once
 
-#include "PrivateKey.h"
-#include "PublicKey.h"
+#include "privatekey.h"
+#include "publickey.h"
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <string>

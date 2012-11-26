@@ -1,8 +1,8 @@
-#include "AES.h"
+#include "aes.h"
 #include <iostream>
-#include "KeyException.h"
-#include "PublicKey.h"
-#include "PrivateKey.h"
+#include "keyexception.h"
+#include "publickey.h"
+#include "privatekey.h"
 
 EVP_CIPHER_CTX AES::m_Encrypt;
 EVP_CIPHER_CTX AES::m_Decrypt;

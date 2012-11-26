@@ -7,7 +7,7 @@
 #include <openssl/rsa.h>
 #include <openssl/rand.h>
 #include <string>
-#include "KeyException.h"
+#include "keyexception.h"
 
 class RSA_Key
 {
