@@ -7,29 +7,24 @@
 #include <string>
 #include <vector>
 
-class AES
-{
-	private:
-		static const unsigned int			ROUNDS=1;
-		static const unsigned int			BLOCK_SIZE=16;
-		static EVP_CIPHER_CTX				m_Encrypt;
-		static EVP_CIPHER_CTX				m_Decrypt;
+static const unsigned int			ROUNDS=1;
+static const unsigned int			BLOCK_SIZE=16;
+static EVP_CIPHER_CTX				m_Encrypt;
+static EVP_CIPHER_CTX				m_Decrypt;
 
-		static std::vector<unsigned char>	m_EncData;
-		static std::vector<unsigned char>	m_DecData;
+static std::vector<unsigned char>	m_EncData;
+static std::vector<unsigned char>	m_DecData;
 
-		static unsigned char				m_Salt[8];
+static unsigned char				m_Salt[8];
 
-		static const char*					m_Magic;
+static const char*					m_Magic="TAPI2P__";
 
-		static void M_EncryptInit(const char* pw, size_t pwlen);
-		static int M_DecryptInit(const unsigned char* magic, const unsigned char* salt, const unsigned char* pass, RSA_PrivateKey& privatekey);
-	public:
-		static const unsigned int			MAGIC_LEN=8;
-		static const char*					Magic() { return m_Magic; }
-		static std::vector<unsigned char>& 	Encrypt(unsigned char* data, int len, size_t pwlen, RSA_PublicKey& key);
-		static std::vector<unsigned char>& 	Encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, const std::string& keyname);
-		static std::vector<unsigned char>& 	Encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, RSA_PublicKey& pubkey);
-		static std::vector<unsigned char>& 	Decrypt(unsigned char* data, int len, const std::string& keyname);
-		static std::vector<unsigned char>& 	Decrypt(unsigned char* data, int len, RSA_PrivateKey& key);
-};
+static int m_encryptinit(const char* pw, size_t pwlen);
+static int m_decryptinit(const unsigned char* magic, const unsigned char* salt, const unsigned char* pass, rsa_privkey* privatekey);
+static const unsigned int			MAGIC_LEN=8;
+
+unsigned char* aes_encrypt(unsigned char* data, int len, size_t pwlen, struct rsa_pubkey* key);
+unsigned char* aes_encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, const char* keyname);
+unsigned char* aes_encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, struct rsa_pubkey* pubkey);
+unsigned char* aes_decrypt(unsigned char* data, int len, const char* keyname);
+unsigned char* aes_decrypt(unsigned char* data, int len, struct rsa_privkey* key);

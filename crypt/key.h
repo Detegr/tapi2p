@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TAPI2P_PRIVKEY_H
+#define TAPI2P_KEY_H
 
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
@@ -6,20 +7,16 @@
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
 #include <openssl/rand.h>
-#include <string>
-#include "keyexception.h"
 
-class RSA_Key
+struct key
 {
-	protected:
-		EVP_PKEY_CTX*				m_Ctx;
-		BIO*						m_Bio;
-		BIO*						m_BioErr;
-		static const unsigned char	m_Pad=RSA_PKCS1_PADDING;
-		int							m_Size;
-		RSA_Key();
-		virtual ~RSA_Key();
-	public:
-		virtual void Load(const std::string& file)=0;
-		virtual int Size() const;
+	EVP_PKEY_CTX*				m_Ctx;
+	BIO*						m_Bio;
+	BIO*						m_BioErr;
+	const unsigned char			m_Pad;
+	int							m_Size;
 };
+
+void key_init(struct key* key);
+
+#endif
