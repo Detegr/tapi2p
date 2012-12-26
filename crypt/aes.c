@@ -28,7 +28,7 @@ unsigned char* aes_encrypt(unsigned char* data, int len, size_t pwlen, struct rs
 	unsigned char pw[pwlen];
 	if(!RAND_bytes(pw, pwlen))
 	{
-		std::cerr << "PRNG _NOT_ SEEDED ENOUGH!!" << std::endl;
+		fprintf(stderr, "PRNG _NOT_ SEEDED ENOUGH!!\n");
 	}
 	return Encrypt(data, len, (const char*)pw, pwlen, pubkey);
 }

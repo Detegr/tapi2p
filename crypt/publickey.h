@@ -1,16 +1,14 @@
 #pragma once
 #include "key.h"
 
-class RSA_PublicKey : public RSA_Key
+struct pubkey
 {
-	private:
-		bool m_EncryptInit;
-		void M_EncryptInit();
-		std::string m_KeyAsText;
-	public:
-		RSA_PublicKey() : m_EncryptInit(false) {}
-		void Print() const;
-		void Load(const std::string& file);
-		void Encrypt(const unsigned char* in, size_t inlen, unsigned char** out, size_t* outlen);
-		friend std::ostream& operator<<(std::ostream& o, const RSA_PublicKey& k);
+	const char* m_keyastext;
+	int m_decryptinit;
+	struct key* m_keydata;
 };
+
+static int m_decryptinit(struct pubkey* pkey);
+void pubkey_init(struct pubkey* key);
+int load(struct pubkey* key, const char* file);
+int encrypt(struct pubkey* key, const unsigned char* in, size_t inlen, unsigned char** out, size_t* outlen);

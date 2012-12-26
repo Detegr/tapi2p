@@ -18,5 +18,6 @@ struct key
 };
 
 void key_init(struct key* key);
+void key_free(struct key* key);
 
 #endif

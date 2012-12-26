@@ -2,6 +2,17 @@
 #include <iostream>
 #include <fstream>
 
+int load(struct pubkey* pkey, const char* file)
+{
+	size_t size=0;
+	FILE* f=open(file, "r");
+	fseek(file, 0, SEEK_END);
+	size=ftell(f);
+	fseek(file, 0, SEEK_SET);
+	m_keyastext = (const char*)malloc(size*sizeof(char));
+
+}
+
 void RSA_PublicKey::Load(const std::string& file)
 {
 	std::string f=file+".pub";

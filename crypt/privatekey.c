@@ -1,7 +1,7 @@
 #include "privatekey.h"
 #include <stdio.h>
 
-void init(struct privkey* pkey)
+void privkey_init(struct privkey* pkey)
 {
 	pkey->m_decryptinit=0;
 	key_init(pkey->m_keydata);
