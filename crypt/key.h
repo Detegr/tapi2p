@@ -1,4 +1,4 @@
-#ifndef TAPI2P_PRIVKEY_H
+#ifndef TAPI2P_KEY_H
 #define TAPI2P_KEY_H
 
 #include <openssl/bio.h>
@@ -10,11 +10,11 @@
 
 struct key
 {
-	EVP_PKEY_CTX*				m_Ctx;
-	BIO*						m_Bio;
-	BIO*						m_BioErr;
-	const unsigned char			m_Pad;
-	int							m_Size;
+	EVP_PKEY_CTX*				m_ctx;
+	BIO*						m_bio;
+	BIO*						m_bioerr;
+	const unsigned char			m_pad;
+	int							m_size;
 };
 
 void key_init(struct key* key);
