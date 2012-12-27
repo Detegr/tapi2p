@@ -1,18 +1,21 @@
-#pragma once
-#include <string>
+#ifndef TAPI2P_PATHMANAGER_H
+#define TAPI2P_PATHMANAGER_H
+
+#include <stdio.h>
 #include "config.h"
 
-class PathManager
-{
-	private:
-		static Config*		m_Config;
-		static std::string	m_BasePath;
-	public:
-		static Config&				GetConfig();
-		static void					Destroy();
-		static const std::string 	ConfigPath();
-		static const std::string 	KeyPath();
-		static const std::string 	SelfKeyPath();
-		static const std::string	SocketPath();
-		static void					Setup(const std::string&);
-};
+static char* basepath_str=NULL;
+static char* configpath_str=NULL;
+static char* keypath_str=NULL;
+static char* selfkeypath_str=NULL;
+static char* socketpath_str=NULL;
+static struct config conf={0};
+
+static const char* getpath(const char* base, const char* add, char** to);
+
+const char* basepath();
+const char* configpath();
+
+struct config* getconfig();
+
+#endif
