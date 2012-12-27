@@ -14,7 +14,7 @@ static int section_compare(const void* a, const void* b)
 
 static int section_sort(const void* a, const void* b)
 {
-	return strncmp(((struct configsection*)a)->name,((struct configsection*)b)->name,ITEM_MAXLEN);
+	return strncmp((*(struct configsection**)a)->name,(*(struct configsection**)b)->name,ITEM_MAXLEN);
 }
 
 static void item_free(struct configitem* item)
@@ -45,7 +45,7 @@ void config_free(struct config* conf)
 
 static int item_find(const char* needle, struct configsection* haystack)
 {
-	int max=haystack->items;
+	int max=haystack->items-1;
 	int min=0;
 	while(max>=min)
 	{
@@ -125,11 +125,11 @@ static void section_new(struct config* conf, const char* name)
 
 struct configsection* config_find_section(const char* needle, struct config* haystack)
 {
-	int max=haystack->sections;
+	int max=haystack->sections-1;
 	int min=0;
 	while(max>=min)
 	{
-		int mid=(unsigned int)((max-min)/2);
+		int mid=min + (unsigned int)((max-min)/2);
 		int c = section_compare(needle, haystack->section[mid]);
 		if(c<0) min=mid+1;
 		else if(c>0) max=mid-1;
@@ -162,7 +162,7 @@ void config_flush(struct config* conf, FILE* stream)
 		fprintf(stream, "[%s]\n", conf->section[i]->name);
 		for(unsigned int j=0; j<conf->section[i]->items; ++j)
 		{
-			struct configitem* item = conf->section[i]->item[i];
+			struct configitem* item = conf->section[i]->item[j];
 			if(item->val)
 			{
 				fprintf(stream, "\t%s=%s\n", item->key, item->val);
@@ -178,6 +178,8 @@ int main()
 	config_init(&c, "test.conf");
 	config_add(&c, "Section", "Key", "Value");
 	config_add(&c, "Aasi", "Don", "Key");
+	config_add(&c, "Aasi", "Cee", NULL);
+	config_add(&c, "Baa", "Boh", "Dóh");
 	config_flush(&c, stdout);
 	return 0;
 }
