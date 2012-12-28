@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
-project(AEStest)
+project(core)
 
 add_definitions(-g3)
 find_package(OpenSSL REQUIRED)
@@ -24,3 +24,4 @@ add_executable(tapi2p_core \\
 			   crypt/publickey.cpp \\
 			   crypt/keygenerator.cpp)
 target_link_libraries(tapi2p_core ssl crypto pthread dtglib)
+add_subdirectory(test)

@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 2.8)
+project(test)
+#include_directories(${PROJECT_SOURCE_DIR}/core)
+add_definitions(-std=c99 -D_GNU_SOURCE -g3 -Wall -Wextra)
+add_executable(runtests config.test.c ../core/config.c)
