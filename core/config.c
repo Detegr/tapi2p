@@ -142,7 +142,12 @@ struct configitem* config_find_item(const char* needle, struct config* haystack,
 {
 	if(section)
 	{
-
+		struct configsection* sect;
+		if(haystack->sections > 0 && (sect=config_find_section(section, haystack)))
+		{
+			int item=item_find(needle, sect);
+			if(item != -1) return sect->item[item];
+		}
 	}
 	else
 	{
@@ -181,5 +186,8 @@ int main()
 	config_add(&c, "Aasi", "Cee", NULL);
 	config_add(&c, "Baa", "Boh", "Dóh");
 	config_flush(&c, stdout);
+
+	printf("%s in config: %d\n", "Don", config_find_item("Dan", &c, NULL) != NULL);
+
 	return 0;
 }
