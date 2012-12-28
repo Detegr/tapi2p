@@ -27,6 +27,7 @@ int main()
 	printf("Adding generating %d sections...\n", SECTIONS);
 	char* sections[SECTIONS];
 	char** keys[SECTIONS];
+	int keys_per_section[SECTIONS];
 	memset(sections, 0, SECTIONS * sizeof(char*));
 	memset(keys, 0, SECTIONS * sizeof(char**));
 
@@ -45,6 +46,7 @@ int main()
 		keys[i] = (char**)malloc(keys_for_this_section * sizeof(char*));
 		memset(keys[i], 0, keys_for_this_section * sizeof(char*));
 		printf("Adding %d keys to section %d\n", keys_for_this_section, i);
+		keys_per_section[i]=keys_for_this_section;
 		for(int k=0; k<keys_for_this_section; ++k)
 		{
 			int keylen = rand() % SHORT_ITEM;
@@ -68,5 +70,15 @@ int main()
 		}
 	}
 	//config_flush(&c, stdout);
+	for(int i=0; i<SECTIONS; ++i)
+	{
+		for(int j=0; j<keys_per_section[i]; ++j)
+		{
+			free(keys[i][j]);
+		}
+		free(keys[i]);
+		free(sections[i]);
+	}
+	config_free(&c);
 	return 0;
 }

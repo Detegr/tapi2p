@@ -42,6 +42,7 @@ static void section_free(struct configsection* sect)
 	for(unsigned int i=0; i<sect->items; ++i)
 	{
 		item_free(sect->item[i]);
+		free(sect->item[i]);
 	}
 	free(sect->item);
 }
@@ -52,6 +53,7 @@ void config_free(struct config* conf)
 	for(unsigned int i=0; i<conf->sections; ++i)
 	{
 		section_free(conf->section[i]);
+		free(conf->section[i]);
 	}
 	free(conf->section);
 }
