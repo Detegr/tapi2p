@@ -74,7 +74,7 @@ static void item_add(struct configsection* section, const char* key, const char*
 	/* Allocate more space if needed */
 	if(section->items >= section->size)
 	{
-		section->size = section->size?section->size*2:10;
+		section->size = section->size?section->size*2:8;
 		struct configitem** newitems = realloc(section->item, section->size * sizeof(struct configitem*));
 		assert(newitems != NULL);
 		section->item=newitems;
@@ -105,7 +105,7 @@ static void section_new(struct config* conf, const char* name)
 {
 	if(conf->sections >= conf->size)
 	{
-		conf->size = conf->size?conf->size*2:10;
+		conf->size = conf->size?conf->size*2:8;
 		struct configsection** newsection = (struct configsection**)realloc(conf->section, conf->size * sizeof(struct configsection*));
 		assert(newsection != NULL);
 		conf->section=newsection;
