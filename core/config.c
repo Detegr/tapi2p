@@ -19,6 +19,10 @@ static int item_compare(const void* a, const void* b)
 {
 	return strncmp((const char*)a,(*(struct configitem**)b)->key,ITEM_MAXLEN);
 }
+static int item_sort(const void* a, const void* b)
+{
+	return strncmp((*(struct configitem**)a)->key,(*(struct configitem**)b)->key,ITEM_MAXLEN);
+}
 
 static int section_compare(const void* a, const void* b)
 {
@@ -60,7 +64,11 @@ void config_free(struct config* conf)
 
 static int item_find(struct configsection* haystack, const char* needle)
 {
-	return binarysearch(haystack->item, needle, sizeof(struct configitem*), haystack->items, item_compare);
+	if(haystack->items)
+	{
+		return binarysearch(haystack->item, needle, sizeof(struct configitem*), haystack->items-1, item_compare);
+	}
+	return -1;
 }
 
 void config_init(struct config* conf, const char* filename)
@@ -87,6 +95,8 @@ static void item_add(struct configsection* section, const char* key, const char*
 	if(val) newitem->val = strdup(val);
 	else newitem->val = NULL;
 	section->item[section->items++] = newitem;
+
+	qsort(section->item, section->items, sizeof(struct configitem*), item_sort);
 }
 
 void config_add(struct config* conf, const char* section, const char* key, const char* val)
@@ -125,12 +135,10 @@ static void section_new(struct config* conf, const char* name)
 
 static int binarysearch(const void* arr, const void* key, size_t elemsize, unsigned int max, int(*cmp)(const void*, const void*))
 {
-	if(!max) return -1;
-	else max = max-1;
 	unsigned int min=0;
 	while(min<max)
 	{
-		unsigned int mid = (max+min)/2;
+		unsigned int mid = (min+max)>>1;
 		assert(mid<max);
 		if(cmp(key,arr+(mid*elemsize)) > 0) min=mid+1;
 		else max=mid;
@@ -141,9 +149,12 @@ static int binarysearch(const void* arr, const void* key, size_t elemsize, unsig
 
 struct configsection* config_find_section(struct config* haystack, const char* needle)
 {
-	int i = binarysearch(haystack->section, needle, sizeof(struct configsection*), haystack->sections, section_compare);
-	if(i>=0) return haystack->section[i];
-	else return NULL;
+	if(haystack->sections)
+	{
+		int i = binarysearch(haystack->section, needle, sizeof(struct configsection*), haystack->sections-1, section_compare);
+		if(i>=0) return haystack->section[i];
+	}
+	return NULL;
 }
 
 struct configitem* config_find_item(struct config* haystack, const char* needle, const char* section)
