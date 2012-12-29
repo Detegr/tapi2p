@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <ctype.h>
 
 static int binarysearch(const void* arr, const void* key, size_t elemsize, unsigned int max, int(*cmp)(const void*, const void*));
 static int item_compare(const void* a, const void* b);
@@ -53,7 +54,6 @@ static void section_free(struct configsection* sect)
 
 void config_free(struct config* conf)
 {
-	if(conf->filename) free(conf->filename);
 	for(unsigned int i=0; i<conf->sections; ++i)
 	{
 		section_free(conf->section[i]);
@@ -71,9 +71,8 @@ static int item_find(struct configsection* haystack, const char* needle)
 	return -1;
 }
 
-void config_init(struct config* conf, const char* filename)
+void config_init(struct config* conf)
 {
-	conf->filename = strdup(filename);
 	conf->sections = 0;
 	conf->size = 0;
 	conf->section=NULL;
@@ -104,7 +103,13 @@ void config_add(struct config* conf, const char* section, const char* key, const
 	struct configsection* sect;
 	if((sect=config_find_section(conf, section)))
 	{
-		item_add(sect, key, val);
+		struct configitem* item;
+		if((item=config_find_item(conf, key, section)))
+		{
+			free(item->val);
+			item->val=strdup(val);
+		}
+		else item_add(sect, key, val);
 	}
 	else
 	{
@@ -194,4 +199,41 @@ void config_flush(struct config* conf, FILE* stream)
 			else fprintf(stream, "\t%s\n", item->key);
 		}
 	}
+}
+
+int config_load(struct config* conf, const char* filename)
+{
+	config_init(conf);
+	FILE* f=fopen(filename, "r");
+	int r=1;
+	char* line=NULL;
+	size_t s=0;
+	char header[ITEM_MAXLEN];
+	char left[ITEM_MAXLEN];
+	char right[ITEM_MAXLEN];
+	while((r = getline(&line, &s, f)) != -1)
+	{
+		int h=sscanf(line, "[%[^\n]", header);
+		if(!h)
+		{
+			h=sscanf(line, "%*[ \t]%[^=]=%[^\n]", left, right);
+			if(h==1)
+			{
+				h=sscanf(line, "%*[ \t]%[^\n]", left);
+				if(h==1) config_add(conf, header, left, NULL);
+				else return -1;
+			}
+			else if(h==2) config_add(conf, header, left, right);
+			else return -1;
+		}
+		else
+		{
+			size_t hlen = strnlen(header, ITEM_MAXLEN)-1;
+			if(header[hlen]==']') header[hlen]=0;
+			else return -1;
+		}
+	}
+	free(line);
+	fclose(f);
+	return 0;
 }

@@ -20,7 +20,6 @@ struct configsection
 
 struct config
 {
-	char* filename;
 	unsigned int sections;
 	unsigned int size;
 	struct configsection** section;
@@ -28,9 +27,9 @@ struct config
 
 struct configsection* config_find_section(struct config* haystack, const char* needle);
 struct configitem* config_find_item(struct config* haystack, const char* needle, const char* section);
-void config_init(struct config* conf, const char* filename);
+void config_init(struct config* conf);
 void config_free(struct config* conf);
-void config_load(struct config* conf, const char* filename);
+int config_load(struct config* conf, const char* filename);
 void config_add(struct config* conf, const char* section, const char* key, const char* val);
 void config_flush(struct config* conf, FILE* stream);
 

@@ -25,7 +25,7 @@ int main()
 	for(int iteration=0; iteration<ITERATIONS; ++iteration)
 	{
 		struct config c;
-		config_init(&c, CONFIG_FILENAME);
+		config_init(&c);
 		srand(RANDOM_SEED+iteration);
 		printf("Generating %d sections...\n", SECTIONS);
 		char* sections[SECTIONS];
@@ -160,7 +160,26 @@ int main()
 				assert(config_find_item(&c, keys[i][j], sec) == NULL);
 			}
 		}
-		//config_flush(&c, stdout);
+		printf("Testing loading & saving...\n");
+		FILE* f=fopen("configtest.conf", "w");
+		config_flush(&c, f);
+		fclose(f);
+		struct config loadedconf;
+		config_load(&loadedconf, "configtest.conf");
+		assert(c.sections == loadedconf.sections);
+		assert(c.size == loadedconf.size);
+		for(unsigned int ii=0; ii<c.sections; ++ii)
+		{
+			assert(c.section[ii]->items == loadedconf.section[ii]->items);
+			assert(c.section[ii]->size == loadedconf.section[ii]->size);
+			assert(memcmp(c.section[ii]->name, loadedconf.section[ii]->name, strlen(c.section[ii]->name)) == 0);
+			for(unsigned int jj=0; jj<c.section[ii]->items; ++jj)
+			{
+				assert(memcmp(c.section[ii]->item[jj]->key, loadedconf.section[ii]->item[jj]->key, strlen(c.section[ii]->item[jj]->key)) == 0);
+				assert(memcmp(c.section[ii]->item[jj]->val, loadedconf.section[ii]->item[jj]->val, strlen(c.section[ii]->item[jj]->val)) == 0);
+			}
+		}
+		config_free(&loadedconf);
 		for(int i=0; i<SECTIONS; ++i)
 		{
 			for(int j=0; j<keys_per_section[i]; ++j)
