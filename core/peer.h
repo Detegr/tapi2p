@@ -1,26 +1,19 @@
-#pragma once
-#include "Network.h"
-#include "Packet.h"
-#include "Concurrency.h"
-#include "publickey.h"
+#ifndef TAPI2P_PEER_H
+#define TAPI2P_PEER_H
 
-using namespace dtglib;
+#include <pthread.h>
+#include "../crypt/publickey.h"
 
-struct Peer
+struct peer
 {
-		bool			m_Connectable;
-		C_Selector		m_Selector;
-		C_TcpSocket 	Sock_In;
-		C_TcpSocket		Sock_Out;
-		C_Packet		Packet;
-		C_Thread		Thread;
-		RSA_PublicKey	Key;
-		Peer() : m_Connectable(true) {}
-		Peer(const C_TcpSocket& s) : m_Connectable(true), Sock_In(s) {}
-		~Peer()
-		{
-			Thread.M_Join();
-			Sock_In.M_Disconnect();
-			Sock_Out.M_Disconnect();
-		}
+	int m_connectable;
+	int isock;
+	int osock;
+	pthread_t thread;
+	struct pubkey key;
 };
+
+void peer_init(struct peer* p);
+void peer_free(struct peer* p);
+
+#endif

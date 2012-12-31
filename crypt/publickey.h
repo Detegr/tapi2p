@@ -11,7 +11,6 @@ struct pubkey
 	const char* keyastext;
 };
 
-static int m_decryptinit(struct pubkey* pkey);
 void pubkey_init(struct pubkey* pkey);
 void pubkey_free(struct pubkey* pkey);
 int pubkey_load(struct pubkey* key, const char* file);

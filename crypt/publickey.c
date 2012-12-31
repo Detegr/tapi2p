@@ -1,6 +1,8 @@
 #include "publickey.h"
 #include <stdio.h>
 
+static int m_encryptinit(struct pubkey* pkey);
+
 void pubkey_init(struct pubkey* pkey)
 {
 	pkey->m_encryptinit=0;
@@ -44,18 +46,20 @@ int pubkey_load(struct pubkey* pkey, const char* file)
 	pkey->m_keydata->m_size=EVP_PKEY_size(evp_pkey);
 	pkey->m_keydata->m_ctx=EVP_PKEY_CTX_new(evp_pkey, NULL);
 	EVP_PKEY_free(evp_pkey);
+	return 0;
 }
 
-void m_encryptinit(struct pubkey* pkey)
+static int m_encryptinit(struct pubkey* pkey)
 {
 	int ret=0;
 	ret=EVP_PKEY_encrypt_init(pkey->m_keydata->m_ctx);
 	if(ret<=0)
 	{
 		EVP_PKEY_CTX_free(pkey->m_keydata->m_ctx);
-		return;
+		return -1;
 	}
 	pkey->m_encryptinit=1;
+	return 0;
 }
 
 int encrypt(struct pubkey* pkey, const unsigned char* in, size_t inlen, unsigned char** out, size_t* outlen)
@@ -70,7 +74,7 @@ int encrypt(struct pubkey* pkey, const unsigned char* in, size_t inlen, unsigned
 		fprintf(stderr, "Cannot encrypt: No key loaded\n");
 		return -1;
 	}
-	if(!m_encryptinit) m_encryptinit(pkey);
+	if(!pkey->m_encryptinit) m_encryptinit(pkey);
 
 	int ret=0;
 	ret=EVP_PKEY_encrypt(pkey->m_keydata->m_ctx, NULL, outlen, in, inlen);
@@ -95,4 +99,5 @@ int encrypt(struct pubkey* pkey, const unsigned char* in, size_t inlen, unsigned
 			return -1;
 		}
 	}
+	return 0;
 }
