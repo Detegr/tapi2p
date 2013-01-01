@@ -205,6 +205,7 @@ int config_load(struct config* conf, const char* filename)
 {
 	config_init(conf);
 	FILE* f=fopen(filename, "r");
+	if(!f) return -1;
 	int r=1;
 	char* line=NULL;
 	size_t s=0;

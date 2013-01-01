@@ -8,6 +8,7 @@ static char* basepath_str=NULL;
 static char* configpath_str=NULL;
 static char* keypath_str=NULL;
 static char* selfkeypath_str=NULL;
+static char* selfkeypath_pub_str=NULL;
 static char* socketpath_str=NULL;
 static struct config conf={0};
 
@@ -17,8 +18,10 @@ const char* basepath(void);
 const char* configpath(void);
 const char* keypath(void);
 const char* selfkeypath(void);
+const char* selfkeypath_pub(void);
 const char* socketpath(void);
 
+FILE* configfile(void);
 struct config* getconfig(void);
 
 void pathmanager_free(void);

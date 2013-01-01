@@ -72,6 +72,11 @@ const char* selfkeypath(void)
 	return getpath(keypath(), "/self", &selfkeypath_str);
 }
 
+const char* selfkeypath_pub(void)
+{
+	return getpath(keypath(), "/self.pub", &selfkeypath_pub_str);
+}
+
 const char* socketpath(void)
 {
 	return getpath(basepath(), "/t2p_core", &socketpath_str);
@@ -84,13 +89,17 @@ void pathmanager_free(void)
 	if(keypath_str) free(keypath_str);
 	if(selfkeypath_str) free(selfkeypath_str);
 	if(socketpath_str) free(socketpath_str);
+	if(selfkeypath_pub_str) free(selfkeypath_pub_str);
 }
 
 struct config* getconfig(void)
 {
 	if(!conf)
 	{
-		config_init(&conf);
+		if(config_load(&conf, configpath()) == -1)
+		{
+			config_init(&conf);
+		}
 	}
 	return conf;
 }
