@@ -13,9 +13,14 @@ static struct config conf={0};
 
 static const char* getpath(const char* base, const char* add, char** to);
 
-const char* basepath();
-const char* configpath();
+const char* basepath(void);
+const char* configpath(void);
+const char* keypath(void);
+const char* selfkeypath(void);
+const char* socketpath(void);
 
-struct config* getconfig();
+struct config* getconfig(void);
+
+void pathmanager_free(void);
 
 #endif

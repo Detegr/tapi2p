@@ -19,11 +19,11 @@ static BIO*					m_bio		=NULL;
 static PKCS8_PRIV_KEY_INFO*	m_p8info	=NULL;
 static const int RSA_KEY_BITS=4096;
 
-static int keygen_init();
+static int keygen_init(void);
 static int keygen_bio_init(const char* path);
 
-static int generate_privkey();
-static int generate_pubkey();
+static int generate_privkey(void);
+static int generate_pubkey(void);
 
 int generate(const char* path, unsigned int keys);
 

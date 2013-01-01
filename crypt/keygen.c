@@ -1,7 +1,7 @@
 #include "keygen.h"
 #include <limits.h>
 
-int keygen_init()
+int keygen_init(void)
 {
 	m_bignumber = BN_new();
 	if(!m_bignumber)
@@ -35,7 +35,7 @@ int keygen_init()
 	return 0;
 }
 
-void keygen_free()
+void keygen_free(void)
 {
 	PKCS8_PRIV_KEY_INFO_free(m_p8info);
 	EVP_PKEY_free(m_evpkey);
@@ -71,7 +71,7 @@ int keygen_bio_init(const char* path)
 	return 0;
 }
 
-int generate_privkey()
+int generate_privkey(void)
 {
 	if(!PEM_write_bio_PKCS8_PRIV_KEY_INFO(m_bio, m_p8info))
 	{

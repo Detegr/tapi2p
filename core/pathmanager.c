@@ -4,7 +4,7 @@
 #include <limits.h>
 #include <string.h>
 
-const char* basepath()
+const char* basepath(void)
 {
 	if(!basepath_str)
 	{
@@ -57,27 +57,27 @@ static const char* getpath(const char* base, const char* add, char** to)
 	return *to;
 }
 
-const char* configpath()
+const char* configpath(void)
 {
 	return getpath(basepath(), "/config", &configpath_str);
 }
 
-const char* keypath()
+const char* keypath(void)
 {
 	return getpath(basepath(), "/keys", &keypath_str);
 }
 
-const char* selfkeypath()
+const char* selfkeypath(void)
 {
 	return getpath(keypath(), "/self", &selfkeypath_str);
 }
 
-const char* socketpath()
+const char* socketpath(void)
 {
 	return getpath(basepath(), "/t2p_core", &socketpath_str);
 }
 
-void pathmanager_free()
+void pathmanager_free(void)
 {
 	if(basepath_str) free(basepath_str);
 	if(configpath_str) free(configpath_str);
@@ -86,7 +86,7 @@ void pathmanager_free()
 	if(socketpath_str) free(socketpath_str);
 }
 
-struct config* getconfig()
+struct config* getconfig(void)
 {
 	if(!conf)
 	{
