@@ -7,13 +7,12 @@ void pubkey_init(struct pubkey* pkey)
 {
 	pkey->m_encryptinit=0;
 	pkey->keyastext=NULL;
-	key_init(pkey->m_keydata);
+	key_init(&pkey->m_keydata);
 }
 void pubkey_free(struct pubkey* pkey)
 {
 	pkey->m_encryptinit=0;
-	key_free(pkey->m_keydata);
-	pkey->m_keydata=NULL;
+	key_free(&pkey->m_keydata);
 	if(pkey->keyastext)
 	{
 		free((char*)pkey->keyastext);
@@ -36,15 +35,15 @@ int pubkey_load(struct pubkey* pkey, const char* file)
 	pkey->keyastext=ktext;
 
 	EVP_PKEY* evp_pkey;
-	BIO_read_filename(pkey->m_keydata->m_bio, file);
-	evp_pkey = PEM_read_bio_PUBKEY(pkey->m_keydata->m_bio, NULL, NULL, (void*)"");
+	BIO_read_filename(pkey->m_keydata.m_bio, file);
+	evp_pkey = PEM_read_bio_PUBKEY(pkey->m_keydata.m_bio, NULL, NULL, (void*)"");
 	if(!evp_pkey)
 	{
 		fprintf(stderr, "Failed to load public key %s\n", file);
 		return -1;
 	}
-	pkey->m_keydata->m_size=EVP_PKEY_size(evp_pkey);
-	pkey->m_keydata->m_ctx=EVP_PKEY_CTX_new(evp_pkey, NULL);
+	pkey->m_keydata.m_size=EVP_PKEY_size(evp_pkey);
+	pkey->m_keydata.m_ctx=EVP_PKEY_CTX_new(evp_pkey, NULL);
 	EVP_PKEY_free(evp_pkey);
 	return 0;
 }
@@ -52,24 +51,24 @@ int pubkey_load(struct pubkey* pkey, const char* file)
 static int m_encryptinit(struct pubkey* pkey)
 {
 	int ret=0;
-	ret=EVP_PKEY_encrypt_init(pkey->m_keydata->m_ctx);
+	ret=EVP_PKEY_encrypt_init(pkey->m_keydata.m_ctx);
 	if(ret<=0)
 	{
-		EVP_PKEY_CTX_free(pkey->m_keydata->m_ctx);
+		EVP_PKEY_CTX_free(pkey->m_keydata.m_ctx);
 		return -1;
 	}
 	pkey->m_encryptinit=1;
 	return 0;
 }
 
-int encrypt(struct pubkey* pkey, const unsigned char* in, size_t inlen, unsigned char** out, size_t* outlen)
+int pubkey_encrypt(struct pubkey* pkey, const unsigned char* in, size_t inlen, unsigned char** out, size_t* outlen)
 {
 	if(!pkey)
 	{
 		fprintf(stderr, "No private key\n");
 		return -1;
 	}
-	if(!pkey->m_keydata->m_ctx)
+	if(!pkey->m_keydata.m_ctx)
 	{
 		fprintf(stderr, "Cannot encrypt: No key loaded\n");
 		return -1;
@@ -77,7 +76,7 @@ int encrypt(struct pubkey* pkey, const unsigned char* in, size_t inlen, unsigned
 	if(!pkey->m_encryptinit) m_encryptinit(pkey);
 
 	int ret=0;
-	ret=EVP_PKEY_encrypt(pkey->m_keydata->m_ctx, NULL, outlen, in, inlen);
+	ret=EVP_PKEY_encrypt(pkey->m_keydata.m_ctx, NULL, outlen, in, inlen);
 	if(ret<=0)
 	{
 		fprintf(stderr, "Failed to get output buffer length\n");
@@ -85,14 +84,14 @@ int encrypt(struct pubkey* pkey, const unsigned char* in, size_t inlen, unsigned
 	}
 	else
 	{
-		*out=(unsigned char*)OPENSSL_malloc(*outlen);
+		*out=(unsigned char*)malloc(*outlen);
 		memset(*out, 0, *outlen);
 		if(!*out)
 		{
 			fprintf(stderr, "Failed to allocate output buffer\n");
 			return -1;
 		}
-		ret=EVP_PKEY_encrypt(pkey->m_keydata->m_ctx, *out, outlen, in, inlen);
+		ret=EVP_PKEY_encrypt(pkey->m_keydata.m_ctx, *out, outlen, in, inlen);
 		if(ret<=0)
 		{
 			fprintf(stderr, "Failed to encrypt\n");

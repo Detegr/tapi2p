@@ -1,6 +1,7 @@
 #include "core.h"
 #include <arpa/inet.h>
 #include <sys/un.h>
+#include <locale.h>
 
 using namespace dtglib;
 RSA_PrivateKey Core::pkey;

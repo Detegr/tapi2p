@@ -7,9 +7,11 @@ static int core_socket_fd=-1;
 static int run_threads;
 static struct pubkey pkey;
 
-int core_start(int argc, char** argv);
+static int core_init(void);
+int core_start(void);
 void core_stop(void);
 int core_socket(void);
+static void pipe_accept(void);
 
 //#include "aes.h"
 //#include "privatekey.h"

@@ -28,7 +28,7 @@ int privkey_load(struct privkey* pkey, const char* file)
 	EVP_PKEY_free(evp_pkey);
 }
 
-static int m_decryptinit(struct privkey* pkey)
+static int m_privkey_decryptinit(struct privkey* pkey)
 {
 	int ret=0;
 	ret=EVP_PKEY_decrypt_init(pkey->m_keydata->m_ctx);
@@ -41,9 +41,9 @@ static int m_decryptinit(struct privkey* pkey)
 	pkey->m_decryptinit=1;
 }
 
-int decrypt(struct privkey* pkey, const unsigned char* in, size_t inlen, unsigned char** out, size_t* outlen)
+int privkey_decrypt(struct privkey* pkey, const unsigned char* in, size_t inlen, unsigned char** out, size_t* outlen)
 {
-	if(!pkey->m_decryptinit) m_decryptinit(pkey);
+	if(!pkey->m_decryptinit) m_privkey_decryptinit(pkey);
 
 	int ret=0;
 	ret=EVP_PKEY_decrypt(pkey->m_keydata->m_ctx, NULL, outlen, in, inlen);

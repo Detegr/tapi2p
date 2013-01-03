@@ -9,9 +9,6 @@
 #include <openssl/rand.h>
 #include <string.h>
 
-#define T2PPRIVATEKEY 0x1;
-#define T2PPUBLICKEY 0x2;
-
 static EVP_PKEY*			m_evpkey	=NULL;
 static RSA*					m_rsa		=NULL;
 static BIGNUM*				m_bignumber	=NULL;
@@ -24,6 +21,9 @@ static int keygen_bio_init(const char* path);
 
 static int generate_privkey(void);
 static int generate_pubkey(void);
+
+static const int T2PPRIVATEKEY=0x1;
+static const int T2PPUBLICKEY=0x2;
 
 int generate(const char* path, unsigned int keys);
 

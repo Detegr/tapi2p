@@ -2,32 +2,36 @@
 #include "../crypt/publickey.h"
 #include "../crypt/keygen.h"
 #include "pathmanager.h"
+#include "pipemanager.h"
+#include "config.h"
+#include "event.h"
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <sys/un.h>
+#include <locale.h>
+#include <unistd.h>
 
-int pipe_accept(void* args)
+static void pipe_accept(void)
 {
 	struct timeval to;
-	fd_set orig;
-	FD_SET(core_socket(), &orig);
+	to.tv_sec=0; to.tv_usec=0;
+
 	fd_set set;
-	while(run_threads)
+	FD_SET(core_socket(), &set);
+
+	int nfds=select(core_socket()+1, &set, NULL, NULL, &to);
+	if(nfds>0 && FD_ISSET(core_socket(), &set))
 	{
-		memcpy(&set, &orig, sizeof(fd_set));
-		to.tv_sec=1;
-		to.tv_usec=0;
-		int nfds=select(core_socket()+1, &set, NULL, NULL, &to);
-		if(nfds>0 && FD_ISSET(core_socket(), &set))
-		{
-			int fd=accept(core_socket(), NULL, NULL);
-			if(fd>0) FD_SET(fd, &pipeset);
-		}
+		int fd=accept(core_socket(), NULL, NULL);
+		if(fd>0) pipe_add(fd);
 	}
 }
 
 int core_socket(void)
 {
-	if(core_socket_fd != -1)
+	if(core_socket_fd == -1)
 	{
 		struct sockaddr_un u;
 		unlink(socketpath());
@@ -57,7 +61,7 @@ int core_socket(void)
 	return core_socket_fd;
 }
 
-static int core_init(const char* custompath)
+static int core_init(void)
 {
 	if(mkdir(basepath(), 0755) == -1 && errno!=EEXIST)
 	{
@@ -95,34 +99,40 @@ static int core_init(const char* custompath)
 	{
 		return -1;
 	}
+
+	pipe_init();
+
 	return 0;
 }
 
-int core_start(int argc, char** argv)
+int core_start(void)
 {
 	run_threads=1;
-	if(!setlocale(LC_CTYPE, "en_US.UTF-8")) // Use client's native encoding
+	if(!setlocale(LC_CTYPE, "en_US.UTF-8"))
 	{
 		fprintf(stderr, "Cannot set UTF-8 encoding. Please make sure that en_US.UTF-8 encoding is installed.\n");
 	}
-	if(argc>1)
+	if(core_init())
 	{
-		core_init(argv[1]);
-	} else core_init();
-	if(pubkey_load(&pkey, selfkeypath()))
+		fprintf(stderr, "Tapi2p core failed to initialize!\n");
+		return -1;
+	}
+	pubkey_init(&pkey);
+	if(pubkey_load(&pkey, selfkeypath_pub()))
 	{
 		fprintf(stderr, "Failed to start tapi2p! Client's public key failed to load.\n");
 		return -1;
 	}
 
-	pthread_t pipethread;
-	pthread_create(&pipethread, NULL, pipe_accept, NULL);
-
 	while(run_threads)
 	{
-
+		pipe_accept();
+		struct Event* e=poll_event();
+		if(e) event_free(e);
 	}
-	pthread_join(&pipethread, NULL);
+	
+	printf("Tapi2p core shutting down...\n");
+	return 0;
 }
 
 void core_stop(void)

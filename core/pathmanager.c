@@ -94,12 +94,13 @@ void pathmanager_free(void)
 
 struct config* getconfig(void)
 {
-	if(!conf)
+	if(!conf_ptr)
 	{
 		if(config_load(&conf, configpath()) == -1)
 		{
 			config_init(&conf);
 		}
+		conf_ptr=&conf;
 	}
-	return conf;
+	return conf_ptr;
 }

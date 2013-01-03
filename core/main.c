@@ -3,12 +3,12 @@
 
 void sig(int signal)
 {
-	Core::Stop();
+	core_stop();
 }
 
 int main(int argc, char** argv)
 {
 	signal(SIGINT, sig);
 	signal(SIGPIPE, SIG_IGN); // We don't need SIGPIPE when AF_UNIX socket is disconnected.
-	return Core::Start(argc, argv);
+	return core_start();
 }

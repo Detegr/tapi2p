@@ -1,10 +1,8 @@
 #include "aes.h"
-#include <iostream>
-#include "keyexception.h"
 #include "publickey.h"
 #include "privatekey.h"
 
-int m_encryptInit(const char* pw, size_t pwlen)
+static int m_encryptinit(const char* pw, size_t pwlen)
 {
 	unsigned char buf[48];
 	unsigned char key[32];
@@ -14,7 +12,7 @@ int m_encryptInit(const char* pw, size_t pwlen)
 	{
 		fprintf(stderr, "PRNG _NOT_ SEEDED ENOUGH!!\n");
 	}
-	if(!PKCS5_PBKDF2_HMAC_SHA1(pw, pwlen, m_Salt, PKCS5_SALT_LEN, :ROUNDS, sizeof(buf), buf)) return -1;
+	if(!PKCS5_PBKDF2_HMAC_SHA1(pw, pwlen, m_Salt, PKCS5_SALT_LEN, ROUNDS, sizeof(buf), buf)) return -1;
 	memcpy(key, buf, 32);
 	memcpy(iv, buf+32, 16);
 
@@ -23,26 +21,28 @@ int m_encryptInit(const char* pw, size_t pwlen)
 	if(!EVP_EncryptInit_ex(&m_Encrypt, EVP_aes_256_cbc(), NULL, key, iv)) return -1;
 }
 
-unsigned char* aes_encrypt(unsigned char* data, int len, size_t pwlen, struct rsa_pubkey* pubkey)
+static unsigned char* aes_encrypt_random_pass(unsigned char* data, int len, size_t pwlen, struct pubkey* pubkey)
 {
 	unsigned char pw[pwlen];
 	if(!RAND_bytes(pw, pwlen))
 	{
 		fprintf(stderr, "PRNG _NOT_ SEEDED ENOUGH!!\n");
 	}
-	return Encrypt(data, len, (const char*)pw, pwlen, pubkey);
+	return aes_encrypt_with_pass(data, len, (const char*)pw, pwlen, pubkey);
 }
 
 unsigned char* aes_encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, const char* keyname)
 {
-	RSA_PublicKey pubkey;
-	pubkey.Load(keyname);
-	return AES::Encrypt(data,len,pw,pwlen,pubkey);
+	struct pubkey pub;
+	pubkey_load(&pub, keyname);
+	unsigned char* encdata=aes_encrypt_with_pass(data,len,pw,pwlen,&pub);
+	pubkey_free(&pub);
+	return encdata;
 }
 
-unsigned char* aes_encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, struct rsa_pubkey* pubkey)
+static unsigned char* aes_encrypt_with_pass(unsigned char* data, int len, const char* pw, size_t pwlen, struct pubkey* pubkey)
 {
-	M_EncryptInit(pw, pwlen);
+	m_encryptinit(pw, pwlen);
 
 	int c_len=len+BLOCK_SIZE;
 	int f_len=0;
@@ -55,29 +55,38 @@ unsigned char* aes_encrypt(unsigned char* data, int len, const char* pw, size_t 
 
 	unsigned char* encpass;
 	size_t passlen;
-	pubkey.Encrypt((const unsigned char*)pw, pwlen, &encpass, &passlen);
+	pubkey_encrypt(pubkey, (const unsigned char*)pw, pwlen, &encpass, &passlen);
 
-	m_EncData.resize(AES::MAGIC_LEN+PKCS5_SALT_LEN+sizeof(int)+passlen+c_len+f_len);
-	memcpy(&m_EncData[0], m_Magic, AES::MAGIC_LEN);
-	memcpy(&m_EncData[AES::MAGIC_LEN], m_Salt, PKCS5_SALT_LEN);
-	memcpy(&m_EncData[AES::MAGIC_LEN+PKCS5_SALT_LEN], &passlen, sizeof(int));
-	memcpy(&m_EncData[AES::MAGIC_LEN+PKCS5_SALT_LEN+sizeof(int)], encpass, passlen);
-	memcpy(&m_EncData[AES::MAGIC_LEN+PKCS5_SALT_LEN+sizeof(int)+passlen], c, c_len+f_len);
-	OPENSSL_free(encpass);
+	memset(m_encdata, 0, m_enclen);
+	m_enclen=MAGIC_LEN+PKCS5_SALT_LEN+sizeof(int)+passlen+c_len+f_len;
+	unsigned char* encdata=realloc(m_encdata, m_enclen);
+	if(encdata) m_encdata=encdata;
+	else
+	{
+		fprintf(stderr, "Failed to allocate memory for encrypting!\n");
+		free(m_encdata);
+		return NULL;
+	}
+	memcpy(&m_encdata[0], m_Magic, MAGIC_LEN);
+	memcpy(&m_encdata[MAGIC_LEN], m_Salt, PKCS5_SALT_LEN);
+	memcpy(&m_encdata[MAGIC_LEN+PKCS5_SALT_LEN], &passlen, sizeof(int));
+	memcpy(&m_encdata[MAGIC_LEN+PKCS5_SALT_LEN+sizeof(int)], encpass, passlen);
+	memcpy(&m_encdata[MAGIC_LEN+PKCS5_SALT_LEN+sizeof(int)+passlen], c, c_len+f_len);
+	free(encpass);
 
-	return m_EncData;
+	return m_encdata;
 }
 
-int m_decryptinit(const unsigned char* const magic, const unsigned char* const salt, const unsigned char* const pass, struct rsa_privkey* privkey)
+int m_decryptinit(const unsigned char* const magic, const unsigned char* const salt, const unsigned char* const pass, struct privkey* privkey)
 {
 	unsigned char buf[48];
 	unsigned char key[32];
 	unsigned char iv[16];
 
-	m_DecData.clear();
+	memset(m_decdata, 0, m_declen);
 	if(memcmp(m_Magic, magic, MAGIC_LEN) != 0)
 	{
-		std::cerr << "Invalid magic number" << std::endl;
+		fprintf(stderr, "Invalid magic number\n");
 		return -1;
 	}
 
@@ -87,45 +96,66 @@ int m_decryptinit(const unsigned char* const magic, const unsigned char* const s
 	
 	char* plainpass;
 	size_t plainpasslen;
-	privkey.Decrypt((const unsigned char*)epass, epasslen, (unsigned char**)&plainpass, &plainpasslen);
-	if(!PKCS5_PBKDF2_HMAC_SHA1(plainpass, plainpasslen, salt, PKCS5_SALT_LEN, ROUNDS, sizeof(buf), buf)) return -1; //throw KeyException("Key derivation failed");
-	OPENSSL_free(plainpass);
+	privkey_decrypt(privkey, (const unsigned char*)epass, epasslen, (unsigned char**)&plainpass, &plainpasslen);
+	if(!PKCS5_PBKDF2_HMAC_SHA1(plainpass, plainpasslen, salt, PKCS5_SALT_LEN, ROUNDS, sizeof(buf), buf))
+	{
+		fprintf(stderr, "Key derivation failed!\n");
+		return -1;
+	}
+	free(plainpass);
 
 	memcpy(key, buf, 32);
 	memcpy(iv, buf+32, 16);
 
 	EVP_CIPHER_CTX_cleanup(&m_Decrypt);
 	EVP_CIPHER_CTX_init(&m_Decrypt);
-	if(!EVP_DecryptInit_ex(&m_Decrypt, EVP_aes_256_cbc(), NULL, key, iv)) return -1; //throw KeyException("Encryptinit failed");
+	if(!EVP_DecryptInit_ex(&m_Decrypt, EVP_aes_256_cbc(), NULL, key, iv))
+	{
+		fprintf(stderr, "Encryptinit failed!\n");
+		return -1;
+	}
 
 	return epasslen+sizeof(int);
 }
 
 unsigned char* aes_decrypt(unsigned char* data, int len, const char* keyname)
 {
-	RSA_PrivateKey pk;
-	pk.Load(keyname);
-	return aes_decrypt(data,len,pk);
+	struct privkey pk;
+	privkey_load(&pk, keyname);
+	unsigned char* decdata=aes_decrypt_with_key(data,len,&pk);
+	privkey_free(&pk);
+	return decdata;
 }
 
-unsigned char* aes_decrypt(unsigned char* data, int len, struct rsa_privkey* privkey)
+static unsigned char* aes_decrypt_with_key(unsigned char* data, int len, struct privkey* privkey)
 {
-	int passlen=m_decryptinit(&data[0], &data[AES::MAGIC_LEN], &data[AES::MAGIC_LEN+PKCS5_SALT_LEN], privkey);
-	int llen=len-AES::MAGIC_LEN-PKCS5_SALT_LEN-passlen;
+	int passlen=m_decryptinit(&data[0], &data[MAGIC_LEN], &data[MAGIC_LEN+PKCS5_SALT_LEN], privkey);
+	int llen=len-MAGIC_LEN-PKCS5_SALT_LEN-passlen;
 	int p_len=llen;
 	int f_len=0;
-	unsigned char p[p_len+AES::BLOCK_SIZE];
+	unsigned char p[p_len+BLOCK_SIZE];
 
 	EVP_DecryptInit_ex(&m_Decrypt, NULL, NULL, NULL, NULL);
-	EVP_DecryptUpdate(&m_Decrypt, p, &p_len, &data[AES::MAGIC_LEN+PKCS5_SALT_LEN+passlen], llen);
+	EVP_DecryptUpdate(&m_Decrypt, p, &p_len, &data[MAGIC_LEN+PKCS5_SALT_LEN+passlen], llen);
 	EVP_DecryptFinal_ex(&m_Decrypt, p+p_len, &f_len);
 	EVP_CIPHER_CTX_cleanup(&m_Decrypt);
 
-	m_DecData.clear();
-	m_DecData.resize(p_len+f_len);
-	memcpy(&m_DecData[0], p, p_len+f_len);
+	memset(m_decdata, 0, m_declen);
+	unsigned char* decdata=(unsigned char*)realloc(m_decdata, p_len+f_len);
+	if(decdata)
+	{
+		m_decdata=decdata;
+	}
+	else
+	{
+		fprintf(stderr, "Failed to allocate memory for decrypting!\n");
+		free(m_decdata);
+		return NULL;
+	}
+	m_declen=p_len+f_len;
+	memcpy(&m_decdata[0], p, p_len+f_len);
 
-	return m_DecData;
+	return m_decdata;
 }
 /*
 #include <fstream>

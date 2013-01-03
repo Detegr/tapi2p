@@ -102,13 +102,13 @@ int generate(const char* path, unsigned int keys)
 	keygen_init();
 	char path2[pathlen+5];
 	memcpy(path2, path, pathlen);
-	if(keys & PUBLICKEY)
+	if(keys & T2PPUBLICKEY)
 	{
 		memcpy(path2+pathlen, ".pub", 4);
 		if(keygen_bio_init(path2) != 0) return -1;
 		if(generate_pubkey() != 0) return -1;
 	}
-	if(keys & PRIVATEKEY)
+	if(keys & T2PPRIVATEKEY)
 	{
 		memcpy(path2+pathlen, ".key", 4);
 		if(keygen_bio_init(path2) != 0) return -1;
