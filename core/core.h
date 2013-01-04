@@ -1,11 +1,11 @@
 #ifndef TAPI2P_CORE_H
 #define TAPI2P_CORE_H
 
-#include "../crypt/publickey.h"
+#include "../crypt/privatekey.h"
 
 static int core_socket_fd=-1;
 static int run_threads;
-static struct pubkey pkey;
+static struct privkey deckey;
 
 static int core_init(void);
 int core_start(void);

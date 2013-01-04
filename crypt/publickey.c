@@ -22,6 +22,8 @@ void pubkey_free(struct pubkey* pkey)
 
 int pubkey_load(struct pubkey* pkey, const char* file)
 {
+	if(!pkey->m_keydata.m_ctx) pubkey_init(pkey);
+
 	size_t size=0;
 	FILE* f=fopen(file, "r");
 	fseek(f, 0, SEEK_END);

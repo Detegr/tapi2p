@@ -86,15 +86,23 @@ static int core_init(void)
 				"The config file you specified is found in %s\n", configpath());
 		return 1;
 	}
-	FILE* selfkey=fopen(selfkeypath_pub(), "r");
-	if(!selfkey)
+	FILE* selfkey=fopen(selfkeypath(), "r");
+	FILE* selfkey_pub=fopen(selfkeypath_pub(), "r");
+	if(!selfkey || !selfkey_pub)
 	{
-		if(generate(selfkeypath_pub(), T2PPRIVATEKEY|T2PPUBLICKEY) == -1)
+		if(selfkey) fclose(selfkey);
+		if(selfkey_pub) fclose(selfkey_pub);
+		printf("Selfkey not found, generating...\n");
+		if(generate(selfkeypath(), T2PPRIVATEKEY|T2PPUBLICKEY) == -1)
 		{
 			fprintf(stderr, "Failed to create keypair!\n");
 			return -1;
 		}
+		printf("OK!\n");
 	}
+	fclose(selfkey);
+	fclose(selfkey_pub);
+
 	if(core_socket() == -1)
 	{
 		return -1;
@@ -112,15 +120,20 @@ int core_start(void)
 	{
 		fprintf(stderr, "Cannot set UTF-8 encoding. Please make sure that en_US.UTF-8 encoding is installed.\n");
 	}
-	if(core_init())
+	int ci=core_init();
+	if(ci<0)
 	{
 		fprintf(stderr, "Tapi2p core failed to initialize!\n");
 		return -1;
 	}
-	pubkey_init(&pkey);
-	if(pubkey_load(&pkey, selfkeypath_pub()))
+	else if(ci>0)
+	{// Config file created
+		return 0;
+	}
+
+	if(privkey_load(&deckey, selfkeypath()))
 	{
-		fprintf(stderr, "Failed to start tapi2p! Client's public key failed to load.\n");
+		fprintf(stderr, "Failed to start tapi2p! Client's private key failed to load.\n");
 		return -1;
 	}
 

@@ -101,6 +101,7 @@ int generate(const char* path, unsigned int keys)
 
 	keygen_init();
 	char path2[pathlen+5];
+	memset(path2, 0, pathlen+5);
 	memcpy(path2, path, pathlen);
 	if(keys & T2PPUBLICKEY)
 	{
@@ -110,8 +111,7 @@ int generate(const char* path, unsigned int keys)
 	}
 	if(keys & T2PPRIVATEKEY)
 	{
-		memcpy(path2+pathlen, ".key", 4);
-		if(keygen_bio_init(path2) != 0) return -1;
+		if(keygen_bio_init(path) != 0) return -1;
 		if(generate_privkey() != 0) return -1;
 	}
 	keygen_free();

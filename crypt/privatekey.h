@@ -6,7 +6,7 @@
 struct privkey
 {
 	int m_decryptinit;
-	struct key* m_keydata;
+	struct key m_keydata;
 };
 
 static int m_privkey_decryptinit(struct privkey* pkey);
