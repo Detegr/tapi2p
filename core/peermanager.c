@@ -22,6 +22,20 @@ struct peer* peer_new()
 	return &m_peers[m_peercount++];
 }
 
+int peer_exists(struct peer* p)
+{
+	for(int i=0; i<m_peercount; ++i)
+	{
+		if(strncmp(m_peers[i].addr, p->addr, IPV4_MAX) == 0 &&
+		   m_peers[i].port == p->port &&
+		   &m_peers[i] != p)
+		{
+			return 1;
+		}
+	}
+	return 0;
+}
+
 int peer_remove(struct peer* p)
 {
 	for(int i=0; i<m_peercount; ++i)

@@ -12,12 +12,19 @@ const char* basepath(void)
 		if(tapiroot)
 		{
 			size_t rootlen=strnlen(tapiroot, PATH_MAX);
-			basepath_str=(char*)malloc((rootlen+1) * sizeof(char));
+			int separator=0;
+			if(tapiroot[rootlen-1]!='/') separator=1;
+			basepath_str=(char*)malloc((rootlen+1+separator) * sizeof(char));
 			strncpy(basepath_str, tapiroot, rootlen+1);
+			if(separator)
+			{
+				basepath_str[rootlen]='/';
+				basepath_str[rootlen+1]=0;
+			}
 		}
 		else
 		{
-			const char* tapipath="/.tapi2p";
+			const char* tapipath="/.tapi2p/";
 			tapiroot=getenv("HOME");
 			if(!tapiroot)
 			{
@@ -59,27 +66,27 @@ static const char* getpath(const char* base, const char* add, char** to)
 
 const char* configpath(void)
 {
-	return getpath(basepath(), "/config", &configpath_str);
+	return getpath(basepath(), "config", &configpath_str);
 }
 
 const char* keypath(void)
 {
-	return getpath(basepath(), "/keys", &keypath_str);
+	return getpath(basepath(), "keys/", &keypath_str);
 }
 
 const char* selfkeypath(void)
 {
-	return getpath(keypath(), "/self", &selfkeypath_str);
+	return getpath(keypath(), "self", &selfkeypath_str);
 }
 
 const char* selfkeypath_pub(void)
 {
-	return getpath(keypath(), "/self.pub", &selfkeypath_pub_str);
+	return getpath(keypath(), "self.pub", &selfkeypath_pub_str);
 }
 
 const char* socketpath(void)
 {
-	return getpath(basepath(), "/t2p_core", &socketpath_str);
+	return getpath(basepath(), "t2p_core", &socketpath_str);
 }
 
 void pathmanager_free(void)

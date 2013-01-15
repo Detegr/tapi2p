@@ -26,6 +26,7 @@ int pubkey_load(struct pubkey* pkey, const char* file)
 
 	size_t size=0;
 	FILE* f=fopen(file, "r");
+	if(!f) return -1;
 	fseek(f, 0, SEEK_END);
 	size=ftell(f);
 	fseek(f, 0, SEEK_SET);
