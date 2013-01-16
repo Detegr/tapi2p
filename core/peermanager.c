@@ -1,8 +1,12 @@
 #include "peermanager.h"
+#include <assert.h>
 
+static fd_set m_readset;
+static fd_set m_writeset;
 static int m_peersize=5;
 static int m_peercount=0;
 static struct peer* m_peers=NULL;
+static int m_initialized=0;
 
 struct peer* peer_new()
 {
@@ -20,6 +24,45 @@ struct peer* peer_new()
 	}
 	peer_init(&m_peers[m_peercount]);
 	return &m_peers[m_peercount++];
+}
+
+void peer_writeset(fd_set* set)
+{
+	FD_ZERO(set);
+	memcpy(set, &m_writeset, sizeof(fd_set));
+}
+
+void peer_readset(fd_set* set)
+{
+	FD_ZERO(set);
+	memcpy(set, &m_readset, sizeof(fd_set));
+}
+
+void peer_removefromset(struct peer* p)
+{
+	FD_CLR(p->osock, &m_writeset);
+	FD_CLR(p->isock, &m_writeset);
+	FD_CLR(p->isock, &m_readset);
+}
+
+int peer_addtoset(struct peer* p)
+{
+	if(!m_initialized)
+	{
+		FD_ZERO(&m_readset);
+		FD_ZERO(&m_writeset);
+		m_initialized=1;
+	}
+	assert(p->isock != p->osock);
+	if(p->osock != -1) FD_SET(p->osock, &m_writeset);
+	else if(p->isock != -1) FD_SET(p->isock, &m_writeset);
+	else
+	{
+		fprintf(stderr, "Peer with no sockets!\n");
+		return -1;
+	}
+	FD_SET(p->isock, &m_readset);
+	return 0;
 }
 
 int peer_exists(struct peer* p)

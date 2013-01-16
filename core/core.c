@@ -316,6 +316,7 @@ void* start_network(void* args)
 						close(p->osock);
 						p->osock=-1;
 					}
+					peer_addtoset(p);
 				}
 			}
 		}
