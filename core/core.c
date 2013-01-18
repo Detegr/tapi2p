@@ -6,6 +6,7 @@
 #include "pipemanager.h"
 #include "config.h"
 #include "event.h"
+#include "ptrlist.h"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -211,7 +212,7 @@ static int new_socket(const char* addr, const char* port)
 	return fd;
 }
 
-void* start_network(void* args)
+void* connection_thread(void* args)
 {
 	struct config* conf=getconfig();
 	unsigned short port;
@@ -236,8 +237,9 @@ void* start_network(void* args)
 		int nfds=select(sock_in+1, &set, NULL, NULL, &to);
 		if(nfds>0 && FD_ISSET(sock_in, &set))
 		{
-			for(;nfds>=0;nfds--)
+			for(;nfds>0;nfds--)
 			{
+				printf("NFDS: %d\n", nfds);
 				struct sockaddr addr;
 				socklen_t addrlen = sizeof(addr);
 				int newconn=accept(sock_in, &addr, &addrlen);
@@ -245,7 +247,6 @@ void* start_network(void* args)
 				addr.sa_family=AF_INET;
 				char hbuf[NI_MAXHOST];
 				memset(hbuf, 0, NI_MAXHOST);
-				printf("%d, %d\n", &addr, addrlen);
 				if(getnameinfo(&addr, addrlen, hbuf, sizeof(hbuf), NULL, 0, NI_NUMERICHOST))
 				{
 					fprintf(stderr, "Failed to get name info\n");
@@ -271,7 +272,8 @@ void* start_network(void* args)
 						p->port=port;
 						if(peer_exists(p))
 						{
-							peer_free(p);
+							printf("Peer exists\n");
+							peer_remove(p);
 							continue;
 						}
 					}
@@ -321,9 +323,53 @@ void* start_network(void* args)
 			}
 		}
 	}
-
 	close(sock_in);
 	return 0;
+}
+
+void* read_thread(void* args)
+{
+	fd_set rset;
+	fd_set wset;
+
+	const int BUFLEN=4096;
+	char readbuf[BUFLEN];
+
+	while(run_threads)
+	{
+		peer_readset(&rset);
+		struct timeval to; to.tv_sec=1; to.tv_usec=0;
+		int nfds=select(read_max()+1, &rset, NULL, NULL, &to);
+		if(nfds>0)
+		{
+			ptrlist_t delptrs=list_new();
+
+			struct peer* p;
+			while((p=peer_next()))
+			{
+				if(FD_ISSET(p->isock, &rset))
+				{
+					ssize_t b=recv(p->isock, readbuf, BUFLEN, 0);
+					assert(b<4096); // NYI
+					if(b<=0)
+					{
+						peer_removefromset(p);
+						list_add_node(&delptrs, p);
+					} else printf("%s\n",readbuf);
+				}
+			}
+			struct node* it=delptrs.head;
+			for(;it;it=it->next)
+			{
+				peer_remove((struct peer*)it->item);
+			}
+			list_free(&delptrs);
+		}
+		else if(nfds<0)
+		{
+			perror("read");
+		}
+	}
 }
 
 int core_start(void)
@@ -350,8 +396,10 @@ int core_start(void)
 		return -1;
 	}
 
-	pthread_t network_thread;
-	pthread_create(&network_thread, NULL, &start_network, NULL);
+	pthread_t accept_connections;
+	pthread_t read_connections;
+	pthread_create(&accept_connections, NULL, &connection_thread, NULL);
+	pthread_create(&read_connections, NULL, &read_thread, NULL);
 
 	printf("Tapi2p core started.\n");
 	while(run_threads)
@@ -360,8 +408,10 @@ int core_start(void)
 		struct Event* e=poll_event();
 		if(e) event_free(e);
 	}
-	
+
 	printf("Tapi2p core shutting down...\n");
+	pthread_join(accept_connections, NULL);
+	pthread_join(read_connections, NULL);
 	return 0;
 }
 

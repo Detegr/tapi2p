@@ -17,6 +17,7 @@ add_executable(tapi2p_core \\
 			   core/event.c \\
 			   core/peermanager.c \\
 			   core/pipemanager.c \\
+			   core/ptrlist.c \\
 			   crypt/aes.c \\
 			   crypt/key.c \\
 			   crypt/privatekey.c \\
