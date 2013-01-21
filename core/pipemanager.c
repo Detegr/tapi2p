@@ -26,7 +26,9 @@ void pipe_add(int fd)
 	}
 	if(fd>-1)
 	{
+#ifndef NDEBUG
 		fprintf(stderr, "Maximum number of pipe listeners reached!!\n");
+#endif
 	}
 }
 

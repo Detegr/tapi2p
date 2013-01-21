@@ -33,7 +33,9 @@ static void pipe_accept(void)
 		int fd=accept(core_socket(), NULL, NULL);
 		if(fd>0)
 		{
+#ifndef NDEBUG
 			printf("Pipe connection!\n");
+#endif
 			pipe_add(fd);
 		}
 	}
@@ -243,7 +245,6 @@ void* connection_thread(void* args)
 		{
 			for(;nfds>0;nfds--)
 			{
-				printf("NFDS: %d\n", nfds);
 				struct sockaddr addr;
 				socklen_t addrlen = sizeof(addr);
 				int newconn=accept(sock_in, &addr, &addrlen);
@@ -257,7 +258,9 @@ void* connection_thread(void* args)
 					run_threads=0;
 					return 0;
 				}
+#ifndef NDEBUG
 				printf("Connection from %s:%u\n", hbuf, ntohs(((struct sockaddr_in*)&addr)->sin_port));
+#endif
 				struct configsection* sect;
 				if((sect=config_find_section(conf, hbuf)))
 				{
@@ -269,21 +272,27 @@ void* connection_thread(void* args)
 						port=atoi(ci->val);
 						if(port>65535)
 						{
+#ifndef NDEBUG
 							printf("Invalid port %u for peer %s\n", port, hbuf);
+#endif
 							continue;
 						}
 						p=peer_new();
 						p->port=port;
 						if(peer_exists(p))
 						{
+#ifndef NDEBUG
 							printf("Peer exists\n");
+#endif
 							peer_remove(p);
 							continue;
 						}
 					}
 					else
 					{
+#ifndef NDEBUG
 						printf("No port specified for peer %s\n", hbuf);
+#endif
 						continue;
 					}
 					if((ci=config_find_item(conf, "Keyname", hbuf)))
@@ -297,27 +306,35 @@ void* connection_thread(void* args)
 							strncpy(s, ci->val, ITEM_MAXLEN);
 						} else
 						{
-							fprintf(stderr, "Key path too long.\n");
+#ifndef NDEBUG
+							printf("Key path too long.\n");
+#endif
 							peer_free(p);
 							continue;
 						}
 						if(pubkey_load(&p->key, keybuf))
 						{
+#ifndef NDEBUG
 							printf("Invalid or no key found from %s for peer %s\n", keybuf, hbuf);
+#endif
 							peer_free(p);
 							continue;
 						}
 					}
 					else
 					{
+#ifndef NDEBUG
 						printf("No keyname specified for peer %s\n", hbuf);
+#endif
 						peer_free(p);
 						continue;
 					}
 					p->osock=socket(AF_INET, SOCK_STREAM, 0);
 					if(connect(p->osock, &addr, sizeof(addr)))
 					{
+#ifndef NDEBUG
 						printf("%s not connectable.\n", hbuf);
+#endif
 						p->m_connectable=0;
 						close(p->osock);
 						p->osock=-1;
