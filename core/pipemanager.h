@@ -10,12 +10,13 @@
 
 static fd_set pipeset;
 static int pipe_fds[MAX_PIPE_LISTENERS];
-static int pipe_slot[2];
+static int pipe_slot;
 static int fd_max;
 
 void pipe_init(void);
 void pipe_add(int fd);
 void pipe_remove(int fd);
 struct Event* poll_event(void);
+int send_event(struct Event* e);
 
 #endif

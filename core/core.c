@@ -31,7 +31,11 @@ static void pipe_accept(void)
 	if(nfds>0 && FD_ISSET(core_socket(), &set))
 	{
 		int fd=accept(core_socket(), NULL, NULL);
-		if(fd>0) pipe_add(fd);
+		if(fd>0)
+		{
+			printf("Pipe connection!\n");
+			pipe_add(fd);
+		}
 	}
 }
 
@@ -343,7 +347,6 @@ void* read_thread(void* args)
 		if(nfds>0)
 		{
 			ptrlist_t delptrs=list_new();
-
 			struct peer* p;
 			while((p=peer_next()))
 			{
@@ -355,7 +358,17 @@ void* read_thread(void* args)
 					{
 						peer_removefromset(p);
 						list_add_node(&delptrs, p);
-					} else printf("%s\n",readbuf);
+					}
+					else
+					{// Send received event to core pipe listeners
+						struct Event* e=new_event_fromstr(readbuf);
+						if(e)
+						{
+							printf("%s\n", e->data);
+							send_event(e);
+							event_free(e);
+						}
+					}
 				}
 			}
 			struct node* it=delptrs.head;

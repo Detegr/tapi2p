@@ -2,11 +2,27 @@
 #include <stdlib.h>
 #include <string.h>
 
-void event_init(struct Event* evt, enum Type t)
+void event_init(struct Event* evt, EventType t)
 {
 	evt->m_type=t;
 	evt->data=NULL;
 	evt->next=NULL;
+}
+
+struct Event* new_event_fromstr(const char* str)
+{
+	for(int i=0; i<EVENT_TYPES; ++i)
+	{
+		if(strncmp(str, eventtypes[i], EVENT_LEN) == 0)
+		{
+			struct Event* ret=(struct Event*)malloc(sizeof(struct Event));
+			ret->m_type=i;
+			ret->data=strndup(str+EVENT_LEN, EVENT_MAX-EVENT_LEN);
+			ret->next=NULL;
+			return ret;
+		}
+	}
+	return NULL;
 }
 
 const char* event_str(struct Event* evt)

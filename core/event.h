@@ -7,19 +7,19 @@
 	
 static const char* eventtypes[EVENT_TYPES] = { "EMSG:" };
 
+typedef enum {
+	Message=0
+} EventType;
+
 struct Event
 {
-	enum Type
-	{
-		Message=0
-	} EventType;
-
-	enum Type m_type;
+	EventType m_type;
 	char* data;
 	struct Event* next;
 };
 
-void event_init(struct Event* evt, enum Type t);
+void event_init(struct Event* evt, EventType t);
+struct Event* new_event_fromstr(const char* str);
 int event_set(struct Event* evt, const char* data);
 void event_free(struct Event* evt);
 const char* event_str(struct Event* evt);

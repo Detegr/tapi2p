@@ -9,25 +9,22 @@ void pipe_init(void)
 {
 	FD_ZERO(&pipeset);
 	memset(pipe_fds, -1, MAX_PIPE_LISTENERS*sizeof(int));
-	memset(pipe_slot, 0, 2*sizeof(int));
+	pipe_slot=0;
 }
 
 void pipe_add(int fd)
 {
-	if(fd>fd_max) fd_max=fd;
-	if(pipe_slot[1] != -1)
+	for(int i=0; i<=pipe_slot; ++i)
 	{
-		if(pipe_slot[0] == -1)
+		if(pipe_fds[i]==-1)
 		{
-			pipe_fds[pipe_slot[1]++]=fd;
-		}
-		else
-		{
-			pipe_fds[pipe_slot[0]]=fd;
-			pipe_slot[0]=-1;
+			pipe_fds[pipe_slot++]=fd;
+			FD_SET(fd, &pipeset);
+			if(fd>fd_max) fd_max=fd;
+			fd=-1;
 		}
 	}
-	else
+	if(fd>-1)
 	{
 		fprintf(stderr, "Maximum number of pipe listeners reached!!\n");
 	}
@@ -36,17 +33,17 @@ void pipe_add(int fd)
 void pipe_remove(int fd)
 {
 	int secondmax=0;
-	for(int i=0; pipe_fds[i]!=-1 && i<MAX_PIPE_LISTENERS; ++i)
+	for(int i=0; i<=pipe_slot; ++i)
 	{
-		if(pipe_fds[i]>secondmax && pipe_slot[i]<fd_max) secondmax=i;
+		if(pipe_fds[i]>secondmax && pipe_fds[i]<fd_max) secondmax=i;
 		if(pipe_fds[i] == fd)
 		{
 			pipe_fds[i]=-1;
-			pipe_slot[0]=i;
+			if(i==pipe_slot) pipe_slot--;
+			if(fd==fd_max) fd_max=secondmax;
 			FD_CLR(fd, &pipeset);
 		}
 	}
-	if(fd==fd_max) fd_max=secondmax;
 }
 
 struct Event* poll_event(void)
@@ -62,10 +59,9 @@ struct Event* poll_event(void)
 	if(nfds>0)
 	{
 		struct Event* cur=NULL;
-		for(int i=0; (pipe_fds[i] != -1 || pipe_slot[1] != -1) && i<MAX_PIPE_LISTENERS; ++i)
+		for(int i=0; i<=pipe_slot; ++i)
 		{
-			if(pipe_fds[i] == -1) continue;
-			if(FD_ISSET(pipe_fds[i], &set))
+			if(pipe_fds[i] != -1 && FD_ISSET(pipe_fds[i], &set))
 			{
 				char buf[EVENT_MAX];
 				memset(buf, 0, EVENT_MAX);
@@ -101,3 +97,37 @@ struct Event* poll_event(void)
 	return ret;
 }
 
+int send_event(struct Event* e)
+{
+	struct timeval to;
+	to.tv_sec=1; to.tv_usec=0;
+	fd_set set;
+	memcpy(&set, &pipeset, sizeof(fd_set));
+	int nfds=select(fd_max+1, NULL, &set, NULL, &to);
+	if(nfds>0)
+	{
+		for(int i=0; i<=pipe_slot; ++i)
+		{
+			if(pipe_fds[i] != -1)
+			{
+				char buf[EVENT_MAX];
+				stpncpy(stpncpy(buf, eventtypes[e->m_type], EVENT_LEN), e->data, EVENT_MAX-EVENT_LEN);
+				size_t len=strnlen(buf, EVENT_MAX);
+				if(FD_ISSET(pipe_fds[i], &set))
+				{
+					int s=send(pipe_fds[i], buf, len, 0);
+					if(s<0)
+					{
+						perror("Send");
+					}
+#ifndef NDEBUG
+					else
+					{
+						printf("Sent %d bytes to pipe listener #%d\n", s, pipe_fds[i]);
+					}
+#endif
+				}
+			}
+		}
+	}
+}
