@@ -2,6 +2,8 @@
 
 void peer_init(struct peer* p)
 {
+	pubkey_init(&p->key);
+
 	p->port=0;
 
 	p->m_connectable=1;
@@ -17,4 +19,10 @@ void peer_free(struct peer* p)
 		pthread_join(p->thread, NULL);
 		p->thread=0;
 	}
+	/*
+	if(p->key.m_keydata.m_ctx)
+	{
+		pubkey_free(&p->key);
+	}
+	*/
 }

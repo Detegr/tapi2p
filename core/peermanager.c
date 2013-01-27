@@ -28,8 +28,8 @@ struct peer* peer_new()
 		}
 		else m_peers=newp;
 	}
-	peer_init(&m_peers[m_peercount]);
 	struct peer* ret = &m_peers[m_peercount++];
+	peer_init(ret);
 	pthread_mutex_unlock(&m_lock);
 	return ret;
 }

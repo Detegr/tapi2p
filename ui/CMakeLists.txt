@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 2.8)
+project(test)
+include_directories($OpenSSL_INCLUDE_DIRS)
+add_definitions(-std=c99 -D_GNU_SOURCE -g3 -Wall -Wextra)
+add_executable(tapi2p cli/cli.c ../core/peermanager.c ../core/pathmanager.c ../core/config.c ../crypt/keygen.c ../core/pipemanager.c ../core/peer.c ../core/event.c ../core/ptrlist.c ../crypt/publickey.c ../crypt/privatekey.c ../crypt/key.c ../crypt/aes.c)
+target_link_libraries(tapi2p ssl crypto pthread)

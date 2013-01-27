@@ -1,6 +1,7 @@
 #include "core.h"
 #include "../crypt/publickey.h"
 #include "../crypt/keygen.h"
+#include "../crypt/aes.h"
 #include "peermanager.h"
 #include "pathmanager.h"
 #include "pipemanager.h"
@@ -18,6 +19,16 @@
 #include <netdb.h>
 #include <assert.h>
 #include <limits.h>
+
+static int sock_in;
+static int sock_out;
+
+static int core_socket_fd=-1;
+static int run_threads;
+static struct privkey deckey;
+
+static int core_init(void);
+static int core_socket(void);
 
 static void pipe_accept(void)
 {
@@ -41,7 +52,7 @@ static void pipe_accept(void)
 	}
 }
 
-int core_socket(void)
+static int core_socket(void)
 {
 	if(core_socket_fd == -1)
 	{
@@ -378,10 +389,11 @@ void* read_thread(void* args)
 					}
 					else
 					{// Send received event to core pipe listeners
-						struct Event* e=new_event_fromstr(readbuf);
+						size_t datalen;
+						unsigned char* data=aes_decrypt_with_key(readbuf, b, &deckey, &datalen);
+						struct Event* e=new_event_fromstr(data);
 						if(e)
 						{
-							printf("%s\n", e->data);
 							send_event(e);
 							event_free(e);
 						}

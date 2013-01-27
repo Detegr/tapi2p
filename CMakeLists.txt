@@ -26,3 +26,4 @@ add_executable(tapi2p_core \\
 			   )
 target_link_libraries(tapi2p_core ssl crypto pthread)
 add_subdirectory(test)
+add_subdirectory(ui)

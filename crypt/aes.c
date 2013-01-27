@@ -2,6 +2,26 @@
 #include "publickey.h"
 #include "privatekey.h"
 
+#define ROUNDS 1
+#define BLOCK_SIZE 16
+#define MAGIC_LEN 8
+
+static EVP_CIPHER_CTX	m_Encrypt;
+static EVP_CIPHER_CTX	m_Decrypt;
+
+static unsigned char	m_Salt[8];
+
+static const char*		m_Magic="TAPI2P__";
+
+static unsigned int		m_enclen=0;
+static unsigned char*	m_encdata;
+static unsigned int		m_declen=0;
+static unsigned char*	m_decdata;
+
+static int m_encryptinit(const char* pw, size_t pwlen);
+static int m_decryptinit(const unsigned char* magic, const unsigned char* salt, const unsigned char* pass, struct privkey* privatekey);
+static unsigned char* aes_encrypt_with_pass(unsigned char* data, int len, const char* pw, size_t pwlen, struct pubkey* pubkey, size_t* enclen);
+
 static int m_encryptinit(const char* pw, size_t pwlen)
 {
 	unsigned char buf[48];
@@ -19,28 +39,31 @@ static int m_encryptinit(const char* pw, size_t pwlen)
 	EVP_CIPHER_CTX_cleanup(&m_Encrypt);
 	EVP_CIPHER_CTX_init(&m_Encrypt);
 	if(!EVP_EncryptInit_ex(&m_Encrypt, EVP_aes_256_cbc(), NULL, key, iv)) return -1;
+
+	return 0;
 }
 
-static unsigned char* aes_encrypt_random_pass(unsigned char* data, int len, size_t pwlen, struct pubkey* pubkey)
+unsigned char* aes_encrypt_random_pass(unsigned char* data, int len, size_t pwlen, struct pubkey* pubkey, size_t* enclen)
 {
 	unsigned char pw[pwlen];
 	if(!RAND_bytes(pw, pwlen))
 	{
 		fprintf(stderr, "PRNG _NOT_ SEEDED ENOUGH!!\n");
 	}
-	return aes_encrypt_with_pass(data, len, (const char*)pw, pwlen, pubkey);
+	return aes_encrypt_with_pass(data, len, (const char*)pw, pwlen, pubkey, enclen);
 }
 
-unsigned char* aes_encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, const char* keyname)
+unsigned char* aes_encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, const char* keyname, size_t* enclen)
 {
 	struct pubkey pub;
+	pubkey_init(&pub);
 	pubkey_load(&pub, keyname);
-	unsigned char* encdata=aes_encrypt_with_pass(data,len,pw,pwlen,&pub);
+	unsigned char* encdata=aes_encrypt_with_pass(data,len,pw,pwlen,&pub,enclen);
 	pubkey_free(&pub);
 	return encdata;
 }
 
-static unsigned char* aes_encrypt_with_pass(unsigned char* data, int len, const char* pw, size_t pwlen, struct pubkey* pubkey)
+static unsigned char* aes_encrypt_with_pass(unsigned char* data, int len, const char* pw, size_t pwlen, struct pubkey* pubkey, size_t* enclen)
 {
 	m_encryptinit(pw, pwlen);
 
@@ -74,6 +97,7 @@ static unsigned char* aes_encrypt_with_pass(unsigned char* data, int len, const 
 	memcpy(&m_encdata[MAGIC_LEN+PKCS5_SALT_LEN+sizeof(int)+passlen], c, c_len+f_len);
 	free(encpass);
 
+	*enclen = m_enclen;
 	return m_encdata;
 }
 
@@ -118,16 +142,17 @@ int m_decryptinit(const unsigned char* const magic, const unsigned char* const s
 	return epasslen+sizeof(int);
 }
 
-unsigned char* aes_decrypt(unsigned char* data, int len, const char* keyname)
+unsigned char* aes_decrypt(unsigned char* data, int len, const char* keyname, size_t* declen)
 {
 	struct privkey pk;
+	privkey_init(&pk);
 	privkey_load(&pk, keyname);
-	unsigned char* decdata=aes_decrypt_with_key(data,len,&pk);
+	unsigned char* decdata=aes_decrypt_with_key(data,len,&pk,declen);
 	privkey_free(&pk);
 	return decdata;
 }
 
-static unsigned char* aes_decrypt_with_key(unsigned char* data, int len, struct privkey* privkey)
+unsigned char* aes_decrypt_with_key(unsigned char* data, int len, struct privkey* privkey, size_t* declen)
 {
 	int passlen=m_decryptinit(&data[0], &data[MAGIC_LEN], &data[MAGIC_LEN+PKCS5_SALT_LEN], privkey);
 	int llen=len-MAGIC_LEN-PKCS5_SALT_LEN-passlen;
@@ -155,29 +180,6 @@ static unsigned char* aes_decrypt_with_key(unsigned char* data, int len, struct 
 	m_declen=p_len+f_len;
 	memcpy(&m_decdata[0], p, p_len+f_len);
 
+	*declen=m_declen;
 	return m_decdata;
 }
-/*
-#include <fstream>
-
-int main()
-{
-	try
-	{
-		std::vector<unsigned char>& encdata=AES::Encrypt((unsigned char*)"foobar\n", 7, "password", "key");
-		for(std::vector<unsigned char>::iterator it=encdata.begin(); it!=encdata.end(); ++it)
-		{
-			std::cout << std::hex << (unsigned char)*it;
-		}
-		std::cout << std::endl;
-		std::vector<unsigned char>& decdata=AES::Decrypt(&encdata[0], encdata.size(), "key");
-		for(std::vector<unsigned char>::iterator it=decdata.begin(); it!=decdata.end(); ++it)
-		{
-			std::cout << (char)*it;
-		}
-	} catch(KeyException& e)
-	{
-		std::cerr << e.what() << std::endl;
-	}
-}
-*/

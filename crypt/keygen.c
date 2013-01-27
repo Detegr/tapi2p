@@ -1,6 +1,19 @@
 #include "keygen.h"
 #include <limits.h>
 
+static EVP_PKEY*			m_evpkey	=NULL;
+static RSA*					m_rsa		=NULL;
+static BIGNUM*				m_bignumber	=NULL;
+static BIO*					m_bio		=NULL;
+static PKCS8_PRIV_KEY_INFO*	m_p8info	=NULL;
+static const int RSA_KEY_BITS=4096;
+
+static int keygen_init(void);
+static int keygen_bio_init(const char* path);
+
+static int generate_privkey(void);
+static int generate_pubkey(void);
+
 int keygen_init(void)
 {
 	m_bignumber = BN_new();
@@ -115,4 +128,6 @@ int generate(const char* path, unsigned int keys)
 		if(generate_privkey() != 0) return -1;
 	}
 	keygen_free();
+
+	return 0;
 }

@@ -88,12 +88,12 @@ int pubkey_encrypt(struct pubkey* pkey, const unsigned char* in, size_t inlen, u
 	else
 	{
 		*out=(unsigned char*)malloc(*outlen);
-		memset(*out, 0, *outlen);
 		if(!*out)
 		{
 			fprintf(stderr, "Failed to allocate output buffer\n");
 			return -1;
 		}
+		memset(*out, 0, *outlen);
 		ret=EVP_PKEY_encrypt(pkey->m_keydata.m_ctx, *out, outlen, in, inlen);
 		if(ret<=0)
 		{

@@ -9,7 +9,6 @@ struct privkey
 	struct key m_keydata;
 };
 
-static int m_privkey_decryptinit(struct privkey* pkey);
 void privkey_init(struct privkey* pkey);
 void privkey_free(struct privkey* pkey);
 int privkey_load(struct privkey* key, const char* file);

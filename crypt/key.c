@@ -11,5 +11,6 @@ void key_free(struct key* k)
 {
 	BIO_free_all(k->m_bio);
 	BIO_free_all(k->m_bioerr);
+	if(k->m_ctx) EVP_PKEY_CTX_free(k->m_ctx);
 	memset(k, 0, sizeof(struct key));
 }
