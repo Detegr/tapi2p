@@ -2,7 +2,11 @@ Makefile
 *.pub
 *.key
 .*.swp
+.*.swn
+.*.swo
 CMakeCache.txt
 CMakeFiles/
 *.cmake
 build/
+dtglib/
+tags
