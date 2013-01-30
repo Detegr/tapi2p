@@ -22,6 +22,7 @@ void pipe_add(int fd)
 			FD_SET(fd, &pipeset);
 			if(fd>fd_max) fd_max=fd;
 			fd=-1;
+			break;
 		}
 	}
 	if(fd>-1)
