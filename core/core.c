@@ -448,7 +448,11 @@ int core_start(void)
 	{
 		pipe_accept();
 		struct Event* e=poll_event();
-		if(e) event_free(e);
+		if(e)
+		{
+			printf("Message from pipe client: %s\n", e->data);
+			event_free(e);
+		}
 	}
 
 	printf("Tapi2p core shutting down...\n");

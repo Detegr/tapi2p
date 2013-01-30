@@ -122,6 +122,7 @@ int send_event(struct Event* e)
 					if(s<0)
 					{
 						perror("Send");
+						return -1;
 					}
 #ifndef NDEBUG
 					else
@@ -133,4 +134,5 @@ int send_event(struct Event* e)
 			}
 		}
 	}
+	return 0;
 }

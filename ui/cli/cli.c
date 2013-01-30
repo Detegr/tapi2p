@@ -8,6 +8,7 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <event.h>
 
 int core_socket()
 {
@@ -32,9 +33,11 @@ int core_socket()
 
 int main()
 {
-	printf("Opening %s\n", socketpath());
 	int fd=core_socket();
-	printf("%d\n", fd);
+	struct Event e;
+	event_init(&e, Message, "foobar");
+	event_send(&e, fd);
+	event_free_s(&e);
 	close(fd);
 	return 0;
 }

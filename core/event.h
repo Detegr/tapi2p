@@ -18,10 +18,13 @@ struct Event
 	struct Event* next;
 };
 
-void event_init(struct Event* evt, EventType t);
+void event_init(struct Event* evt, EventType t, const char* data);
 struct Event* new_event_fromstr(const char* str);
 int event_set(struct Event* evt, const char* data);
+int event_send(struct Event* evt, int fd);
 void event_free(struct Event* evt);
-const char* event_str(struct Event* evt);
+void event_free_s(struct Event* evt); // Frees event that is allocated from stack
+
+const char* eventtype_str(struct Event* evt);
 
 #endif
