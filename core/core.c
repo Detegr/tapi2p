@@ -414,6 +414,25 @@ void* read_thread(void* args)
 	}
 }
 
+static int connect_to_peer(struct configitem* peer, char* peer_ip_str)
+{
+	if(!peer) return -1;
+	unsigned short port;
+}
+
+static int connect_to_peers()
+{
+	struct config* conf=getconfig();
+	struct configsection* sect;
+	if(sect=config_find_section(conf, "Peers"))
+	{
+		for(int i=0; i<sect->size; ++i)
+		{
+			connect_to_peer(config_find_item(conf, sect->name, NULL), sect->name);
+		}
+	}
+}
+
 int core_start(void)
 {
 	run_threads=1;
@@ -435,6 +454,12 @@ int core_start(void)
 	if(privkey_load(&deckey, selfkeypath()))
 	{
 		fprintf(stderr, "Failed to start tapi2p! Client's private key failed to load.\n");
+		return -1;
+	}
+
+	if(connect_to_peers())
+	{
+		fprintf(stderr, "Failure when connecting to peers!\n");
 		return -1;
 	}
 
