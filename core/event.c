@@ -1,6 +1,7 @@
 #include "event.h"
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 
 void event_init(struct Event* evt, EventType t, const char* data)
 {
