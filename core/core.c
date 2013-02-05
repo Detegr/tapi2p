@@ -181,18 +181,12 @@ static int new_socket(const char* addr, const char* port)
 		fprintf(stderr, "Failed to create socket!\n");
 		return fd;
 	}
-	int yes=1;
-	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char*)&yes, sizeof(yes));
 
 	if(port)
 	{
-		struct sockaddr_in sa;
-		sa.sin_family=AF_INET;
-		sa.sin_port=htons(atoi(port));
 		if(addr)
 		{
-			memcpy(&sa.sin_addr, ai->ai_addr, sizeof(ai->ai_addr));
-			if(connect(fd, (struct sockaddr*)&sa, sizeof(sa)))
+			if(connect(fd, ai->ai_addr, ai->ai_addrlen))
 			{
 				fprintf(stderr, "Failed to connect to %s:%s\n", addr, port);
 				if(ai) freeaddrinfo(ai);
@@ -202,7 +196,14 @@ static int new_socket(const char* addr, const char* port)
 		}
 		else
 		{
+			int yes=1;
+			setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char*)&yes, sizeof(yes));
+
+			struct sockaddr_in sa;
+			sa.sin_family=AF_INET;
+			sa.sin_port=htons(atoi(port));
 			sa.sin_addr.s_addr=htons(INADDR_ANY);
+
 			if(bind(fd, (struct sockaddr*)&sa, sizeof(sa)))
 			{
 				fprintf(stderr, "Failed to bind socket!\n");
