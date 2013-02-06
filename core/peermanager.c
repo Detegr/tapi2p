@@ -113,8 +113,12 @@ int peer_exists(struct peer* p)
 		   m_peers[i].port == p->port &&
 		   &m_peers[i] != p)
 		{
+			// Return value is a shortcut for tapi2p to use
+			// Basically any nonzero value will do
+			int ret=m_peers[i].isock;
+			assert(ret!=0);
 			pthread_mutex_unlock(&m_lock);
-			return 1;
+			return ret;
 		}
 	}
 	pthread_mutex_unlock(&m_lock);

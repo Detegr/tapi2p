@@ -20,6 +20,8 @@
 #include <assert.h>
 #include <limits.h>
 
+#define SOCKET_ONEWAY -2
+
 static int sock_in;
 static int sock_out;
 
@@ -229,6 +231,46 @@ static int new_socket(const char* addr, const char* port)
 	return fd;
 }
 
+static int check_peer_key(struct peer* p, char* addr, int newconn, struct config* conf)
+{
+	struct configitem* ci;
+	if((ci=config_find_item(conf, "Keyname", addr)))
+	{
+		assert(p);
+		char keybuf[PATH_MAX];
+		char* s=stpncpy(keybuf, keypath(), PATH_MAX);
+		if(strlen(keypath()) + strnlen(ci->val, ITEM_MAXLEN) < PATH_MAX)
+		{
+			strncpy(s, ci->val, ITEM_MAXLEN);
+		} else
+		{
+#ifndef NDEBUG
+			printf("Key path too long.\n");
+#endif
+			peer_free(p);
+			return -1;
+		}
+		if(pubkey_load(&p->key, keybuf))
+		{
+#ifndef NDEBUG
+			printf("Invalid or no key found from %s for peer %s\n", keybuf, addr);
+#endif
+			peer_free(p);
+			return -1;
+		}
+		p->isock=newconn;
+	}
+	else
+	{
+#ifndef NDEBUG
+		printf("No keyname specified for peer %s\n", addr);
+#endif
+		peer_free(p);
+		return -1;
+	}
+	return 0;
+}
+
 void* connection_thread(void* args)
 {
 	struct config* conf=getconfig();
@@ -292,11 +334,23 @@ void* connection_thread(void* args)
 						p->port=port;
 						if(peer_exists(p))
 						{
+							int pisock=-1;
+							if((pisock=check_peer_key(p, hbuf, newconn, conf)) != -1 && p->isock == SOCKET_ONEWAY)
+							{
 #ifndef NDEBUG
-							printf("Peer exists\n");
+								printf("Oneway connection to bidirectional for %s%u\n", hbuf, port);
 #endif
-							peer_remove(p);
-							continue;
+								p->isock=pisock;
+								continue;
+							}
+							else
+							{
+#ifndef NDEBUG
+								printf("Peer exists\n");
+#endif
+								peer_remove(p);
+								continue;
+							}
 						}
 					}
 					else
@@ -306,38 +360,8 @@ void* connection_thread(void* args)
 #endif
 						continue;
 					}
-					if((ci=config_find_item(conf, "Keyname", hbuf)))
-					{
-						assert(p);
-						p->isock=newconn;
-						char keybuf[PATH_MAX];
-						char* s=stpncpy(keybuf, keypath(), PATH_MAX);
-						if(strlen(keypath()) + strnlen(ci->val, ITEM_MAXLEN) < PATH_MAX)
-						{
-							strncpy(s, ci->val, ITEM_MAXLEN);
-						} else
-						{
-#ifndef NDEBUG
-							printf("Key path too long.\n");
-#endif
-							peer_free(p);
-							continue;
-						}
-						if(pubkey_load(&p->key, keybuf))
-						{
-#ifndef NDEBUG
-							printf("Invalid or no key found from %s for peer %s\n", keybuf, hbuf);
-#endif
-							peer_free(p);
-							continue;
-						}
-					}
-					else
-					{
-#ifndef NDEBUG
-						printf("No keyname specified for peer %s\n", hbuf);
-#endif
-						peer_free(p);
+					if(check_peer_key(p, hbuf, newconn, conf))
+					{// Key checking failed
 						continue;
 					}
 					p->osock=socket(AF_INET, SOCK_STREAM, 0);
@@ -348,7 +372,9 @@ void* connection_thread(void* args)
 #endif
 						p->m_connectable=0;
 						close(p->osock);
-						p->osock=-1;
+						// Use special number for outgoing socket
+						// to tell that we currently have a oneway connection
+						p->osock=SOCKET_ONEWAY;
 					}
 					peer_addtoset(p);
 				}
@@ -414,12 +440,6 @@ void* read_thread(void* args)
 	}
 }
 
-static int connect_to_peer(struct configitem* peer, char* peer_ip_str)
-{
-	if(!peer) return -1;
-	unsigned short port;
-}
-
 static int connect_to_peers()
 {
 	struct config* conf=getconfig();
@@ -427,8 +447,27 @@ static int connect_to_peers()
 	if(sect=config_find_section(conf, "Peers"))
 	{
 		for(int i=0; i<sect->size; ++i)
-		{
-			connect_to_peer(config_find_item(conf, sect->name, NULL), sect->name);
+		{// Connect to peers
+			struct configitem* ci=config_find_item(conf, "Port", sect->item[i]->key);
+			if(ci)
+			{
+				int sock=new_socket(sect->name, ci->val);
+				if(sock != -1)
+				{
+					struct peer* p=peer_new();
+					p->osock=sock;
+					// Use special number for incoming socket
+					// to tell that we currently have a oneway connection
+					p->isock=SOCKET_ONEWAY;
+#ifndef NDEBUG
+					printf("Connected to %s:%s\n", sect->name, ci->val);
+#endif
+				}
+			}
+			else
+			{
+				printf("No port specified for peer %s\n", sect->name);
+			}
 		}
 	}
 }
