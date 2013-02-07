@@ -19,14 +19,16 @@
 #include <netdb.h>
 #include <assert.h>
 #include <limits.h>
+#include <signal.h>
 
 #define SOCKET_ONEWAY -2
+
+static volatile sig_atomic_t run_threads=1;
 
 static int sock_in;
 static int sock_out;
 
 static int core_socket_fd=-1;
-static int run_threads;
 static struct privkey deckey;
 
 static int core_init(void);
@@ -235,7 +237,7 @@ static int new_socket(const char* addr, const char* port)
 static int check_peer_key(struct peer* p, char* addr, int newconn, struct config* conf)
 {
 	struct configitem* ci;
-	if((ci=config_find_item(conf, "Keyname", addr)))
+	if((ci=config_find_item(conf, "Key", addr)))
 	{
 		assert(p);
 		char keybuf[PATH_MAX];
@@ -264,7 +266,7 @@ static int check_peer_key(struct peer* p, char* addr, int newconn, struct config
 	else
 	{
 #ifndef NDEBUG
-		printf("No keyname specified for peer %s\n", addr);
+		printf("No key specified for peer %s\n", addr);
 #endif
 		peer_free(p);
 		return -1;
@@ -320,8 +322,10 @@ void* connection_thread(void* args)
 				{
 					struct peer* p;
 					struct configitem* ci;
+					printf("Finding port for %s\n", hbuf);
 					if((ci=config_find_item(conf, "Port", hbuf)))
 					{
+						printf("Found port for %s\n", hbuf);
 						unsigned short port;
 						port=atoi(ci->val);
 						if(port>65535)
@@ -332,26 +336,29 @@ void* connection_thread(void* args)
 							continue;
 						}
 						p=peer_new();
+						strncpy(p->addr, hbuf, IPV4_MAX);
 						p->port=port;
+						struct peer* pp;
+						while((pp=peer_next()))
+						{
+							printf("%s:%u\no:%d\ni:%d\n", pp->addr, pp->port, pp->osock, pp->isock);
+						}
 						if(peer_exists(p))
 						{
-							int pisock=-1;
-							if((pisock=check_peer_key(p, hbuf, newconn, conf)) != -1 && p->isock == SOCKET_ONEWAY)
+							if(check_peer_key(p, hbuf, newconn, conf) == 0)
 							{
 #ifndef NDEBUG
-								printf("Oneway connection to bidirectional for %s%u\n", hbuf, port);
+								printf("Oneway connection to bidirectional for %s:%u\n", hbuf, port);
 #endif
-								p->isock=pisock;
-								continue;
 							}
 							else
 							{
 #ifndef NDEBUG
 								printf("Peer exists\n");
 #endif
-								peer_remove(p);
-								continue;
 							}
+							peer_remove(p);
+							continue;
 						}
 					}
 					else
@@ -366,7 +373,9 @@ void* connection_thread(void* args)
 						continue;
 					}
 					p->osock=socket(AF_INET, SOCK_STREAM, 0);
-					if(connect(p->osock, &addr, sizeof(addr)))
+					((struct sockaddr_in*)&addr)->sin_port=htons(p->port);
+					printf("Connecting %s:%d\n", hbuf, p->port);
+					if(connect(p->osock, &addr, addrlen))
 					{
 #ifndef NDEBUG
 						printf("%s not connectable.\n", hbuf);
@@ -376,7 +385,7 @@ void* connection_thread(void* args)
 						// Use special number for outgoing socket
 						// to tell that we currently have a oneway connection
 						p->osock=SOCKET_ONEWAY;
-					}
+					} else printf("Connected successfully!\n");
 					peer_addtoset(p);
 				}
 			}
@@ -447,21 +456,25 @@ static int connect_to_peers()
 	struct configsection* sect;
 	if(sect=config_find_section(conf, "Peers"))
 	{
-		for(int i=0; i<sect->size; ++i)
+		for(int i=0; i<sect->items; ++i)
 		{// Connect to peers
 			struct configitem* ci=config_find_item(conf, "Port", sect->item[i]->key);
 			if(ci)
 			{
-				int sock=new_socket(sect->name, ci->val);
+				int sock=new_socket(sect->item[i]->key, ci->val);
 				if(sock != -1)
 				{
 					struct peer* p=peer_new();
+					strncpy(p->addr, sect->item[i]->key, IPV4_MAX);
 					p->osock=sock;
 					// Use special number for incoming socket
 					// to tell that we currently have a oneway connection
 					p->isock=SOCKET_ONEWAY;
+					p->port=atoi(ci->val);
+					assert(p->port);
+					peer_addtoset(p);
 #ifndef NDEBUG
-					printf("Connected to %s:%s\n", sect->name, ci->val);
+					printf("Connected to %s:%s\n", sect->item[i]->key, ci->val);
 #endif
 				}
 			}
@@ -471,6 +484,7 @@ static int connect_to_peers()
 			}
 		}
 	}
+	return 0;
 }
 
 int core_start(void)
@@ -497,16 +511,12 @@ int core_start(void)
 		return -1;
 	}
 
-	if(connect_to_peers())
-	{
-		fprintf(stderr, "Failure when connecting to peers!\n");
-		return -1;
-	}
-
 	pthread_t accept_connections;
 	pthread_t read_connections;
 	pthread_create(&accept_connections, NULL, &connection_thread, NULL);
 	pthread_create(&read_connections, NULL, &read_thread, NULL);
+
+	connect_to_peers();
 
 	printf("Tapi2p core started.\n");
 	while(run_threads)
