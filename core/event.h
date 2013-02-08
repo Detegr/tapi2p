@@ -3,28 +3,30 @@
 
 #define EVENT_MAX 1024
 #define EVENT_LEN 5
-#define EVENT_TYPES 1
+#define EVENT_TYPES 2
 	
-static const char* eventtypes[EVENT_TYPES] = { "EMSG:" };
+static const char* eventtypes[EVENT_TYPES] = { "EMSG:", "ELIST" };
 
 typedef enum {
-	Message=0
+	Message=0,
+	ListPeers
 } EventType;
 
-struct Event
+typedef struct event
 {
-	EventType m_type;
+	EventType type;
 	char* data;
-	struct Event* next;
-};
+	struct event* next;
+} evt_t;
 
-void event_init(struct Event* evt, EventType t, const char* data);
-struct Event* new_event_fromstr(const char* str);
-int event_set(struct Event* evt, const char* data);
-int event_send(struct Event* evt, int fd);
-void event_free(struct Event* evt);
-void event_free_s(struct Event* evt); // Frees event that is allocated from stack
+void event_init(evt_t* evt, EventType t, const char* data);
+evt_t* new_event_fromstr(const char* str);
+int event_set(evt_t* evt, const char* data);
+int event_send(evt_t* evt, int fd);
+evt_t* event_recv(int fd);
+void event_free(evt_t* evt);
+void event_free_s(evt_t* evt); // Frees event that is allocated from stack
 
-const char* eventtype_str(struct Event* evt);
+const char* eventtype_str(evt_t* evt);
 
 #endif

@@ -5,6 +5,11 @@
 #include <assert.h>
 #include <sys/socket.h>
 
+static fd_set pipeset;
+static int pipe_fds[MAX_PIPE_LISTENERS];
+static int pipe_slot;
+static int fd_max;
+
 void pipe_init(void)
 {
 	FD_ZERO(&pipeset);
@@ -49,7 +54,7 @@ void pipe_remove(int fd)
 	}
 }
 
-struct Event* poll_event(void)
+evt_t* poll_event(void)
 {
 	struct timeval to;
 	to.tv_sec=1; to.tv_usec=0;
@@ -58,10 +63,10 @@ struct Event* poll_event(void)
 	memcpy(&set, &pipeset, sizeof(fd_set));
 	int nfds=select(fd_max+1, &set, NULL, NULL, &to);
 
-	struct Event* ret=NULL;
+	evt_t* ret=NULL;
 	if(nfds>0)
 	{
-		struct Event* cur=NULL;
+		evt_t* cur=NULL;
 		for(int i=0; i<=pipe_slot; ++i)
 		{
 			if(pipe_fds[i] != -1 && FD_ISSET(pipe_fds[i], &set))
@@ -80,14 +85,14 @@ struct Event* poll_event(void)
 					{
 						if(strncmp(buf, eventtypes[j], EVENT_LEN) == 0)
 						{
-							cur = (struct Event*)malloc(sizeof(struct Event));
-							cur->m_type=j;
+							cur = (evt_t*)malloc(sizeof(evt_t));
+							cur->type=j;
 							cur->data=strndup(buf+EVENT_LEN, EVENT_MAX-EVENT_LEN);
 							cur->next=NULL;
 							if(!ret) ret=cur;
 							else
 							{
-								struct Event* e=ret;
+								evt_t* e=ret;
 								while(e->next) e=e->next;
 								e->next=cur;
 							}
@@ -100,7 +105,7 @@ struct Event* poll_event(void)
 	return ret;
 }
 
-int send_event(struct Event* e)
+int send_event(evt_t* e)
 {
 	struct timeval to;
 	to.tv_sec=1; to.tv_usec=0;
@@ -114,7 +119,7 @@ int send_event(struct Event* e)
 			if(pipe_fds[i] != -1)
 			{
 				char buf[EVENT_MAX];
-				stpncpy(stpncpy(buf, eventtypes[e->m_type], EVENT_LEN), e->data, EVENT_MAX-EVENT_LEN);
+				stpncpy(stpncpy(buf, eventtypes[e->type], EVENT_LEN), e->data, EVENT_MAX-EVENT_LEN);
 				size_t len=strnlen(buf, EVENT_MAX);
 				if(FD_ISSET(pipe_fds[i], &set))
 				{
@@ -122,7 +127,8 @@ int send_event(struct Event* e)
 					if(s<0)
 					{
 						perror("Send");
-						return -1;
+						pipe_remove(pipe_fds[i]);
+						continue;
 					}
 #ifndef NDEBUG
 					else

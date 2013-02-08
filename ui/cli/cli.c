@@ -1,5 +1,6 @@
 #include "../../core/pathmanager.h"
 #include "../../core/event.h"
+#include "../../core/pipemanager.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -180,15 +181,18 @@ int main(int argc, char** argv)
 		}
 	}
 	if(add_peer_args[0] && !(add_peer_args[1] && add_peer_args[2])) usage(usage_add_peer);
-	return 0;
 
-	/*
 	int fd=core_socket();
-	struct Event e;
-	event_init(&e, Message, "foobar");
+	evt_t e;
+	printf("Sending event\n");
+	event_init(&e, ListPeers, NULL);
 	event_send(&e, fd);
 	event_free_s(&e);
+	evt_t* ep=event_recv(fd);
+	if(ep)
+	{
+		printf("%s\n", ep->data);
+	}
 	close(fd);
-	*/
 	return 0;
 }

@@ -100,43 +100,13 @@ static int core_init(void)
 		fprintf(stderr, "Failed to create tapi2p key folder!\n");
 		return -1;
 	}
-	struct config* conf=getconfig();
-	if(!conf->size)
-	{
-		config_add(conf, "Account", "Nick", "Unedited config file");
-		config_add(conf, "Account", "Port", "Port you're going to use for incoming connections, for example 50000");
-		config_add(conf, "xxx.xxx.xxx.xxx", "Keyname", "Path for peer's key file");
-		config_add(conf, "xxx.xxx.xxx.xxx", "Port", "The port your peer uses");
-		FILE* f=fopen(configpath(), "w");
-		config_flush(conf, f);
-		fclose(f);
 
-		FILE* selfkey=fopen(selfkeypath(), "r");
-		FILE* selfkey_pub=fopen(selfkeypath_pub(), "r");
-		if(!selfkey || !selfkey_pub)
-		{
-			if(selfkey) fclose(selfkey);
-			if(selfkey_pub) fclose(selfkey_pub);
-			printf("Selfkey not found, generating...");
-			fflush(stdout);
-			if(generate(selfkeypath(), T2PPRIVATEKEY|T2PPUBLICKEY) == -1)
-			{
-				fprintf(stderr, "Failed to create keypair!\n");
-				return -1;
-			}
-			printf("OK!\n");
-		}
-		printf("Seems like this is the first time you're running Tapi2P\n"
-				"Your config file has been created for you, please edit it now and run Tapi2P again.\n"
-				"The config file you specified is found in %s\n", configpath());
-		return 1;
-	}
 	FILE* selfkey=fopen(selfkeypath(), "r");
 	FILE* selfkey_pub=fopen(selfkeypath_pub(), "r");
 	if(!selfkey || !selfkey_pub)
 	{
-		if(selfkey) fclose(selfkey);
-		if(selfkey_pub) fclose(selfkey_pub);
+		if(selfkey) {fclose(selfkey);selfkey=NULL;}
+		if(selfkey_pub) {fclose(selfkey_pub);selfkey_pub=NULL;}
 		printf("Selfkey not found, generating...");
 		fflush(stdout);
 		if(generate(selfkeypath(), T2PPRIVATEKEY|T2PPUBLICKEY) == -1)
@@ -152,10 +122,15 @@ static int core_init(void)
 		fclose(selfkey_pub);
 	}
 
-	if(core_socket() == -1)
+	struct config* conf=getconfig();
+	if(!conf->size)
 	{
-		return -1;
+		printf("tapi2p needs to be configured before use.\n"
+				"Please set your username and port and restart tapi2p.\n");
+		return 1;
 	}
+
+	if(core_socket() == -1) return -1;
 
 	pipe_init();
 
@@ -427,7 +402,7 @@ void* read_thread(void* args)
 					{// Send received event to core pipe listeners
 						size_t datalen;
 						unsigned char* data=aes_decrypt_with_key(readbuf, b, &deckey, &datalen);
-						struct Event* e=new_event_fromstr(data);
+						evt_t* e=new_event_fromstr(data);
 						if(e)
 						{
 							send_event(e);
@@ -487,6 +462,27 @@ static int connect_to_peers()
 	return 0;
 }
 
+void process_event(evt_t* e)
+{
+	switch(e->type)
+	{
+		case Message:
+			break;
+		case ListPeers:
+		{
+			char data[EVENT_MAX-EVENT_LEN];
+			char* dp=data;
+			struct peer* p;
+			while(p=peer_next())
+			{
+				dp=stpcpy(dp, p->addr);
+			}
+			event_set(e, data);
+			send_event(e);
+		}
+	}
+}
+
 int core_start(void)
 {
 	run_threads=1;
@@ -522,10 +518,10 @@ int core_start(void)
 	while(run_threads)
 	{
 		pipe_accept();
-		struct Event* e=poll_event();
+		evt_t* e=poll_event();
 		if(e)
 		{
-			printf("Message from pipe client: %s\n", e->data);
+			process_event(e);
 			event_free(e);
 		}
 	}
