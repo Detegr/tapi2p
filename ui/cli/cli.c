@@ -113,6 +113,8 @@ int main(int argc, char** argv)
 		{"port",		required_argument, 0, 'p'},
 		{"key",			required_argument, 0, 'k'},
 		{"help",		required_argument, 0, 'h'},
+		{"message",		required_argument, 0, 'm'},
+		{"list",		no_argument		 , 0, 'l'},
 		{0, 0, 0, 0}
 	};
 
@@ -121,7 +123,7 @@ int main(int argc, char** argv)
 	opterr=0;
 	for(;;)
 	{
-		int c=getopt_long(argc, argv, "a:p:k:h:", options, &optind);
+		int c=getopt_long(argc, argv, "a:p:k:h:m:l", options, &optind);
 		if(c==-1) break;
 		switch(c)
 		{
@@ -164,8 +166,33 @@ int main(int argc, char** argv)
 				}
 				return 0;
 			}
+			case 'l':
+			{
+				int fd=core_socket();
+				evt_t e;
+				event_init(&e, ListPeers, NULL);
+				event_send(&e, fd);
+				event_free_s(&e);
+				evt_t* ep=event_recv(fd);
+				if(ep)
+				{
+					printf("%s\n", ep->data);
+				}
+				close(fd);
+				return 0;
+			}
+			case 'm':
+			{
+				int fd=core_socket();
+				evt_t e;
+				event_init(&e, Message, optarg);
+				event_send(&e, fd);
+				event_free_s(&e);
+				return 0;
+			}
 			case '?':
 			{
+				printf("%c\n", optopt);
 				switch(optopt)
 				{
 					case 'a':
@@ -173,7 +200,7 @@ int main(int argc, char** argv)
 					case 'k':
 						usage(usage_add_peer);
 						return 0;
-					case 'h':
+					default:
 						usage(usage_help);
 						return 0;
 				}
@@ -181,18 +208,6 @@ int main(int argc, char** argv)
 		}
 	}
 	if(add_peer_args[0] && !(add_peer_args[1] && add_peer_args[2])) usage(usage_add_peer);
-
-	int fd=core_socket();
-	evt_t e;
-	printf("Sending event\n");
-	event_init(&e, ListPeers, NULL);
-	event_send(&e, fd);
-	event_free_s(&e);
-	evt_t* ep=event_recv(fd);
-	if(ep)
-	{
-		printf("%s\n", ep->data);
-	}
-	close(fd);
+	else usage(usage_help);
 	return 0;
 }
