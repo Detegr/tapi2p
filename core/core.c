@@ -22,6 +22,8 @@
 #include <signal.h>
 
 #define SOCKET_ONEWAY -2
+// Length of the password used to AES encrypt data
+#define PW_LEN 80
 
 static volatile sig_atomic_t run_threads=1;
 
@@ -236,6 +238,12 @@ static int check_peer_key(struct peer* p, char* addr, int newconn, struct config
 			peer_free(p);
 			return -1;
 		}
+		else
+		{
+#ifndef NDEBUG
+			printf("Key %s loaded for peer %s, address %x\n", keybuf, addr, p);
+#endif
+		}
 		p->isock=newconn;
 	}
 	else
@@ -318,9 +326,12 @@ void* connection_thread(void* args)
 						{
 							printf("%s:%u\no:%d\ni:%d\n", pp->addr, pp->port, pp->osock, pp->isock);
 						}
-						if(peer_exists(p))
+						if((pp=peer_exists(p)))
 						{
-							if(check_peer_key(p, hbuf, newconn, conf) == 0)
+							peer_remove(p);
+							// Remove the newly allocated peer and check if 
+							// we have oneway connection with the old one
+							if(check_peer_key(pp, hbuf, newconn, conf) == 0)
 							{
 #ifndef NDEBUG
 								printf("Oneway connection to bidirectional for %s:%u\n", hbuf, port);
@@ -332,7 +343,6 @@ void* connection_thread(void* args)
 								printf("Peer exists\n");
 #endif
 							}
-							peer_remove(p);
 							continue;
 						}
 					}
@@ -403,6 +413,9 @@ void* read_thread(void* args)
 						size_t datalen;
 						unsigned char* data=aes_decrypt_with_key(readbuf, b, &deckey, &datalen);
 						evt_t* e=new_event_fromstr(data);
+#ifndef NDEBUG
+						printf("Got %s\n", data);
+#endif
 						if(e)
 						{
 							send_event(e);
@@ -462,12 +475,50 @@ static int connect_to_peers()
 	return 0;
 }
 
+void send_to_all(unsigned char* data_to_enc, int len)
+{
+	struct peer* p;
+	fd_set wset;
+	peer_writeset(&wset);
+	int nfds=select(write_max()+1, NULL, &wset, NULL, NULL);
+	if(nfds>0)
+	{
+		while(p=peer_next())
+		{
+			int fd;
+			if(p->osock==SOCKET_ONEWAY) fd=p->isock;
+			else fd=p->osock;
+			assert(fd >= 0);
+			assert(fd != SOCKET_ONEWAY);
+			if(FD_ISSET(fd, &wset))
+			{
+				int enclen=0;
+				unsigned char* data=aes_encrypt_random_pass(
+									data_to_enc,
+									len,
+									PW_LEN,
+									&p->key,
+									&enclen);
+				printf("Sending %d bytes to %d\n", enclen, fd);
+				if(send(fd, data, enclen, 0) != enclen)
+				{
+					// TODO: Remove peer on error
+					perror("send");
+				}
+			}
+		}
+	}
+}
+
 void process_event(evt_t* e)
 {
 	switch(e->type)
 	{
 		case Message:
+		{
+			send_to_all(e->data, strnlen(e->data, EVENT_MAX-EVENT_LEN));
 			break;
+		}
 		case ListPeers:
 		{
 			char data[EVENT_MAX-EVENT_LEN];

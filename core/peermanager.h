@@ -15,7 +15,8 @@ void peer_removefromset(struct peer* p);
 // address and the  port of p matches to another peer.
 // Also, it assumes that p is allocated with peer_new()
 // and thus it doesn't check if p itself exists.
-int peer_exists(struct peer* p);
+// Returns the existing peer if peer exists, NULL otherwise
+struct peer* peer_exists(struct peer* p);
 int peer_remove(struct peer* p);
 void peers_free();
 
