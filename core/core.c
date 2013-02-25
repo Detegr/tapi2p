@@ -322,10 +322,12 @@ void* connection_thread(void* args)
 						strncpy(p->addr, hbuf, IPV4_MAX);
 						p->port=port;
 						struct peer* pp;
+						/*
 						while((pp=peer_next()))
 						{
 							printf("%s:%u\no:%d\ni:%d\n", pp->addr, pp->port, pp->osock, pp->isock);
 						}
+						*/
 						if((pp=peer_exists(p)))
 						{
 							peer_remove(p);
@@ -333,6 +335,7 @@ void* connection_thread(void* args)
 							// we have oneway connection with the old one
 							if(check_peer_key(pp, hbuf, newconn, conf) == 0)
 							{
+								peer_updateset(pp);
 #ifndef NDEBUG
 								printf("Oneway connection to bidirectional for %s:%u\n", hbuf, port);
 #endif
@@ -359,7 +362,9 @@ void* connection_thread(void* args)
 					}
 					p->osock=socket(AF_INET, SOCK_STREAM, 0);
 					((struct sockaddr_in*)&addr)->sin_port=htons(p->port);
+#ifndef NDEBUG
 					printf("Connecting %s:%d\n", hbuf, p->port);
+#endif
 					if(connect(p->osock, &addr, addrlen))
 					{
 #ifndef NDEBUG
@@ -370,7 +375,10 @@ void* connection_thread(void* args)
 						// Use special number for outgoing socket
 						// to tell that we currently have a oneway connection
 						p->osock=SOCKET_ONEWAY;
-					} else printf("Connected successfully!\n");
+					}
+#ifndef NDEBUG
+					else printf("Connected successfully!\n");
+#endif
 					peer_addtoset(p);
 				}
 			}
@@ -413,11 +421,11 @@ void* read_thread(void* args)
 						size_t datalen;
 						unsigned char* data=aes_decrypt_with_key(readbuf, b, &deckey, &datalen);
 						evt_t* e=new_event_fromstr(data);
-#ifndef NDEBUG
-						printf("Got %s\n", data);
-#endif
 						if(e)
 						{
+#ifndef NDEBUG
+							printf("Got %s\n", e->data);
+#endif
 							send_event(e);
 							event_free(e);
 						}
@@ -486,7 +494,13 @@ void send_to_all(unsigned char* data_to_enc, int len)
 		while(p=peer_next())
 		{
 			int fd;
-			if(p->osock==SOCKET_ONEWAY) fd=p->isock;
+			if(p->osock==SOCKET_ONEWAY)
+			{
+#ifndef NDEBUG
+				printf("Sending to oneway connection!\n");
+#endif
+				fd=p->isock;
+			}
 			else fd=p->osock;
 			assert(fd >= 0);
 			assert(fd != SOCKET_ONEWAY);
@@ -516,7 +530,10 @@ void process_event(evt_t* e)
 	{
 		case Message:
 		{
-			send_to_all(e->data, strnlen(e->data, EVENT_MAX-EVENT_LEN));
+			char buf[EVENT_MAX];
+			memset(buf, 0, EVENT_MAX);
+			char* end=stpncpy(stpncpy(buf, eventtype_str(e), EVENT_LEN), e->data, e->data_len);
+			send_to_all(buf, end-buf);
 			break;
 		}
 		case ListPeers:

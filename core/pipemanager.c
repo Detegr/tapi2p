@@ -86,9 +86,7 @@ evt_t* poll_event(void)
 						if(strncmp(buf, eventtypes[j], EVENT_LEN) == 0)
 						{
 							cur = (evt_t*)malloc(sizeof(evt_t));
-							cur->type=j;
-							cur->data=strndup(buf+EVENT_LEN, EVENT_MAX-EVENT_LEN);
-							cur->next=NULL;
+							event_init(cur, j, buf+EVENT_LEN);
 							if(!ret) ret=cur;
 							else
 							{

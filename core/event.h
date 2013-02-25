@@ -16,6 +16,7 @@ typedef struct event
 {
 	EventType type;
 	char* data;
+	int data_len;
 	struct event* next;
 } evt_t;
 

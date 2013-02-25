@@ -73,6 +73,15 @@ int write_max()
 	return ret;
 }
 
+int peer_updateset(struct peer* p)
+{
+	pthread_mutex_lock(&m_lock);
+	FD_CLR(p->osock, &m_writeset);
+	FD_CLR(p->osock, &m_readset);
+	pthread_mutex_unlock(&m_lock);
+	return peer_addtoset(p);
+}
+
 int peer_addtoset(struct peer* p)
 {
 	if(m_initialized)
@@ -82,12 +91,12 @@ int peer_addtoset(struct peer* p)
 	}
 	pthread_mutex_lock(&m_lock);
 	assert(p->isock != p->osock);
-	if(p->osock != -1)
+	if(p->osock >= 0)
 	{
 		FD_SET(p->osock, &m_writeset);
 		if(p->osock > write_max_int) write_max_int=p->osock;
 	}
-	else if(p->isock != -1)
+	else if(p->isock >= 0)
 	{
 		FD_SET(p->isock, &m_writeset);
 		if(p->isock > write_max_int) write_max_int=p->isock;
@@ -98,8 +107,11 @@ int peer_addtoset(struct peer* p)
 		fprintf(stderr, "Peer with no sockets!\n");
 		return -1;
 	}
-	FD_SET(p->isock, &m_readset);
-	if(p->isock > read_max_int) read_max_int=p->isock;
+	if(p->isock >= 0)
+	{
+		FD_SET(p->isock, &m_readset);
+		if(p->isock > read_max_int) read_max_int=p->isock;
+	}
 	pthread_mutex_unlock(&m_lock);
 	return 0;
 }

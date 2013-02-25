@@ -10,6 +10,7 @@ struct peer* peer_new();
 void peer_writeset(fd_set* set);
 void peer_readset(fd_set* set);
 int peer_addtoset(struct peer* p);
+int peer_updateset(struct peer* p);
 void peer_removefromset(struct peer* p);
 // Does not do any clever checking, just checks if the
 // address and the  port of p matches to another peer.
