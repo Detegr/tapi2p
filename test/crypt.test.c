@@ -29,7 +29,7 @@ int main()
 	privkey_init(&privkey);
 	privkey_load(&privkey, "test");
 	unsigned char* decdata=aes_decrypt_with_key(data, len, &privkey, &declen);
-	for(int i=0; i<declen; ++i)
+	for(unsigned int i=0; i<declen; ++i)
 	{
 		printf("%c", decdata[i]);
 	}

@@ -506,7 +506,7 @@ void send_to_all(unsigned char* data_to_enc, int len)
 			assert(fd != SOCKET_ONEWAY);
 			if(FD_ISSET(fd, &wset))
 			{
-				int enclen=0;
+				size_t enclen=0;
 				unsigned char* data=aes_encrypt_random_pass(
 									data_to_enc,
 									len,

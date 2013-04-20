@@ -4,6 +4,8 @@
 #include <sys/socket.h>
 #include <stdio.h>
 
+const char* eventtypes[EVENT_TYPES] = { "EMSG:", "ELIST" };
+
 void event_init(evt_t* evt, EventType t, const char* data)
 {
 	evt->type=t;

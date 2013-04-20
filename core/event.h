@@ -5,7 +5,7 @@
 #define EVENT_LEN 5
 #define EVENT_TYPES 2
 	
-static const char* eventtypes[EVENT_TYPES] = { "EMSG:", "ELIST" };
+extern const char* eventtypes[EVENT_TYPES];
 
 typedef enum {
 	Message=0,

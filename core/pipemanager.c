@@ -124,7 +124,7 @@ int send_event(evt_t* e)
 					int s=send(pipe_fds[i], buf, len, 0);
 					if(s<0)
 					{
-						perror("Send");
+						//perror("Send");
 						pipe_remove(pipe_fds[i]);
 						continue;
 					}
