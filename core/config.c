@@ -106,8 +106,9 @@ void config_add(struct config* conf, const char* section, const char* key, const
 		struct configitem* item;
 		if((item=config_find_item(conf, key, section)))
 		{
-			free(item->val);
-			item->val=strdup(val);
+			if(item->val) free(item->val);
+			if(val) item->val=strdup(val);
+			else item->val=NULL;
 		}
 		else item_add(sect, key, val);
 	}
