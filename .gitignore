@@ -8,5 +8,4 @@ CMakeCache.txt
 CMakeFiles/
 *.cmake
 build/
-dtglib/
 tags

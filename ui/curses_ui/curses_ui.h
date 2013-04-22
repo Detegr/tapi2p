@@ -2,7 +2,7 @@
 #include <string>
 #include <list>
 #include <vector>
-#include <ncursesw/cursesw.h>
+#include <cursesw.h>
 #include "dtglib/Concurrency.h"
 #include <iostream>
 

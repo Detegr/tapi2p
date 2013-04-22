@@ -1,4 +1,4 @@
-#include "ui.h"
+#include "curses_ui.h"
 #include <string.h>
 #include <signal.h>
 #include "PeerManager.h"

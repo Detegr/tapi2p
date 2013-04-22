@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 2.8)
+project(tapi2pc)
+find_package(Curses REQUIRED)
+include_directories(${PROJECT_SOURCE_DIR}/..)
+add_library(dtglib STATIC ../dtglib/Concurrency.cpp ../dtglib/Network.cpp ../dtglib/Packet.cpp)
+add_definitions(-D_GNU_SOURCE -g3 -Wall -Wextra -std=c++11)
+add_executable(tapi2pc curses_ui.cpp)
+target_link_libraries(tapi2pc ssl crypto pthread)
