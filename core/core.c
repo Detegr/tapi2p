@@ -34,7 +34,7 @@ static int core_socket_fd=-1;
 static struct privkey deckey;
 
 static int core_init(void);
-static int core_socket(void);
+static int create_core_socket(void);
 
 static void pipe_accept(void)
 {
@@ -42,12 +42,12 @@ static void pipe_accept(void)
 	to.tv_sec=0; to.tv_usec=0;
 
 	fd_set set;
-	FD_SET(core_socket(), &set);
+	FD_SET(create_core_socket(), &set);
 
-	int nfds=select(core_socket()+1, &set, NULL, NULL, &to);
-	if(nfds>0 && FD_ISSET(core_socket(), &set))
+	int nfds=select(create_core_socket()+1, &set, NULL, NULL, &to);
+	if(nfds>0 && FD_ISSET(create_core_socket(), &set))
 	{
-		int fd=accept(core_socket(), NULL, NULL);
+		int fd=accept(create_core_socket(), NULL, NULL);
 		if(fd>0)
 		{
 #ifndef NDEBUG
@@ -58,7 +58,7 @@ static void pipe_accept(void)
 	}
 }
 
-static int core_socket(void)
+static int create_core_socket(void)
 {
 	if(core_socket_fd == -1)
 	{
@@ -88,6 +88,27 @@ static int core_socket(void)
 		core_socket_fd=fd;
 	}
 	return core_socket_fd;
+}
+
+int core_socket()
+{
+	struct sockaddr_un u;
+	int fd=socket(AF_UNIX, SOCK_STREAM, 0);
+	if(fd<=0)
+	{
+		fprintf(stderr, "Error creating unix socket!\n");
+		return -1;
+	}
+	memset(&u, 0, sizeof(struct sockaddr_un));
+	u.sun_family=AF_UNIX;
+	strcpy(u.sun_path, socketpath());
+	if(connect(fd, (struct sockaddr*)&u, sizeof(u)))
+	{
+		perror("Connect");
+		return -1;
+	}
+
+	return fd;
 }
 
 static int core_init(void)
@@ -132,7 +153,7 @@ static int core_init(void)
 		return 1;
 	}
 
-	if(core_socket() == -1) return -1;
+	if(create_core_socket() == -1) return -1;
 
 	pipe_init();
 

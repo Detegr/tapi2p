@@ -3,5 +3,6 @@
 
 int core_start(void);
 void core_stop(void);
+int core_socket(void);
 
 #endif
