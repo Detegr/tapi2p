@@ -19,14 +19,14 @@ void peer_removefromset(struct peer* p);
 // Returns the existing peer if peer exists, NULL otherwise
 struct peer* peer_exists(struct peer* p);
 int peer_remove(struct peer* p);
-void peers_free();
+void peers_free(void);
 
-int read_max();
-int write_max();
+int read_max(void);
+int write_max(void);
 
 // Used to iterate through all peers.
 // Will handle locking automatically
 // and release the lock when done.
-struct peer* peer_next();
+struct peer* peer_next(void);
 
 #endif

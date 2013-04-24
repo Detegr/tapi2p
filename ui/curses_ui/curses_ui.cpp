@@ -1,9 +1,27 @@
 #include "curses_ui.h"
-#include <string.h>
-#include <signal.h>
-#include "PeerManager.h"
-#include "PathManager.h"
-#include "Config.h"
+#include <cstring>
+
+extern "C"
+{
+	#include <signal.h>
+	#include "core/peermanager.h"
+	#include "core/pathmanager.h"
+	#include "core/config.h"
+}
+
+std::wstring GetItem(struct config* c, const std::string& section, const std::string& key)
+{
+	struct configitem* i=config_find_item(c, section.c_str(), key.c_str());
+	if(i && i->val)
+	{
+		std::string valstr=i->val;
+		std::wstring ret;
+		ret.resize(valstr.length());
+		std::copy(valstr.begin(), valstr.end(), ret.begin());
+		return ret;
+	}
+	return L"";
+}
 
 namespace tapi2p
 {
@@ -82,8 +100,8 @@ namespace tapi2p
 		keypad(Input.Win(),TRUE);
 		keypad(stdscr,TRUE);
 
-		Config& conf = PathManager::GetConfig();
-		WriteLine(Main(), L"Welcome to tapi2p, " + conf.Getw("Account", "Nick"));
+		struct config* conf=getconfig();
+		WriteLine(Main(), L"Welcome to tapi2p, " + GetItem(conf, "Nick", "Account"));
 	}
 	void UI::CheckSize()
 	{
@@ -118,22 +136,21 @@ namespace tapi2p
 
 	void UI::Update()
 	{
-		Config& c = PathManager::GetConfig();
+		struct config* conf=getconfig();
 		m_Lock.M_Lock();
 		Peers.Clear();
-		std::vector<Peer*> peers=PeerManager::Do();
-		for(std::vector<Peer*>::const_iterator pt=peers.begin(); pt!=peers.end(); ++pt)
+		struct peer* p=NULL;
+		while((p=peer_next()))
 		{
 			bool oneway=true;
-			if((*pt)->m_Connectable && (*pt)->Sock_In.M_Fd()>0)
+			if(p->m_connectable && p->isock>0)
 			{
-				WriteLine(Peers, c.Getw((*pt)->Sock_In.M_Ip().M_ToString(), "Nick"));
+				WriteLine(Peers, GetItem(conf, p->addr, "Nick"));
 				oneway=false;
 			}
-			else if(oneway) WriteLine(Peers, c.Getw((*pt)->Sock_Out.M_Ip().M_ToString(), "Nick") + L" [One-way]");
+			else if(oneway) WriteLine(Peers, GetItem(conf, p->addr, "Nick") + L" [One-way]");
 		}
-		if(peers.empty()) tapi2p::UI::WriteLine(Peers, L"");
-		PeerManager::Done();
+		tapi2p::UI::WriteLine(Peers, L"");
 		m_Lock.M_Unlock();
 	}
 

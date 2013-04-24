@@ -49,7 +49,7 @@ namespace tapi2p
 				m_Window=newwin(h,w,y,x);
 				if(activate) Refresh();
 			}
-			Window(const Window& rhs)
+			Window(const Window& rhs) : WindowBase()
 			{
 				m_Width=rhs.m_Width;
 				m_Height=rhs.m_Height;
@@ -158,6 +158,7 @@ namespace tapi2p
 					m_PosY=rhs.m_PosY;
 					m_Window=rhs.m_Window;
 				}
+				return *this;
 			}
 			virtual void Clear()
 			{
@@ -213,7 +214,8 @@ namespace tapi2p
 			std::wstring	m_Name;
 		public:
 			TabWindow() : m_Added(false), m_Static(false), m_Dirty(false) {}
-			TabWindow(const std::wstring& name, int w, int h, int x, int y, bool activate=true) : m_Added(false), m_Static(false), m_Dirty(false), m_Name(name), Window(w,h,x,y,activate) {}
+			TabWindow(const std::wstring& name, int w, int h, int x, int y, bool activate=true) : Window(w,h,x,y,activate), m_Added(false), m_Static(false), m_Dirty(false), m_Name(name) {}
+			virtual ~TabWindow() {}
 			const std::wstring& Name() const { return m_Name; }
 			void SetStatic() { m_Static=true; }
 			bool Static() const { return m_Static; }
