@@ -447,7 +447,7 @@ void* read_thread(void* args)
 #ifndef NDEBUG
 							printf("Got %s\n", e->data);
 #endif
-							send_event(e);
+							send_event_to_pipes(e);
 							event_free(e);
 						}
 					}
@@ -551,14 +551,14 @@ void process_event(evt_t* e)
 	{
 		case Message:
 		{
-			char buf[EVENT_MAX];
-			memset(buf, 0, EVENT_MAX);
-			char* end=stpncpy(stpncpy(buf, eventtype_str(e), EVENT_LEN), e->data, e->data_len);
-			send_to_all(buf, end-buf);
+			char* estr=event_tostr(e);
+			send_to_all(estr, e->data_len + EVENT_HEADER);
+			free(estr);
 			break;
 		}
 		case ListPeers:
 		{
+			/*
 			char data[EVENT_MAX-EVENT_LEN];
 			char* dp=data;
 			struct peer* p;
@@ -568,6 +568,7 @@ void process_event(evt_t* e)
 			}
 			event_set(e, data);
 			send_event(e);
+			*/
 		}
 	}
 }
@@ -607,7 +608,7 @@ int core_start(void)
 	while(run_threads)
 	{
 		pipe_accept();
-		evt_t* e=poll_event();
+		evt_t* e=poll_event_from_pipes();
 		if(e)
 		{
 			process_event(e);

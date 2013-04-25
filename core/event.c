@@ -4,7 +4,9 @@
 #include <sys/socket.h>
 #include <stdio.h>
 
-const char* eventtypes[EVENT_TYPES] = { "EMSG:", "ELIST" };
+#define CBMAX 32 // Because I'm lazy
+
+static EventCallback* callbacks[EventCount]={0};
 
 void event_init(evt_t* evt, EventType t, const char* data)
 {
@@ -19,14 +21,14 @@ void event_init(evt_t* evt, EventType t, const char* data)
 
 evt_t* new_event_fromstr(const char* str)
 {
-	for(int i=0; i<EVENT_TYPES; ++i)
+	for(unsigned int i=0; i<EventCount; ++i)
 	{
-		if(strncmp(str, eventtypes[i], EVENT_LEN) == 0)
+		if(*(unsigned char*)&str[0] == i)
 		{
 			evt_t* ret=(evt_t*)malloc(sizeof(evt_t));
 			ret->type=i;
-			ret->data=strndup(str+EVENT_LEN, EVENT_MAX-EVENT_LEN-1);
-			ret->data_len=strnlen(ret->data, EVENT_MAX-EVENT_LEN-1);
+			ret->data=strndup(str+EVENT_HEADER, *(unsigned int*)&str[1]);
+			ret->data_len=strnlen(ret->data, EVENT_DATALEN);
 			ret->next=NULL;
 			return ret;
 		}
@@ -34,15 +36,19 @@ evt_t* new_event_fromstr(const char* str)
 	return NULL;
 }
 
-const char* eventtype_str(evt_t* evt)
+char* event_tostr(evt_t* e)
 {
-	return eventtypes[evt->type];
+	char* str=malloc(EVENT_MAX * sizeof(char));
+	memcpy(str, &e->type, sizeof(unsigned char));
+	memcpy(str+1, &e->data_len, sizeof(unsigned int));
+	strncpy(str+EVENT_HEADER, e->data, EVENT_DATALEN);
+	return str;
 }
 
 int event_set(evt_t* evt, const char* data)
 {
-	evt->data = strndup(data, EVENT_MAX-EVENT_LEN-1);
-	evt->data_len = strnlen(evt->data, EVENT_MAX-EVENT_LEN-1);
+	evt->data = strndup(data, EVENT_DATALEN);
+	evt->data_len = strnlen(evt->data, EVENT_DATALEN);
 	return evt->data == NULL;
 }
 
@@ -64,28 +70,79 @@ int event_send(evt_t* evt, int fd)
 {
 	char buf[EVENT_MAX];
 	memset(buf, 0, EVENT_MAX);
-	char* p=stpncpy(buf, eventtype_str(evt), EVENT_LEN);
+	memcpy(buf, &evt->type, sizeof(unsigned char));
 	if(evt->data)
 	{
-		stpncpy(p, evt->data, evt->data_len);
+		memcpy(buf+1, &evt->data_len, sizeof(unsigned int));
+		strncpy(buf+EVENT_HEADER, evt->data, evt->data_len);
 	}
-	if(send(fd, buf, strnlen(buf, EVENT_MAX), 0) < 0) return -1;
+	if(send(fd, buf, EVENT_HEADER+evt->data_len, 0) < 0) return -1;
 	return 0;
 }
 
-evt_t* event_recv(int fd)
+evt_t* event_recv(int fd, int* status)
 {
 	char buf[EVENT_MAX];
+	int b;
 
-	if(recv(fd, buf, EVENT_LEN, 0) != EVENT_LEN)
+	printf("Receiving event\n");
+	if((b=recv(fd, buf, EVENT_HEADER, 0)) != EVENT_HEADER)
 	{
+		if(b==0)
+		{
+			if(status) *status = 1;
+			return NULL;
+		}
 		fprintf(stderr, "Failed to read event type\n");
+		if(status) *status=-1;
 		return NULL;
 	}
-	if(recv(fd, buf+EVENT_LEN, EVENT_MAX-EVENT_LEN, 0) < 0)
+	if(recv(fd, buf+EVENT_HEADER, *(unsigned int*)&buf[1], 0) < 0)
 	{
 		fprintf(stderr, "Failed to read event\n");
+		if(status) *status=-2;
 		return NULL;
 	}
-	return new_event_fromstr(buf);
+
+	evt_t* e=new_event_fromstr(buf);
+
+	if(callbacks[e->type])
+	{
+		for(int j=0; j<CBMAX; ++j)
+		{
+			if(callbacks[e->type][j]) callbacks[e->type][j](e->data);
+		}
+	}
+
+	if(status) *status=0;
+	return e;
+}
+
+void event_addlistener(EventType t, EventCallback cb)
+{
+	EventCallback* cbs=callbacks[t];
+	if(!cbs)
+	{
+		cbs=malloc(CBMAX*sizeof(EventCallback*));
+		memset(cbs, 0, CBMAX*sizeof(EventCallback*));
+		callbacks[t]=cbs;
+	}
+	for(int i=0; i<CBMAX; ++i)
+	{
+		if(!cbs[i]) {cbs[i]=cb; return;}
+	}
+	fprintf(stderr, "Maximum number of callbacks already defined, not adding a new one!\n");
+	return;
+}
+
+void eventsystem_start(void)
+{
+}
+
+void eventsystem_stop(void)
+{
+	for(int i=0; i<EventCount; ++i)
+	{
+		if(callbacks[i]) free(callbacks[i]);
+	}
 }

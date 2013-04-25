@@ -238,7 +238,7 @@ int main(int argc, char** argv)
 				event_init(&e, ListPeers, NULL);
 				event_send(&e, fd);
 				event_free_s(&e);
-				evt_t* ep=event_recv(fd);
+				evt_t* ep=event_recv(fd, NULL);
 				if(ep)
 				{
 					printf("%s\n", ep->data);

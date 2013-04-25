@@ -11,7 +11,7 @@
 void pipe_init(void);
 void pipe_add(int fd);
 void pipe_remove(int fd);
-evt_t* poll_event(void);
-int send_event(evt_t* e);
+evt_t* poll_event_from_pipes(void);
+int send_event_to_pipes(evt_t* e);
 
 #endif

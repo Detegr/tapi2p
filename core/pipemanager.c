@@ -54,7 +54,7 @@ void pipe_remove(int fd)
 	}
 }
 
-evt_t* poll_event(void)
+evt_t* poll_event_from_pipes(void)
 {
 	struct timeval to;
 	to.tv_sec=1; to.tv_usec=0;
@@ -71,31 +71,19 @@ evt_t* poll_event(void)
 		{
 			if(pipe_fds[i] != -1 && FD_ISSET(pipe_fds[i], &set))
 			{
-				char buf[EVENT_MAX];
-				memset(buf, 0, EVENT_MAX);
-				int b=recv(pipe_fds[i], buf, EVENT_MAX, 0);
-				if(b==EVENT_MAX)
+				int s;
+				cur=event_recv(pipe_fds[i], &s);
+				if(s==1)
 				{
-					fprintf(stderr, "Unlikely case, NYI\n");
-					assert(0);
+					pipe_remove(pipe_fds[i]);
+					continue;
 				}
-				else if(b>0)
+				if(!ret) ret=cur;
+				else
 				{
-					for(int j=0; j<EVENT_TYPES; ++j)
-					{
-						if(strncmp(buf, eventtypes[j], EVENT_LEN) == 0)
-						{
-							cur = (evt_t*)malloc(sizeof(evt_t));
-							event_init(cur, j, buf+EVENT_LEN);
-							if(!ret) ret=cur;
-							else
-							{
-								evt_t* e=ret;
-								while(e->next) e=e->next;
-								e->next=cur;
-							}
-						}
-					}
+					evt_t* e=ret;
+					while(e->next) e=e->next;
+					e->next=cur;
 				}
 			}
 		}
@@ -103,7 +91,7 @@ evt_t* poll_event(void)
 	return ret;
 }
 
-int send_event(evt_t* e)
+int send_event_to_pipes(evt_t* e)
 {
 	struct timeval to;
 	to.tv_sec=1; to.tv_usec=0;
@@ -116,12 +104,9 @@ int send_event(evt_t* e)
 		{
 			if(pipe_fds[i] != -1)
 			{
-				char buf[EVENT_MAX];
-				stpncpy(stpncpy(buf, eventtypes[e->type], EVENT_LEN), e->data, EVENT_MAX-EVENT_LEN);
-				size_t len=strnlen(buf, EVENT_MAX);
 				if(FD_ISSET(pipe_fds[i], &set))
 				{
-					int s=send(pipe_fds[i], buf, len, 0);
+					int s=event_send(e, pipe_fds[i]);
 					if(s<0)
 					{
 						//perror("Send");
