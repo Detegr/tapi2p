@@ -545,32 +545,25 @@ void send_to_all(unsigned char* data_to_enc, int len)
 	}
 }
 
-void process_event(evt_t* e)
+static void handlemessage(evt_t* e)
 {
-	switch(e->type)
+	char* estr=event_tostr(e);
+	send_to_all(estr, e->data_len + EVENT_HEADER);
+	free(estr);
+}
+
+static void handlelistpeers(evt_t* e)
+{
+	printf("ListPeers\n");
+	char data[EVENT_DATALEN];
+	char* dp=data;
+	struct peer* p;
+	while(p=peer_next())
 	{
-		case Message:
-		{
-			char* estr=event_tostr(e);
-			send_to_all(estr, e->data_len + EVENT_HEADER);
-			free(estr);
-			break;
-		}
-		case ListPeers:
-		{
-			/*
-			char data[EVENT_MAX-EVENT_LEN];
-			char* dp=data;
-			struct peer* p;
-			while(p=peer_next())
-			{
-				dp=stpcpy(dp, p->addr);
-			}
-			event_set(e, data);
-			send_event(e);
-			*/
-		}
+		dp=stpcpy(dp, p->addr);
 	}
+	event_set(e, data);
+	event_send(e, e->fd_from);
 }
 
 int core_start(void)
@@ -605,15 +598,13 @@ int core_start(void)
 	connect_to_peers();
 
 	printf("Tapi2p core started.\n");
+	event_addlistener(Message, &handlemessage);
+	event_addlistener(ListPeers, &handlelistpeers);
 	while(run_threads)
 	{
 		pipe_accept();
 		evt_t* e=poll_event_from_pipes();
-		if(e)
-		{
-			process_event(e);
-			event_free(e);
-		}
+		if(e) event_free(e);
 	}
 
 	printf("Tapi2p core shutting down...\n");

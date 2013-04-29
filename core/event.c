@@ -85,7 +85,6 @@ evt_t* event_recv(int fd, int* status)
 	char buf[EVENT_MAX];
 	int b;
 
-	printf("Receiving event\n");
 	if((b=recv(fd, buf, EVENT_HEADER, 0)) != EVENT_HEADER)
 	{
 		if(b==0)
@@ -97,20 +96,25 @@ evt_t* event_recv(int fd, int* status)
 		if(status) *status=-1;
 		return NULL;
 	}
-	if(recv(fd, buf+EVENT_HEADER, *(unsigned int*)&buf[1], 0) < 0)
+	unsigned int datasize=*(unsigned int*)&buf[1];
+	if(datasize>0)
 	{
-		fprintf(stderr, "Failed to read event\n");
-		if(status) *status=-2;
-		return NULL;
+		if(recv(fd, buf+EVENT_HEADER, datasize, 0) < 0)
+		{
+			fprintf(stderr, "Failed to read event\n");
+			if(status) *status=-2;
+			return NULL;
+		}
 	}
 
 	evt_t* e=new_event_fromstr(buf);
+	e->fd_from=fd;
 
 	if(callbacks[e->type])
 	{
 		for(int j=0; j<CBMAX; ++j)
 		{
-			if(callbacks[e->type][j]) callbacks[e->type][j](e->data);
+			if(callbacks[e->type][j]) callbacks[e->type][j](e);
 		}
 	}
 

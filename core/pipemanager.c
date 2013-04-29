@@ -57,7 +57,7 @@ void pipe_remove(int fd)
 evt_t* poll_event_from_pipes(void)
 {
 	struct timeval to;
-	to.tv_sec=1; to.tv_usec=0;
+	to.tv_sec=0; to.tv_usec=100000;
 
 	fd_set set;
 	memcpy(&set, &pipeset, sizeof(fd_set));

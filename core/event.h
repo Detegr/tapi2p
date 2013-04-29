@@ -1,6 +1,8 @@
 #ifndef TAPI2P_EVENT_H
 #define TAPI2P_EVENT_H
 
+#include <stdlib.h>
+
 #define EVENT_MAX 1024
 #define EVENT_HEADER 5
 #define EVENT_DATALEN (EVENT_MAX-EVENT_HEADER)
@@ -14,6 +16,7 @@ typedef enum {
 
 typedef struct event
 {
+	int fd_from;
 	EventType type;
 	char* data;
 	unsigned int data_len;
@@ -32,7 +35,7 @@ evt_t* event_recv(int fd, int* status);
 void event_free(evt_t* evt);
 void event_free_s(evt_t* evt); // Frees event that is allocated from stack
 
-typedef void (*EventCallback)(void* args);
+typedef void (*EventCallback)(evt_t* e);
 void event_addlistener(EventType t, EventCallback cb);
 
 const char* eventtype_str(evt_t* evt);
