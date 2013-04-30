@@ -31,6 +31,7 @@ evt_t* new_event_fromstr(const char* str);
 char* event_tostr(evt_t* e);
 int event_set(evt_t* evt, const char* data);
 int event_send(evt_t* evt, int fd);
+int event_send_simple(EventType t, const unsigned char* data, unsigned int data_len, int fd);
 evt_t* event_recv(int fd, int* status);
 void event_free(evt_t* evt);
 void event_free_s(evt_t* evt); // Frees event that is allocated from stack

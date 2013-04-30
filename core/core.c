@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <signal.h>
+#include <stdlib.h>
 
 #define SOCKET_ONEWAY -2
 // Length of the password used to AES encrypt data

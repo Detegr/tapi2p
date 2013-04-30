@@ -26,9 +26,10 @@ evt_t* new_event_fromstr(const char* str)
 		if(*(unsigned char*)&str[0] == i)
 		{
 			evt_t* ret=(evt_t*)malloc(sizeof(evt_t));
+			ret->data_len=*(unsigned int*)(str+1);
+			ret->data=calloc(ret->data_len, 1);
 			ret->type=i;
-			ret->data=strndup(str+EVENT_HEADER, *(unsigned int*)&str[1]);
-			ret->data_len=strnlen(ret->data, EVENT_DATALEN);
+			memcpy(ret->data, str+EVENT_HEADER, ret->data_len);
 			ret->next=NULL;
 			return ret;
 		}
@@ -77,6 +78,20 @@ int event_send(evt_t* evt, int fd)
 		strncpy(buf+EVENT_HEADER, evt->data, evt->data_len);
 	}
 	if(send(fd, buf, EVENT_HEADER+evt->data_len, 0) < 0) return -1;
+	return 0;
+}
+
+int event_send_simple(EventType t, const unsigned char* data, unsigned int data_len, int fd)
+{
+	char buf[EVENT_MAX];
+	memset(buf, 0, EVENT_MAX);
+	memcpy(buf, &t, sizeof(unsigned char));
+	if(data)
+	{
+		memcpy(buf+1, &data_len, sizeof(unsigned int));
+		memcpy(buf+EVENT_HEADER, data, data_len);
+	}
+	if(send(fd, buf, EVENT_HEADER+data_len, 0) < 0) return -1;
 	return 0;
 }
 

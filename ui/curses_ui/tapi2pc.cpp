@@ -4,6 +4,7 @@
 extern "C"
 {
 	#include "core.h"
+	#include "event.h"
 }
 
 static bool running=true;
@@ -27,18 +28,16 @@ static std::unordered_map<std::wstring, std::function<void (void)>> commands=
 int corefd;
 int main()
 {
+	if(!setlocale(LC_CTYPE, "en_US.UTF-8"))
+	{
+		std::cerr << "Cannot set UTF-8 encoding. Please make sure that en_US.UTF-8 encoding is installed." << std::endl;
+	}
 	corefd=core_socket();
 	if(corefd==-1)
 	{
 		std::cerr << "tapi2p core not running!" << std::endl;
 		return 1;
 	}
-	/*
-				evt_t e;
-				event_init(&e, Message, optarg);
-				event_send(&e, fd);
-				event_free_s(&e);
-				*/
 	tapi2p::UI::Init();
 	while(running)
 	{
@@ -46,7 +45,13 @@ int main()
 		try
 		{
 			commands[i]();
-		} catch(const std::bad_function_call& e) {}
+		} catch(const std::bad_function_call& e)
+		{
+			std::string s;
+			s.resize(i.length());
+			std::copy(i.begin(), i.end(), s.begin());
+			event_send_simple(Message, (const unsigned char*)s.c_str(), s.length(), corefd);
+		}
 	}
 	tapi2p::UI::Destroy();
 }
