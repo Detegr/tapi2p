@@ -7,6 +7,7 @@
 #define CBMAX 32 // Because I'm lazy
 
 static EventCallback* callbacks[EventCount]={0};
+static void* callbackdatas[EventCount][CBMAX]={{0}};
 
 void event_init(evt_t* evt, EventType t, const char* data)
 {
@@ -129,7 +130,7 @@ evt_t* event_recv(int fd, int* status)
 	{
 		for(int j=0; j<CBMAX; ++j)
 		{
-			if(callbacks[e->type][j]) callbacks[e->type][j](e);
+			if(callbacks[e->type][j]) callbacks[e->type][j](e, callbackdatas[e->type][j]);
 		}
 	}
 
@@ -137,7 +138,7 @@ evt_t* event_recv(int fd, int* status)
 	return e;
 }
 
-void event_addlistener(EventType t, EventCallback cb)
+void event_addlistener(EventType t, EventCallback cb, void* data)
 {
 	EventCallback* cbs=callbacks[t];
 	if(!cbs)
@@ -148,7 +149,7 @@ void event_addlistener(EventType t, EventCallback cb)
 	}
 	for(int i=0; i<CBMAX; ++i)
 	{
-		if(!cbs[i]) {cbs[i]=cb; return;}
+		if(!cbs[i]) {cbs[i]=cb; callbackdatas[t][i]=data; return;}
 	}
 	fprintf(stderr, "Maximum number of callbacks already defined, not adding a new one!\n");
 	return;

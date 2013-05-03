@@ -546,24 +546,38 @@ void send_to_all(unsigned char* data_to_enc, int len)
 	}
 }
 
-static void handlemessage(evt_t* e)
+static void handlemessage(evt_t* e, void* data)
 {
 	char* estr=event_tostr(e);
 	send_to_all(estr, e->data_len + EVENT_HEADER);
 	free(estr);
 }
 
-static void handlelistpeers(evt_t* e)
+static void handlelistpeers(evt_t* e, void* data)
 {
+	// TODO: If datalen>EVENT_DATALEN, strange things will happen...
 	printf("ListPeers\n");
-	char data[EVENT_DATALEN];
-	char* dp=data;
+	struct config* c=(struct config*)data;
+	char edata[EVENT_DATALEN];
+	memset(edata, 0, sizeof(char)*EVENT_DATALEN);
+	char* dp=edata;
 	struct peer* p;
 	while(p=peer_next())
 	{
+		struct configitem* ci=config_find_item(c, "Nick", "Account");
+		if(ci && ci->val)
+		{
+			dp=stpcpy(dp, ci->val);
+			dp=stpcpy(dp, " ");
+		}
+		dp=stpcpy(dp, "[");
 		dp=stpcpy(dp, p->addr);
+		dp=stpcpy(dp, "]");
+		if(!(p->m_connectable && p->isock>0)) dp=stpcpy(dp, " <One-way>");
+		dp=stpcpy(dp, "\n");
 	}
-	event_set(e, data);
+	printf("%s\n", edata);
+	event_set(e, edata);
 	event_send(e, e->fd_from);
 }
 
@@ -599,8 +613,8 @@ int core_start(void)
 	connect_to_peers();
 
 	printf("Tapi2p core started.\n");
-	event_addlistener(Message, &handlemessage);
-	event_addlistener(ListPeers, &handlelistpeers);
+	event_addlistener(Message, &handlemessage, NULL);
+	event_addlistener(ListPeers, &handlelistpeers, getconfig());
 	while(run_threads)
 	{
 		pipe_accept();

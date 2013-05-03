@@ -151,6 +151,16 @@ void add_peer(char** args)
 	printf("Peer %s:%s added successfully!\n", peer_ip_str, peer_port_str);
 }
 
+void handlelistpeers(evt_t* e, void* data)
+{
+	unsigned int datalen=e->data_len;
+	for(unsigned int i=0; i<datalen; ++i)
+	{
+		printf("%c", e->data[i]);
+	}
+	printf("\n");
+}
+
 int main(int argc, char** argv)
 {
 	int optind;
@@ -168,6 +178,8 @@ int main(int argc, char** argv)
 
 	char* add_peer_args[3]={0,0,0};
 	char* setup_args[2]={0,0};
+
+	event_addlistener(ListPeers, handlelistpeers, NULL);
 
 	opterr=0;
 	for(;;)
@@ -234,15 +246,8 @@ int main(int argc, char** argv)
 			case 'l':
 			{
 				int fd=core_socket();
-				evt_t e;
-				event_init(&e, ListPeers, NULL);
-				event_send(&e, fd);
-				event_free_s(&e);
-				evt_t* ep=event_recv(fd, NULL);
-				if(ep)
-				{
-					printf("%s\n", ep->data);
-				}
+				event_send_simple(ListPeers, NULL, 0, fd);
+				event_recv(fd, NULL);
 				close(fd);
 				return 0;
 			}

@@ -6,6 +6,13 @@
 #include "dtglib/Concurrency.h"
 #include <iostream>
 
+extern "C"
+{
+	#include "core/event.h"
+	#include "core/pathmanager.h"
+	#include "core/config.h"
+}
+
 using namespace dtglib;
 namespace tapi2p
 {
@@ -313,6 +320,7 @@ namespace tapi2p
 			static std::wstring m_Prompt;
 			static const int	m_PromptLen=8;
 			static void Write(WindowBase& win, const std::wstring& s, bool line);
+			static struct config* m_Config;
 
 		public:
 			static int x;
@@ -340,5 +348,6 @@ namespace tapi2p
 			static TabWindow& Active() { return Tabs.Active(); }
 			static TabWindow& Main() { return *Tabs.m_TabWindows[0]; }
 			static std::wstring HandleInput();
+			static std::wstring GetItem(const std::string& section, const std::string& key);
 	};
 }

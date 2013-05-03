@@ -18,7 +18,7 @@ typedef struct event
 {
 	int fd_from;
 	EventType type;
-	char* data;
+	char* data; // TODO: Maybe change this to array of EVENT_MAX length.
 	unsigned int data_len;
 	struct event* next;
 } evt_t;
@@ -36,8 +36,8 @@ evt_t* event_recv(int fd, int* status);
 void event_free(evt_t* evt);
 void event_free_s(evt_t* evt); // Frees event that is allocated from stack
 
-typedef void (*EventCallback)(evt_t* e);
-void event_addlistener(EventType t, EventCallback cb);
+typedef void (*EventCallback)(evt_t* e, void* data);
+void event_addlistener(EventType t, EventCallback cb, void* data);
 
 const char* eventtype_str(evt_t* evt);
 

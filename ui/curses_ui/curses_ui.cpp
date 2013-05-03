@@ -1,27 +1,14 @@
 #include "curses_ui.h"
 #include <cstring>
+#include <stdexcept>
 
 extern "C"
 {
 	#include <signal.h>
 	#include "core/peermanager.h"
-	#include "core/pathmanager.h"
-	#include "core/config.h"
 }
 
-std::wstring GetItem(struct config* c, const std::string& section, const std::string& key)
-{
-	struct configitem* i=config_find_item(c, section.c_str(), key.c_str());
-	if(i && i->val)
-	{
-		std::string valstr=i->val;
-		std::wstring ret;
-		ret.resize(valstr.length());
-		std::copy(valstr.begin(), valstr.end(), ret.begin());
-		return ret;
-	}
-	return L"";
-}
+extern int corefd;
 
 namespace tapi2p
 {
@@ -41,6 +28,31 @@ namespace tapi2p
 	int			UI::m_StrLen;
 	std::wstring UI::m_Prompt;
 	const int	UI::m_PromptLen;
+	struct config*	UI::m_Config;
+
+	std::wstring UI::GetItem(const std::string& section, const std::string& key)
+	{
+		struct configitem* i=config_find_item(m_Config, section.c_str(), key.c_str());
+		if(i)
+		{
+			std::wstring ret;
+			if(i->val)
+			{
+				std::string valstr=i->val;
+				ret.resize(valstr.length());
+				std::copy(valstr.begin(), valstr.end(), ret.begin());
+			}
+			else if(i->key)
+			{
+				std::string keystr=i->val;
+				ret.resize(keystr.length());
+				std::copy(keystr.begin(), keystr.end(), ret.begin());
+			}
+			else throw std::runtime_error("Item not found");
+			return ret;
+		}
+		throw std::runtime_error("Item not found");
+	}
 
 	void TabBar::Init(int w, int h)
 	{
@@ -73,6 +85,7 @@ namespace tapi2p
 
 	void UI::Init()
 	{
+		m_Config=getconfig();
 		m_PeerWidth=20;
 
 		initscr();
@@ -100,8 +113,7 @@ namespace tapi2p
 		keypad(Input.Win(),TRUE);
 		keypad(stdscr,TRUE);
 
-		struct config* conf=getconfig();
-		WriteLine(Main(), L"Welcome to tapi2p, " + GetItem(conf, "Nick", "Account"));
+		WriteLine(Main(), L"Welcome to tapi2p, " + GetItem("Nick", "Account"));
 	}
 	void UI::CheckSize()
 	{
@@ -136,21 +148,9 @@ namespace tapi2p
 
 	void UI::Update()
 	{
-		struct config* conf=getconfig();
 		m_Lock.M_Lock();
-		Peers.Clear();
-		struct peer* p=NULL;
-		while((p=peer_next()))
-		{
-			bool oneway=true;
-			if(p->m_connectable && p->isock>0)
-			{
-				WriteLine(Peers, GetItem(conf, p->addr, "Nick"));
-				oneway=false;
-			}
-			else if(oneway) WriteLine(Peers, GetItem(conf, p->addr, "Nick") + L" [One-way]");
-		}
-		tapi2p::UI::WriteLine(Peers, L"");
+		event_send_simple(ListPeers, NULL, 0, corefd);
+		event_recv(corefd, NULL);
 		m_Lock.M_Unlock();
 	}
 

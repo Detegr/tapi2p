@@ -3,8 +3,8 @@
 #include <unordered_map>
 extern "C"
 {
-	#include "core.h"
-	#include "event.h"
+	#include "core/core.h"
+	#include "core/pathmanager.h"
 }
 
 static bool running=true;
@@ -25,6 +25,17 @@ static std::unordered_map<std::wstring, std::function<void (void)>> commands=
 	{L":p", [](void){tapi2p::UI::AddTab(tapi2p::UI::Peers);}}
 };
 
+
+static void handlelistpeers(evt_t* e, void* data)
+{
+	std::string edata(e->data, e->data_len);
+	std::wstring wedata;
+	wedata.resize(e->data_len);
+	std::copy(edata.begin(), edata.end(), wedata.begin());
+	tapi2p::UI::Peers.Clear();
+	tapi2p::UI::WriteLine(tapi2p::UI::Peers, wedata);
+}
+
 int corefd;
 int main()
 {
@@ -38,19 +49,21 @@ int main()
 		std::cerr << "tapi2p core not running!" << std::endl;
 		return 1;
 	}
+	event_addlistener(ListPeers, handlelistpeers, NULL);
 	tapi2p::UI::Init();
 	while(running)
 	{
 		std::wstring i=tapi2p::UI::HandleInput();
 		try
 		{
-			commands[i]();
+			if(i.length()) commands[i]();
 		} catch(const std::bad_function_call& e)
 		{
 			std::string s;
 			s.resize(i.length());
 			std::copy(i.begin(), i.end(), s.begin());
 			event_send_simple(Message, (const unsigned char*)s.c_str(), s.length(), corefd);
+			tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + tapi2p::UI::GetItem("Nick", "Account") + L"] " + i);
 		}
 	}
 	tapi2p::UI::Destroy();
