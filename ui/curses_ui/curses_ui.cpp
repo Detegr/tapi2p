@@ -150,7 +150,7 @@ namespace tapi2p
 	{
 		m_Lock.M_Lock();
 		event_send_simple(ListPeers, NULL, 0, corefd);
-		event_recv(corefd, NULL);
+		//event_recv(corefd, NULL);
 		m_Lock.M_Unlock();
 	}
 

@@ -3,11 +3,14 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <stdio.h>
+#include <poll.h>
+#include <pthread.h>
 
 #define CBMAX 32 // Because I'm lazy
 
 static EventCallback* callbacks[EventCount]={0};
 static void* callbackdatas[EventCount][CBMAX]={{0}};
+static pthread_t event_thread;
 
 void event_init(evt_t* evt, EventType t, const char* data)
 {
@@ -108,7 +111,12 @@ evt_t* event_recv(int fd, int* status)
 			if(status) *status = 1;
 			return NULL;
 		}
-		fprintf(stderr, "Failed to read event type\n");
+		else if(b==-1)
+		{
+			perror("event_recv");
+			exit(1);
+		}
+		fprintf(stderr, "Failed to read event type. Got %d bytes, expected %d\n", b, EVENT_HEADER);
 		if(status) *status=-1;
 		return NULL;
 	}
@@ -155,12 +163,37 @@ void event_addlistener(EventType t, EventCallback cb, void* data)
 	return;
 }
 
-void eventsystem_start(void)
+static int run_event_thread=1;
+static void* event_threadfunc(void* args)
 {
+	int corefd=*(int*)args;
+	fprintf(stderr, "USING CORE FD: %d\n", corefd);
+	struct pollfd fds;
+	fds.fd=corefd;
+	fds.events=POLLIN;
+	fds.revents=0;
+	while(run_event_thread)
+	{
+		if(((poll(&fds, 1, 1)) > 0) && (fds.revents & POLLIN))
+		{
+			event_recv(corefd, NULL);
+			fds.fd=corefd;
+			fds.events=POLLIN;
+			fds.revents=0;
+		}
+	}
+	return NULL;
+}
+
+void eventsystem_start(int corefd)
+{
+	pthread_create(&event_thread, NULL, &event_threadfunc, (void*)&corefd);
 }
 
 void eventsystem_stop(void)
 {
+	run_event_thread=0;
+	pthread_join(event_thread, NULL);
 	for(int i=0; i<EventCount; ++i)
 	{
 		if(callbacks[i]) free(callbacks[i]);

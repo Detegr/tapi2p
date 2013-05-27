@@ -50,6 +50,7 @@ int main()
 		return 1;
 	}
 	event_addlistener(ListPeers, handlelistpeers, NULL);
+	eventsystem_start(corefd);
 	tapi2p::UI::Init();
 	while(running)
 	{

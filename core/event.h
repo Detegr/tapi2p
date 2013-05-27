@@ -23,7 +23,7 @@ typedef struct event
 	struct event* next;
 } evt_t;
 
-void eventsystem_start(void);
+void eventsystem_start(int corefd);
 void eventsystem_stop(void);
 
 void event_init(evt_t* evt, EventType t, const char* data);
