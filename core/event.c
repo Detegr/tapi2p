@@ -23,7 +23,7 @@ void event_init(evt_t* evt, EventType t, const char* data)
 	evt->next=NULL;
 }
 
-evt_t* new_event_fromstr(const char* str)
+evt_t* new_event_fromstr(const char* str, struct peer* p)
 {
 	for(unsigned int i=0; i<EventCount; ++i)
 	{
@@ -34,6 +34,10 @@ evt_t* new_event_fromstr(const char* str)
 			ret->data=calloc(ret->data_len, 1);
 			ret->type=i;
 			memcpy(ret->data, str+EVENT_HEADER, ret->data_len);
+
+			if(p) strncpy(ret->addr, p->addr, IPV4_MAX);
+			else strncpy(ret->addr, str+EVENT_HEADER+ret->data_len, IPV4_MAX);
+
 			ret->next=NULL;
 			return ret;
 		}
@@ -81,7 +85,8 @@ int event_send(evt_t* evt, int fd)
 		memcpy(buf+1, &evt->data_len, sizeof(unsigned int));
 		strncpy(buf+EVENT_HEADER, evt->data, evt->data_len);
 	}
-	if(send(fd, buf, EVENT_HEADER+evt->data_len, 0) < 0) return -1;
+	strncpy(buf+EVENT_HEADER+evt->data_len, evt->addr, IPV4_MAX);
+	if(send(fd, buf, EVENT_HEADER+evt->data_len+IPV4_MAX, 0) < 0) return -1;
 	return 0;
 }
 
@@ -131,7 +136,7 @@ evt_t* event_recv(int fd, int* status)
 		}
 	}
 
-	evt_t* e=new_event_fromstr(buf);
+	evt_t* e=new_event_fromstr(buf, NULL);
 	e->fd_from=fd;
 
 	if(callbacks[e->type])
@@ -166,28 +171,27 @@ void event_addlistener(EventType t, EventCallback cb, void* data)
 static int run_event_thread=1;
 static void* event_threadfunc(void* args)
 {
-	int corefd=*(int*)args;
-	fprintf(stderr, "USING CORE FD: %d\n", corefd);
-	struct pollfd fds;
-	fds.fd=corefd;
-	fds.events=POLLIN;
-	fds.revents=0;
+	int fd=*(int*)args;
+	struct pollfd fds[1];
+	fds[0].fd=fd;
+	fds[0].events=POLLIN;
 	while(run_event_thread)
 	{
-		if(((poll(&fds, 1, 1)) > 0) && (fds.revents & POLLIN))
+		if(((poll(fds, 1, 1)) > 0) && (fds[0].revents & POLLIN))
 		{
-			event_recv(corefd, NULL);
-			fds.fd=corefd;
-			fds.events=POLLIN;
-			fds.revents=0;
+			event_recv(fd, NULL);
 		}
+		fds[0].fd=fd;
+		fds[0].events=POLLIN;
 	}
 	return NULL;
 }
 
 void eventsystem_start(int corefd)
 {
-	pthread_create(&event_thread, NULL, &event_threadfunc, (void*)&corefd);
+	int* fdmem=malloc(sizeof(int));
+	*fdmem=corefd;
+	pthread_create(&event_thread, NULL, &event_threadfunc, fdmem);
 }
 
 void eventsystem_stop(void)

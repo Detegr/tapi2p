@@ -2,6 +2,7 @@
 #define TAPI2P_EVENT_H
 
 #include <stdlib.h>
+#include "peer.h"
 
 #define EVENT_MAX 1024
 #define EVENT_HEADER 5
@@ -20,6 +21,7 @@ typedef struct event
 	EventType type;
 	char* data; // TODO: Maybe change this to array of EVENT_MAX length.
 	unsigned int data_len;
+	char addr[IPV4_MAX];
 	struct event* next;
 } evt_t;
 
@@ -27,7 +29,7 @@ void eventsystem_start(int corefd);
 void eventsystem_stop(void);
 
 void event_init(evt_t* evt, EventType t, const char* data);
-evt_t* new_event_fromstr(const char* str);
+evt_t* new_event_fromstr(const char* str, struct peer* p);
 char* event_tostr(evt_t* e);
 int event_set(evt_t* evt, const char* data);
 int event_send(evt_t* evt, int fd);

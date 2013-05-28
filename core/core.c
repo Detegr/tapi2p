@@ -442,7 +442,7 @@ void* read_thread(void* args)
 					{// Send received event to core pipe listeners
 						size_t datalen;
 						unsigned char* data=aes_decrypt_with_key(readbuf, b, &deckey, &datalen);
-						evt_t* e=new_event_fromstr(data);
+						evt_t* e=new_event_fromstr(data, p);
 						if(e)
 						{
 #ifndef NDEBUG

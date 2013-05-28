@@ -1,4 +1,5 @@
 #include "curses_ui.h"
+#include "peer.h"
 #include <functional>
 #include <unordered_map>
 extern "C"
@@ -25,15 +26,37 @@ static std::unordered_map<std::wstring, std::function<void (void)>> commands=
 	{L":p", [](void){tapi2p::UI::AddTab(tapi2p::UI::Peers);}}
 };
 
-
-static void handlelistpeers(evt_t* e, void* data)
+std::wstring edatatowstr(evt_t* e)
 {
 	std::string edata(e->data, e->data_len);
 	std::wstring wedata;
 	wedata.resize(e->data_len);
 	std::copy(edata.begin(), edata.end(), wedata.begin());
+	return wedata;
+}
+
+static void handlelistpeers(evt_t* e, void* data)
+{
 	tapi2p::UI::Peers.Clear();
-	tapi2p::UI::WriteLine(tapi2p::UI::Peers, wedata);
+	tapi2p::UI::WriteLine(tapi2p::UI::Peers, edatatowstr(e));
+}
+
+static void handlemessage(evt_t* e, void* data)
+{
+	std::wstring nick;
+	/*
+	try
+	{
+		nick=tapi1p::UI::GetItem(e->addr, "Nick");
+	}
+	catch(const std::runtime_error&)
+	{
+		nick=tapi2p::UI::GetItem("Peers", e->addr);
+	}*/
+	std::string addr(e->addr);
+	nick.resize(addr.length());
+	std::copy(addr.begin(), addr.end(), nick.begin());
+	tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + edatatowstr(e));
 }
 
 int corefd;
@@ -50,6 +73,7 @@ int main()
 		return 1;
 	}
 	event_addlistener(ListPeers, handlelistpeers, NULL);
+	event_addlistener(Message, handlemessage, NULL);
 	eventsystem_start(corefd);
 	tapi2p::UI::Init();
 	while(running)
