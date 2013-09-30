@@ -82,7 +82,7 @@ int event_send(evt_t* evt, int fd)
 	memcpy(buf, &evt->type, sizeof(unsigned char));
 	if(evt->data)
 	{
-		memcpy(buf+1, &evt->data_len, sizeof(unsigned int));
+		memcpy(buf+sizeof(unsigned char), &evt->data_len, sizeof(unsigned int));
 		strncpy(buf+EVENT_HEADER, evt->data, evt->data_len);
 	}
 	strncpy(buf+EVENT_HEADER+evt->data_len, evt->addr, IPV4_MAX);
@@ -97,16 +97,18 @@ int event_send_simple(EventType t, const unsigned char* data, unsigned int data_
 	memcpy(buf, &t, sizeof(unsigned char));
 	if(data)
 	{
-		memcpy(buf+1, &data_len, sizeof(unsigned int));
+		memcpy(buf+sizeof(unsigned char), &data_len, sizeof(unsigned int));
 		memcpy(buf+EVENT_HEADER, data, data_len);
 	}
-	if(send(fd, buf, EVENT_HEADER+data_len, 0) < 0) return -1;
+	memset(buf+EVENT_HEADER+data_len, 0, IPV4_MAX);
+	if(send(fd, buf, EVENT_HEADER+data_len+IPV4_MAX, 0) < 0) return -1;
 	return 0;
 }
 
 evt_t* event_recv(int fd, int* status)
 {
 	char buf[EVENT_MAX];
+	char addr[IPV4_MAX];
 	int b;
 
 	if((b=recv(fd, buf, EVENT_HEADER, 0)) != EVENT_HEADER)
@@ -135,6 +137,7 @@ evt_t* event_recv(int fd, int* status)
 			return NULL;
 		}
 	}
+	recv(fd, addr, IPV4_MAX, 0);
 
 	evt_t* e=new_event_fromstr(buf, NULL);
 	e->fd_from=fd;

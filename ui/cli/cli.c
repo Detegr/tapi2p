@@ -256,7 +256,10 @@ int main(int argc, char** argv)
 				int fd=core_socket();
 				evt_t e;
 				event_init(&e, Message, optarg);
-				event_send(&e, fd);
+				if(event_send(&e, fd) == -1)
+				{
+					fprintf(stderr, "Error sending an event!\n");
+				}
 				event_free_s(&e);
 				return 0;
 			}

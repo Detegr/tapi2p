@@ -564,7 +564,7 @@ static void handlelistpeers(evt_t* e, void* data)
 	struct peer* p;
 	while(p=peer_next())
 	{
-		struct configitem* ci=config_find_item(c, "Nick", "Account");
+		struct configitem* ci=config_find_item(c, "Nick", p->addr);
 		if(ci && ci->val)
 		{
 			dp=stpcpy(dp, ci->val);
