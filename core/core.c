@@ -21,6 +21,7 @@
 #include <limits.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <semaphore.h>
 
 #define SOCKET_ONEWAY -2
 // Length of the password used to AES encrypt data
@@ -281,6 +282,7 @@ static int check_peer_key(struct peer* p, char* addr, int newconn, struct config
 
 void* connection_thread(void* args)
 {
+	sem_t* sem=(sem_t*)args;
 	struct config* conf=getconfig();
 	unsigned short port;
 	const char* portstr=config_find_item(conf, "Port", "Account")->val;
@@ -291,10 +293,11 @@ void* connection_thread(void* args)
 		run_threads=0;
 	}
 	sock_in=new_socket(NULL, portstr);
-	if(sock_in<0) return 0;
+	if(sock_in<0) exit(EXIT_FAILURE);
 
 	fd_set set;
 	FD_ZERO(&set);
+	sem_post(sem);
 	while(run_threads)
 	{
 		FD_ZERO(&set);
@@ -390,7 +393,7 @@ void* connection_thread(void* args)
 					if(connect(p->osock, &addr, addrlen))
 					{
 #ifndef NDEBUG
-						printf("%s not connectable.\n", hbuf);
+						printf("%s not connectable, errno: %d\n", hbuf, errno);
 #endif
 						p->m_connectable=0;
 						close(p->osock);
@@ -412,11 +415,13 @@ void* connection_thread(void* args)
 
 void* read_thread(void* args)
 {
+	sem_t* sem=(sem_t*)args;
 	fd_set rset;
 	fd_set wset;
 
 	const int BUFLEN=4096;
 	char readbuf[BUFLEN];
+	sem_post(sem);
 
 	while(run_threads)
 	{
@@ -446,7 +451,7 @@ void* read_thread(void* args)
 						if(e)
 						{
 #ifndef NDEBUG
-							printf("Got %s\n", e->data);
+							printf("Got %d bytes of data\n", e->data_len);
 #endif
 							send_event_to_pipes(e);
 							event_free(e);
@@ -576,8 +581,9 @@ static void handlelistpeers(evt_t* e, void* data)
 		if(!(p->m_connectable && p->isock>0)) dp=stpcpy(dp, " <One-way>");
 		dp=stpcpy(dp, "\n");
 	}
+	dp[-1]=0;
 	printf("%s\n", edata);
-	event_set(e, edata);
+	event_set(e, edata, strnlen(e->data, EVENT_DATALEN));
 	event_send(e, e->fd_from);
 }
 
@@ -605,10 +611,16 @@ int core_start(void)
 		return -1;
 	}
 
+	sem_t init_semaphore;
+	sem_init(&init_semaphore, 0, 0);
+
 	pthread_t accept_connections;
 	pthread_t read_connections;
-	pthread_create(&accept_connections, NULL, &connection_thread, NULL);
-	pthread_create(&read_connections, NULL, &read_thread, NULL);
+	pthread_create(&accept_connections, NULL, &connection_thread, &init_semaphore);
+	pthread_create(&read_connections, NULL, &read_thread, &init_semaphore);
+
+	sem_wait(&init_semaphore);
+	sem_wait(&init_semaphore);
 
 	connect_to_peers();
 
