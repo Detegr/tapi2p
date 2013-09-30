@@ -12,13 +12,13 @@ static EventCallback* callbacks[EventCount]={0};
 static void* callbackdatas[EventCount][CBMAX]={{0}};
 static pthread_t event_thread;
 
-void event_init(evt_t* evt, EventType t, const char* data)
+void event_init(evt_t* evt, EventType t, const unsigned char* data, unsigned int data_len)
 {
 	evt->type=t;
 	evt->data_len=0;
 	if(data)
 	{
-		event_set(evt, data);
+		event_set(evt, data, data_len);
 	} else evt->data=NULL;
 	evt->next=NULL;
 }
@@ -50,14 +50,15 @@ char* event_tostr(evt_t* e)
 	char* str=malloc(EVENT_MAX * sizeof(char));
 	memcpy(str, &e->type, sizeof(unsigned char));
 	memcpy(str+1, &e->data_len, sizeof(unsigned int));
-	strncpy(str+EVENT_HEADER, e->data, EVENT_DATALEN);
+	memcpy(str+EVENT_HEADER, e->data, EVENT_DATALEN);
 	return str;
 }
 
-int event_set(evt_t* evt, const char* data)
+int event_set(evt_t* evt, const unsigned char* data, unsigned int data_len)
 {
-	evt->data = strndup(data, EVENT_DATALEN);
-	evt->data_len = strnlen(evt->data, EVENT_DATALEN);
+	evt->data = malloc(data_len);
+	memcpy(evt->data, data, data_len);
+	evt->data_len = data_len;
 	return evt->data == NULL;
 }
 
@@ -83,11 +84,12 @@ int event_send(evt_t* evt, int fd)
 	if(evt->data)
 	{
 		memcpy(buf+sizeof(unsigned char), &evt->data_len, sizeof(unsigned int));
-		strncpy(buf+EVENT_HEADER, evt->data, evt->data_len);
+		memcpy(buf+EVENT_HEADER, evt->data, evt->data_len);
 	}
 	strncpy(buf+EVENT_HEADER+evt->data_len, evt->addr, IPV4_MAX);
-	if(send(fd, buf, EVENT_HEADER+evt->data_len+IPV4_MAX, 0) < 0) return -1;
-	return 0;
+	int b=send(fd, buf, EVENT_HEADER+evt->data_len+IPV4_MAX, 0);
+	if(b<0) return -1;
+	return b;
 }
 
 int event_send_simple(EventType t, const unsigned char* data, unsigned int data_len, int fd)
@@ -101,8 +103,9 @@ int event_send_simple(EventType t, const unsigned char* data, unsigned int data_
 		memcpy(buf+EVENT_HEADER, data, data_len);
 	}
 	memset(buf+EVENT_HEADER+data_len, 0, IPV4_MAX);
-	if(send(fd, buf, EVENT_HEADER+data_len+IPV4_MAX, 0) < 0) return -1;
-	return 0;
+	int b=send(fd, buf, EVENT_HEADER+data_len+IPV4_MAX, 0);
+	if(b<0) return -1;
+	return b;
 }
 
 evt_t* event_recv(int fd, int* status)
@@ -137,10 +140,14 @@ evt_t* event_recv(int fd, int* status)
 			return NULL;
 		}
 	}
-	recv(fd, addr, IPV4_MAX, 0);
 
 	evt_t* e=new_event_fromstr(buf, NULL);
 	e->fd_from=fd;
+	if(recv(fd, e->addr, IPV4_MAX, 0) != IPV4_MAX)
+	{
+		fprintf(stderr, "Failed to receive address for event\n");
+		return NULL;
+	}
 
 	if(callbacks[e->type])
 	{

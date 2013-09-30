@@ -44,7 +44,7 @@ namespace tapi2p
 			}
 			else if(i->key)
 			{
-				std::string keystr=i->val;
+				std::string keystr=i->key;
 				ret.resize(keystr.length());
 				std::copy(keystr.begin(), keystr.end(), ret.begin());
 			}

@@ -255,7 +255,7 @@ int main(int argc, char** argv)
 			{
 				int fd=core_socket();
 				evt_t e;
-				event_init(&e, Message, optarg);
+				event_init(&e, Message, optarg, strnlen(optarg, EVENT_DATALEN));
 				if(event_send(&e, fd) == -1)
 				{
 					fprintf(stderr, "Error sending an event!\n");

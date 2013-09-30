@@ -28,10 +28,10 @@ typedef struct event
 void eventsystem_start(int corefd);
 void eventsystem_stop(void);
 
-void event_init(evt_t* evt, EventType t, const char* data);
+void event_init(evt_t* evt, EventType t, const unsigned char* data, unsigned int data_len);
 evt_t* new_event_fromstr(const char* str, struct peer* p);
 char* event_tostr(evt_t* e);
-int event_set(evt_t* evt, const char* data);
+int event_set(evt_t* evt, const unsigned char* data, unsigned int data_len);
 int event_send(evt_t* evt, int fd);
 int event_send_simple(EventType t, const unsigned char* data, unsigned int data_len, int fd);
 evt_t* event_recv(int fd, int* status);

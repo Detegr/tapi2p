@@ -26,7 +26,15 @@ static std::unordered_map<std::wstring, std::function<void (void)>> commands=
 	{L":p", [](void){tapi2p::UI::AddTab(tapi2p::UI::Peers);}}
 };
 
-std::wstring edatatowstr(evt_t* e)
+std::wstring evtwchartowstr(evt_t* e)
+{
+	wchar_t ret[e->data_len];
+	int b=mbstowcs(&ret[0], e->data, e->data_len);
+	ret[b]=0;
+	return std::wstring(ret);
+}
+
+std::wstring evtcchartowstr(evt_t* e)
 {
 	std::string edata(e->data, e->data_len);
 	std::wstring wedata;
@@ -38,25 +46,21 @@ std::wstring edatatowstr(evt_t* e)
 static void handlelistpeers(evt_t* e, void* data)
 {
 	tapi2p::UI::Peers.Clear();
-	tapi2p::UI::WriteLine(tapi2p::UI::Peers, edatatowstr(e));
+	tapi2p::UI::WriteLine(tapi2p::UI::Peers, evtcchartowstr(e));
 }
 
 static void handlemessage(evt_t* e, void* data)
 {
 	std::wstring nick;
-	/*
 	try
 	{
-		nick=tapi1p::UI::GetItem(e->addr, "Nick");
+		nick=tapi2p::UI::GetItem("Nick", e->addr);
 	}
-	catch(const std::runtime_error&)
+	catch(const std::runtime_error& err)
 	{
-		nick=tapi2p::UI::GetItem("Peers", e->addr);
-	}*/
-	std::string addr(e->addr);
-	nick.resize(addr.length());
-	std::copy(addr.begin(), addr.end(), nick.begin());
-	tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + edatatowstr(e));
+		nick=tapi2p::UI::GetItem(e->addr, "Peers");
+	}
+	tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + evtwchartowstr(e));
 }
 
 int corefd;
@@ -84,10 +88,9 @@ int main()
 			if(i.length()) commands[i]();
 		} catch(const std::bad_function_call& e)
 		{
-			std::string s;
-			s.resize(i.length());
-			std::copy(i.begin(), i.end(), s.begin());
-			event_send_simple(Message, (const unsigned char*)s.c_str(), s.length(), corefd);
+			char utf8[EVENT_DATALEN];
+			int b=wcstombs(utf8, i.c_str(), EVENT_DATALEN);
+			event_send_simple(Message, (const unsigned char*)utf8, b, corefd);
 			tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + tapi2p::UI::GetItem("Nick", "Account") + L"] " + i);
 		}
 	}
