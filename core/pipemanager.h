@@ -13,5 +13,6 @@ void pipe_add(int fd);
 void pipe_remove(int fd);
 evt_t* poll_event_from_pipes(void);
 int send_event_to_pipes(evt_t* e);
+int send_event_to_pipes_simple(EventType t, const unsigned char* data, unsigned int data_len);
 
 #endif

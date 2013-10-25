@@ -125,3 +125,39 @@ int send_event_to_pipes(evt_t* e)
 	}
 	return 0;
 }
+
+// TODO: Ugly copypaste-thigy 
+int send_event_to_pipes_simple(EventType t, const unsigned char* data, unsigned int data_len)
+{
+	struct timeval to;
+	to.tv_sec=1; to.tv_usec=0;
+	fd_set set;
+	memcpy(&set, &pipeset, sizeof(fd_set));
+	int nfds=select(fd_max+1, NULL, &set, NULL, &to);
+	if(nfds>0)
+	{
+		for(int i=0; i<=pipe_slot; ++i)
+		{
+			if(pipe_fds[i] != -1)
+			{
+				if(FD_ISSET(pipe_fds[i], &set))
+				{
+					int s=event_send_simple(t, data, data_len, pipe_fds[i]);
+					if(s<0)
+					{
+						//perror("Send");
+						pipe_remove(pipe_fds[i]);
+						continue;
+					}
+#ifndef NDEBUG
+					else
+					{
+						printf("Sent %d bytes to pipe listener #%d\n", s, pipe_fds[i]);
+					}
+#endif
+				}
+			}
+		}
+	}
+	return 0;
+}

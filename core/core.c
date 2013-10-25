@@ -404,6 +404,7 @@ void* connection_thread(void* args)
 #ifndef NDEBUG
 					else printf("Connected successfully!\n");
 #endif
+					send_event_to_pipes_simple(PeerConnected, NULL, 0);
 					peer_addtoset(p);
 				}
 			}
@@ -583,7 +584,7 @@ static void handlelistpeers(evt_t* e, void* data)
 	}
 	dp[-1]=0;
 	printf("%s\n", edata);
-	event_set(e, edata, strnlen(e->data, EVENT_DATALEN));
+	event_set(e, edata, strnlen(edata, EVENT_DATALEN));
 	event_send(e, e->fd_from);
 }
 

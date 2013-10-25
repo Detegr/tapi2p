@@ -63,6 +63,11 @@ static void handlemessage(evt_t* e, void* data)
 	tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + evtwchartowstr(e));
 }
 
+static void update(evt_t*, void*)
+{
+	tapi2p::UI::Update();
+}
+
 int corefd;
 int main()
 {
@@ -78,8 +83,10 @@ int main()
 	}
 	event_addlistener(ListPeers, handlelistpeers, NULL);
 	event_addlistener(Message, handlemessage, NULL);
+	event_addlistener(PeerConnected, update, NULL);
 	eventsystem_start(corefd);
 	tapi2p::UI::Init();
+	tapi2p::UI::Update();
 	while(running)
 	{
 		std::wstring i=tapi2p::UI::HandleInput();

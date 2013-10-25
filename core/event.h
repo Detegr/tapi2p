@@ -12,6 +12,7 @@
 typedef enum {
 	Message=0,
 	ListPeers,
+	PeerConnected,
 	EventCount // For iterating through eventtypes
 } EventType;
 
