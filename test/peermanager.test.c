@@ -9,16 +9,20 @@ struct peer* new_peer(int i)
 	struct peer* p=peer_new();
 	if(!p) exit(EXIT_FAILURE);
 	p->isock=4+i;
-	return p;
+	struct peer* ret=malloc(sizeof(struct peer));
+	memcpy(ret, p, sizeof(struct peer));
+	return ret;
 }
 
 struct peer* new_connected_peer(int i)
 {
 	struct peer* p=peer_new();
 	if(!p) exit(EXIT_FAILURE);
-	p->isock=i;
+	p->isock=4+i;
 	p->osock=(i*4);
-	return p;
+	struct peer* ret=malloc(sizeof(struct peer));
+	memcpy(ret, p, sizeof(struct peer));
+	return ret;
 }
 
 void create_peers(struct peer** to, struct peer** to2)
@@ -32,13 +36,24 @@ void create_peers(struct peer** to, struct peer** to2)
 	}
 }
 
+void free_peers(struct peer** p1, struct peer** p2)
+{
+	for(int i=0; i<PEERH; ++i)
+	{
+		free(p1[i]);
+		free(p2[i]);
+		p1[i]=NULL;
+		p2[i]=NULL;
+	}
+}
+
 int main()
 {
 	struct peer* peers[PEERH];
 	struct peer* connected_peers[PEERH];
-	memset(peers, 0, PEERH);
-	memset(connected_peers, 0, PEERH);
-	int used[PEERH];
+	memset(peers, 0, PEERH*sizeof(struct peer*));
+	memset(connected_peers, 0, PEERH*sizeof(struct peer*));
+	int used[PEERS];
 	memset(used, -1, PEERS*sizeof(int));
 
 	create_peers(peers, connected_peers);
@@ -55,6 +70,7 @@ int main()
 		peer_remove(peers[i]);
 		peer_remove(connected_peers[i]);
 	}
+	free_peers(peers, connected_peers);
 
 	create_peers(peers, connected_peers);
 	printf("Removing peers in descending order...\n");
@@ -63,10 +79,11 @@ int main()
 		peer_remove(peers[i]);
 		peer_remove(connected_peers[i]);
 	}
+	free_peers(peers, connected_peers);
 
 	create_peers(peers, connected_peers);
 	printf("Removing peers in random order...\n");
-	for(int i=0; i<PEERH; ++i)
+	for(int i=0; i<PEERS; ++i)
 	{
 		int u=0;
 		int r=rand()%PEERS;
@@ -82,11 +99,12 @@ int main()
 		if(u==1) continue;
 		else used[i]=r;
 	}
-	for(int i=0; i<PEERH; ++i)
+	for(int i=0; i<PEERS; ++i)
 	{
-		peer_remove(peers[i]);
-		peer_remove(connected_peers[i]);
+		if(used[i]>=PEERH) peer_remove(connected_peers[used[i]-PEERH]);
+		else peer_remove(peers[used[i]]);
 	}
+	free_peers(peers, connected_peers);
 
 	printf("Testing add/remove after each other...\n");
 	create_peers(peers, connected_peers);
@@ -102,5 +120,6 @@ int main()
 		peer_remove(peers[i]);
 		peer_remove(connected_peers[i]);
 	}
+	free_peers(peers, connected_peers);
 	peers_free();
 }
