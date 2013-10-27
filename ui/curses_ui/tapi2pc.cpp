@@ -84,6 +84,7 @@ int main()
 	event_addlistener(ListPeers, handlelistpeers, NULL);
 	event_addlistener(Message, handlemessage, NULL);
 	event_addlistener(PeerConnected, update, NULL);
+	event_addlistener(PeerDisconnected, update, NULL);
 	eventsystem_start(corefd);
 	tapi2p::UI::Init();
 	tapi2p::UI::Update();

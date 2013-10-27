@@ -405,7 +405,7 @@ void* connection_thread(void* args)
 #ifndef NDEBUG
 					else printf("Connected successfully!\n");
 #endif
-					send_event_to_pipes_simple(PeerConnected, NULL, 0);
+					send_event_to_pipes_simple(PeerConnected, p->addr, 0);
 					peer_addtoset(p);
 				}
 			}
@@ -444,6 +444,7 @@ void* read_thread(void* args)
 					{
 						peer_removefromset(p);
 						list_add_node(&delptrs, p);
+						send_event_to_pipes_simple(PeerDisconnected, p->addr, 0);
 					}
 					else
 					{// Send received event to core pipe listeners
