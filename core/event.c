@@ -148,6 +148,14 @@ evt_t* event_recv(int fd, int* status)
 		return NULL;
 	}
 
+	event_run_callbacks(e);
+
+	if(status) *status=0;
+	return e;
+}
+
+void event_run_callbacks(evt_t* e)
+{
 	if(callbacks[e->type])
 	{
 		for(int j=0; j<CBMAX; ++j)
@@ -155,9 +163,6 @@ evt_t* event_recv(int fd, int* status)
 			if(callbacks[e->type][j]) callbacks[e->type][j](e, callbackdatas[e->type][j]);
 		}
 	}
-
-	if(status) *status=0;
-	return e;
 }
 
 void event_addlistener(EventType t, EventCallback cb, void* data)

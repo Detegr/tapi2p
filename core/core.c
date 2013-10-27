@@ -8,6 +8,7 @@
 #include "../dtgconf/src/config.h"
 #include "event.h"
 #include "ptrlist.h"
+#include "handlers.h"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -449,13 +450,28 @@ void* read_thread(void* args)
 						size_t datalen;
 						unsigned char* data=aes_decrypt_with_key(readbuf, b, &deckey, &datalen);
 						evt_t* e=new_event_fromstr(data, p);
-						if(e)
+						switch(e->type)
 						{
+							// Event types that core will run listeners for
+							case FilePart:
+							case RequestFileTransfer:
+							{
+								event_run_callbacks(e);
+							} // Fall through to send event to pipe listeners in any case
+							case Message:
+							case ListPeers:
+							case PeerConnected:
+							{
+								if(e)
+								{
 #ifndef NDEBUG
-							printf("Got %d bytes of data\n", e->data_len);
+									printf("Got %d bytes of data\n", e->data_len);
 #endif
-							send_event_to_pipes(e);
-							event_free(e);
+									send_event_to_pipes(e);
+									event_free(e);
+								}
+								break;
+							}
 						}
 					}
 				}
@@ -552,42 +568,6 @@ void send_to_all(unsigned char* data_to_enc, int len)
 	}
 }
 
-static void handlemessage(evt_t* e, void* data)
-{
-	char* estr=event_tostr(e);
-	send_to_all(estr, e->data_len + EVENT_HEADER);
-	free(estr);
-}
-
-static void handlelistpeers(evt_t* e, void* data)
-{
-	// TODO: If datalen>EVENT_DATALEN, strange things will happen...
-	printf("ListPeers\n");
-	struct config* c=(struct config*)data;
-	char edata[EVENT_DATALEN];
-	memset(edata, 0, sizeof(char)*EVENT_DATALEN);
-	char* dp=edata;
-	struct peer* p;
-	while(p=peer_next())
-	{
-		struct configitem* ci=config_find_item(c, "Nick", p->addr);
-		if(ci && ci->val)
-		{
-			dp=stpcpy(dp, ci->val);
-			dp=stpcpy(dp, " ");
-		}
-		dp=stpcpy(dp, "[");
-		dp=stpcpy(dp, p->addr);
-		dp=stpcpy(dp, "]");
-		if(!(p->m_connectable && p->isock>0)) dp=stpcpy(dp, " <One-way>");
-		dp=stpcpy(dp, "\n");
-	}
-	dp[-1]=0;
-	printf("%s\n", edata);
-	event_set(e, edata, strnlen(edata, EVENT_DATALEN));
-	event_send(e, e->fd_from);
-}
-
 int core_start(void)
 {
 	run_threads=1;
@@ -628,6 +608,8 @@ int core_start(void)
 	printf("Tapi2p core started.\n");
 	event_addlistener(Message, &handlemessage, NULL);
 	event_addlistener(ListPeers, &handlelistpeers, getconfig());
+	event_addlistener(RequestFileTransfer, &handlefiletransfer, NULL);
+	event_addlistener(FilePart, &fileparthandler, NULL);
 	while(run_threads)
 	{
 		pipe_accept();

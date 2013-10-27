@@ -7,12 +7,13 @@
 #define EVENT_MAX 1024
 #define EVENT_HEADER 5
 #define EVENT_DATALEN (EVENT_MAX-EVENT_HEADER)
-#define EVENT_TYPES 2
 	
 typedef enum {
 	Message=0,
 	ListPeers,
 	PeerConnected,
+	RequestFileTransfer,
+	FilePart,
 	EventCount // For iterating through eventtypes
 } EventType;
 
@@ -40,6 +41,7 @@ void event_free(evt_t* evt);
 void event_free_s(evt_t* evt); // Frees event that is allocated from stack
 
 typedef void (*EventCallback)(evt_t* e, void* data);
+void event_run_callbacks(evt_t* e);
 void event_addlistener(EventType t, EventCallback cb, void* data);
 
 const char* eventtype_str(evt_t* evt);

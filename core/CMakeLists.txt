@@ -13,6 +13,7 @@ add_library(tapi2p_corelib SHARED \\
 			peermanager.c \\
 			pipemanager.c \\
 			ptrlist.c \\
+			handlers.c \\
 			../crypto/aes.c \\
 			../crypto/key.c \\
 			../crypto/privatekey.c \\
