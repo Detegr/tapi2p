@@ -2,7 +2,7 @@
 #define TAPI2P_PATHMANAGER_H
 
 #include <stdio.h>
-#include "config.h"
+#include "../dtgconf/src/config.h"
 
 const char* basepath(void);
 const char* configpath(void);

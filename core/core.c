@@ -1,11 +1,11 @@
 #include "core.h"
-#include "../crypt/publickey.h"
-#include "../crypt/keygen.h"
-#include "../crypt/aes.h"
+#include "../crypto/publickey.h"
+#include "../crypto/keygen.h"
+#include "../crypto/aes.h"
 #include "peermanager.h"
 #include "pathmanager.h"
 #include "pipemanager.h"
-#include "config.h"
+#include "../dtgconf/src/config.h"
 #include "event.h"
 #include "ptrlist.h"
 #include <sys/stat.h>
@@ -480,16 +480,16 @@ static int connect_to_peers()
 	struct configsection* sect;
 	if(sect=config_find_section(conf, "Peers"))
 	{
-		for(int i=0; i<sect->items; ++i)
+		for(int i=0; i<sect->itemcount; ++i)
 		{// Connect to peers
-			struct configitem* ci=config_find_item(conf, "Port", sect->item[i]->key);
+			struct configitem* ci=config_find_item(conf, "Port", sect->items[i]->key);
 			if(ci)
 			{
-				int sock=new_socket(sect->item[i]->key, ci->val);
+				int sock=new_socket(sect->items[i]->key, ci->val);
 				if(sock != -1)
 				{
 					struct peer* p=peer_new();
-					strncpy(p->addr, sect->item[i]->key, IPV4_MAX);
+					strncpy(p->addr, sect->items[i]->key, IPV4_MAX);
 					p->osock=sock;
 					// Use special number for incoming socket
 					// to tell that we currently have a oneway connection
@@ -498,7 +498,7 @@ static int connect_to_peers()
 					assert(p->port);
 					peer_addtoset(p);
 #ifndef NDEBUG
-					printf("Connected to %s:%s\n", sect->item[i]->key, ci->val);
+					printf("Connected to %s:%s\n", sect->items[i]->key, ci->val);
 #endif
 				}
 			}

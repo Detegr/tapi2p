@@ -4,3 +4,6 @@
 [submodule "ui/dtglib"]
 	path = ui/dtglib
 	url = ssh://git@github.com/Detegr/dtglib.git
+[submodule "dtgconf"]
+	path = dtgconf
+	url = ssh://git@github.com/Detegr/dtgconf

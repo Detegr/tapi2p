@@ -2,7 +2,7 @@
 #define TAPI2P_PEER_H
 
 #include <pthread.h>
-#include "../crypt/publickey.h"
+#include "../crypto/publickey.h"
 
 #define IPV4_MAX 16
 

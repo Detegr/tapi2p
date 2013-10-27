@@ -111,7 +111,6 @@ int event_send_simple(EventType t, const unsigned char* data, unsigned int data_
 evt_t* event_recv(int fd, int* status)
 {
 	char buf[EVENT_MAX];
-	char addr[IPV4_MAX];
 	int b;
 
 	if((b=recv(fd, buf, EVENT_HEADER, 0)) != EVENT_HEADER)

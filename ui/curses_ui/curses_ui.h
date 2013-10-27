@@ -10,7 +10,7 @@ extern "C"
 {
 	#include "core/event.h"
 	#include "core/pathmanager.h"
-	#include "core/config.h"
+	#include "dtgconf/src/config.h"
 }
 
 using namespace dtglib;

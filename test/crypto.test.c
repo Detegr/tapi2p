@@ -1,7 +1,7 @@
-#include "../crypt/privatekey.h"
-#include "../crypt/publickey.h"
-#include "../crypt/aes.h"
-#include "../crypt/keygen.h"
+#include "../crypto/privatekey.h"
+#include "../crypto/publickey.h"
+#include "../crypto/aes.h"
+#include "../crypto/keygen.h"
 #include <stdio.h>
 
 int main()
