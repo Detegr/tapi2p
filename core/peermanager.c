@@ -9,11 +9,18 @@ static int write_max_int=-1;
 static int m_peersize=5;
 static int m_peercount=0;
 static struct peer* m_peers=NULL;
-static pthread_mutex_t m_lock=PTHREAD_MUTEX_INITIALIZER;
-static int m_initialized=0;
+static pthread_mutex_t m_lock;
 static int m_iterator=0;
 
-struct peer* peer_new()
+void peermanager_init(void)
+{
+	pthread_mutexattr_t attr;
+	pthread_mutexattr_init(&attr);
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+	pthread_mutex_init(&m_lock, &attr);
+}
+
+struct peer* peer_new(void)
 {
 	pthread_mutex_lock(&m_lock);
 	if(!m_peers) m_peers=(struct peer*)malloc(m_peersize*sizeof(struct peer));
@@ -57,7 +64,7 @@ void peer_removefromset(struct peer* p)
 	FD_CLR(p->isock, &m_readset);
 }
 
-int read_max()
+int read_max(void)
 {
 	pthread_mutex_lock(&m_lock);
 	int ret=read_max_int;
@@ -65,7 +72,7 @@ int read_max()
 	return ret;
 }
 
-int write_max()
+int write_max(void)
 {
 	pthread_mutex_lock(&m_lock);
 	int ret=write_max_int;
@@ -84,11 +91,6 @@ int peer_updateset(struct peer* p)
 
 int peer_addtoset(struct peer* p)
 {
-	if(m_initialized)
-	{
-		FD_ZERO(&m_writeset);
-		FD_ZERO(&m_readset);
-	}
 	pthread_mutex_lock(&m_lock);
 	assert(p->isock != p->osock);
 	if(p->osock >= 0)

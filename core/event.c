@@ -35,8 +35,16 @@ evt_t* new_event_fromstr(const char* str, struct peer* p)
 			ret->type=i;
 			memcpy(ret->data, str+EVENT_HEADER, ret->data_len);
 
-			if(p) strncpy(ret->addr, p->addr, IPV4_MAX);
-			else strncpy(ret->addr, str+EVENT_HEADER+ret->data_len, IPV4_MAX);
+			if(p)
+			{
+				strncpy(ret->addr, p->addr, IPV4_MAX);
+				memcpy(&ret->port, &p->port, sizeof(unsigned int));
+			}
+			else
+			{
+				strncpy(ret->addr, str+EVENT_HEADER+ret->data_len, IPV4_MAX);
+				memcpy(&ret->port, str+EVENT_HEADER+ret->data_len+IPV4_MAX, sizeof(unsigned int));
+			}
 
 			ret->next=NULL;
 			return ret;
@@ -45,9 +53,9 @@ evt_t* new_event_fromstr(const char* str, struct peer* p)
 	return NULL;
 }
 
-char* event_tostr(evt_t* e)
+unsigned char* event_as_databuffer(evt_t* e)
 {
-	char* str=malloc(EVENT_MAX * sizeof(char));
+	unsigned char* str=malloc(EVENT_MAX * sizeof(char));
 	memcpy(str, &e->type, sizeof(unsigned char));
 	memcpy(str+1, &e->data_len, sizeof(unsigned int));
 	memcpy(str+EVENT_HEADER, e->data, EVENT_DATALEN);
@@ -76,23 +84,7 @@ void event_free_s(evt_t* evt)
 	evt->data_len=0;
 }
 
-int event_send(evt_t* evt, int fd)
-{
-	char buf[EVENT_MAX];
-	memset(buf, 0, EVENT_MAX);
-	memcpy(buf, &evt->type, sizeof(unsigned char));
-	if(evt->data)
-	{
-		memcpy(buf+sizeof(unsigned char), &evt->data_len, sizeof(unsigned int));
-		memcpy(buf+EVENT_HEADER, evt->data, evt->data_len);
-	}
-	strncpy(buf+EVENT_HEADER+evt->data_len, evt->addr, IPV4_MAX);
-	int b=send(fd, buf, EVENT_HEADER+evt->data_len+IPV4_MAX, 0);
-	if(b<0) return -1;
-	return b;
-}
-
-int event_send_simple(EventType t, const unsigned char* data, unsigned int data_len, int fd)
+static int event_send_internal(EventType t, const unsigned char* data, unsigned int data_len, const char* addr, unsigned int port, int fd)
 {
 	char buf[EVENT_MAX];
 	memset(buf, 0, EVENT_MAX);
@@ -102,10 +94,28 @@ int event_send_simple(EventType t, const unsigned char* data, unsigned int data_
 		memcpy(buf+sizeof(unsigned char), &data_len, sizeof(unsigned int));
 		memcpy(buf+EVENT_HEADER, data, data_len);
 	}
-	memset(buf+EVENT_HEADER+data_len, 0, IPV4_MAX);
-	int b=send(fd, buf, EVENT_HEADER+data_len+IPV4_MAX, 0);
+	if(addr)
+	{
+		memcpy(buf+EVENT_HEADER+data_len, addr, IPV4_MAX);
+	}
+	else
+	{
+		memset(buf+EVENT_HEADER+data_len, 0, IPV4_MAX);
+	}
+	memcpy(buf+EVENT_HEADER+data_len+IPV4_MAX, &port, sizeof(unsigned int));
+	int b=send(fd, buf, EVENT_HEADER+data_len+IPV4_MAX+sizeof(unsigned int), 0);
 	if(b<0) return -1;
 	return b;
+}
+
+int event_send(evt_t* evt, int fd)
+{
+	return event_send_internal(evt->type, (const unsigned char*)evt->data, evt->data_len, evt->addr, evt->port, fd);
+}
+
+int event_send_simple(EventType t, const unsigned char* data, unsigned int data_len, int fd)
+{
+	return event_send_internal(t, data, data_len, NULL, 0, fd);
 }
 
 evt_t* event_recv(int fd, int* status)
@@ -145,6 +155,11 @@ evt_t* event_recv(int fd, int* status)
 	if(recv(fd, e->addr, IPV4_MAX, 0) != IPV4_MAX)
 	{
 		fprintf(stderr, "Failed to receive address for event\n");
+		return NULL;
+	}
+	if(recv(fd, &e->port, sizeof(unsigned int), 0) != sizeof(unsigned int))
+	{
+		fprintf(stderr, "Failed to receive port for event\n");
 		return NULL;
 	}
 

@@ -5,9 +5,7 @@
 
 void handlemessage(evt_t* e, void* data)
 {
-	char* estr=event_tostr(e);
-	send_to_all(estr, e->data_len + EVENT_HEADER);
-	free(estr);
+	send_to_all(e);
 }
 
 void handlelistpeers(evt_t* e, void* data)
@@ -41,7 +39,7 @@ void handlelistpeers(evt_t* e, void* data)
 
 void handlefiletransfer(evt_t* e, void* data)
 {
-	//evt_t e;
+	FILE* f=fopen("testfile.mp3", "r");
 	//event_init(&e, FilePart, 
 }
 

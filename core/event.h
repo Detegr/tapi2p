@@ -7,6 +7,7 @@
 #define EVENT_MAX 1024
 #define EVENT_HEADER 5
 #define EVENT_DATALEN (EVENT_MAX-EVENT_HEADER)
+#define EVENT_LEN(e) (EVENT_HEADER + e->data_len + IPV4_MAX + sizeof(unsigned int))
 	
 typedef enum {
 	Message=0,
@@ -22,9 +23,10 @@ typedef struct event
 {
 	int fd_from;
 	EventType type;
-	char* data; // TODO: Maybe change this to array of EVENT_MAX length.
+	unsigned char* data; // TODO: Maybe change this to array of EVENT_MAX length.
 	unsigned int data_len;
 	char addr[IPV4_MAX];
+	unsigned short port;
 	struct event* next;
 } evt_t;
 
@@ -33,7 +35,7 @@ void eventsystem_stop(void);
 
 void event_init(evt_t* evt, EventType t, const unsigned char* data, unsigned int data_len);
 evt_t* new_event_fromstr(const char* str, struct peer* p);
-char* event_tostr(evt_t* e);
+unsigned char* event_as_databuffer(evt_t* e);
 int event_set(evt_t* evt, const unsigned char* data, unsigned int data_len);
 int event_send(evt_t* evt, int fd);
 int event_send_simple(EventType t, const unsigned char* data, unsigned int data_len, int fd);

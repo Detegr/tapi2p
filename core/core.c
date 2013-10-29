@@ -451,28 +451,32 @@ void* read_thread(void* args)
 						size_t datalen;
 						unsigned char* data=aes_decrypt_with_key(readbuf, b, &deckey, &datalen);
 						evt_t* e=new_event_fromstr(data, p);
-						switch(e->type)
+						if(e)
 						{
-							// Event types that core will run listeners for
-							case FilePart:
-							case RequestFileTransfer:
+							switch(e->type)
 							{
-								event_run_callbacks(e);
-							} // Fall through to send event to pipe listeners in any case
-							case Message:
-							case ListPeers:
-							case PeerConnected:
-							{
-								if(e)
+								// Event types that core will run listeners for
+								case FilePart:
+								case RequestFileTransfer:
+								{
+									event_run_callbacks(e);
+								} // Fall through to send event to pipe listeners in any case
+								case Message:
+								case ListPeers:
+								case PeerConnected:
 								{
 #ifndef NDEBUG
 									printf("Got %d bytes of data\n", e->data_len);
 #endif
 									send_event_to_pipes(e);
 									event_free(e);
+									break;
 								}
-								break;
 							}
+						}
+						else
+						{
+							fprintf(stderr, "Failed to construct event from the received data\n");
 						}
 					}
 				}
@@ -528,44 +532,51 @@ static int connect_to_peers()
 	return 0;
 }
 
-void send_to_all(unsigned char* data_to_enc, int len)
+void send_data_to_peer(struct peer* p, evt_t* e)
 {
-	struct peer* p;
 	fd_set wset;
 	peer_writeset(&wset);
 	int nfds=select(write_max()+1, NULL, &wset, NULL, NULL);
 	if(nfds>0)
 	{
-		while(p=peer_next())
+		int fd;
+		if(p->osock==SOCKET_ONEWAY)
 		{
-			int fd;
-			if(p->osock==SOCKET_ONEWAY)
-			{
 #ifndef NDEBUG
-				printf("Sending to oneway connection!\n");
+			printf("Sending to oneway connection!\n");
 #endif
-				fd=p->isock;
-			}
-			else fd=p->osock;
-			assert(fd >= 0);
-			assert(fd != SOCKET_ONEWAY);
-			if(FD_ISSET(fd, &wset))
+			fd=p->isock;
+		}
+		else fd=p->osock;
+		assert(fd >= 0);
+		assert(fd != SOCKET_ONEWAY);
+		if(FD_ISSET(fd, &wset))
+		{
+			size_t enclen=0;
+			unsigned char* eventdata=event_as_databuffer(e);
+			unsigned char* data=aes_encrypt_random_pass(
+								eventdata,
+								EVENT_LEN(e),
+								PW_LEN,
+								&p->key,
+								&enclen);
+			free(eventdata);
+			printf("Sending %d bytes to %d\n", enclen, fd);
+			if(send(fd, data, enclen, 0) != enclen)
 			{
-				size_t enclen=0;
-				unsigned char* data=aes_encrypt_random_pass(
-									data_to_enc,
-									len,
-									PW_LEN,
-									&p->key,
-									&enclen);
-				printf("Sending %d bytes to %d\n", enclen, fd);
-				if(send(fd, data, enclen, 0) != enclen)
-				{
-					// TODO: Remove peer on error
-					perror("send");
-				}
+				// TODO: Remove peer on error
+				perror("send");
 			}
 		}
+	}
+}
+
+void send_to_all(evt_t* e)
+{
+	struct peer* p;
+	while(p=peer_next())
+	{
+		send_data_to_peer(p, e);
 	}
 }
 
@@ -592,6 +603,8 @@ int core_start(void)
 		fprintf(stderr, "Failed to start tapi2p! Client's private key failed to load.\n");
 		return -1;
 	}
+
+	peermanager_init();
 
 	sem_t init_semaphore;
 	sem_init(&init_semaphore, 0, 0);

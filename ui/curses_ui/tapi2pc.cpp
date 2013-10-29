@@ -29,14 +29,14 @@ static std::unordered_map<std::wstring, std::function<void (void)>> commands=
 std::wstring evtwchartowstr(evt_t* e)
 {
 	wchar_t ret[e->data_len];
-	int b=mbstowcs(&ret[0], e->data, e->data_len);
+	int b=mbstowcs(&ret[0], (char*)e->data, e->data_len);
 	ret[b]=0;
 	return std::wstring(ret);
 }
 
 std::wstring evtcchartowstr(evt_t* e)
 {
-	std::string edata(e->data, e->data_len);
+	std::string edata((char*)e->data, e->data_len);
 	std::wstring wedata;
 	wedata.resize(e->data_len);
 	std::copy(edata.begin(), edata.end(), wedata.begin());
@@ -58,7 +58,11 @@ static void handlemessage(evt_t* e, void* data)
 	}
 	catch(const std::runtime_error& err)
 	{
-		nick=tapi2p::UI::GetItem(e->addr, "Peers");
+		try {nick=tapi2p::UI::GetItem(e->addr, "Peers");}
+		catch(const std::runtime_error& err)
+		{
+			nick=L"Undefined. This is a bug";
+		}
 	}
 	tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + nick + L"] " + evtwchartowstr(e));
 }

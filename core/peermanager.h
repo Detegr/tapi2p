@@ -6,14 +6,16 @@
 
 /* These functions are thread-safe */
 
-struct peer* peer_new();
+void peermanager_init(void);
+
+struct peer* peer_new(void);
 void peer_writeset(fd_set* set);
 void peer_readset(fd_set* set);
 int peer_addtoset(struct peer* p);
 int peer_updateset(struct peer* p);
 void peer_removefromset(struct peer* p);
 // Does not do any clever checking, just checks if the
-// address and the  port of p matches to another peer.
+// address and the port of p matches to another peer.
 // Also, it assumes that p is allocated with peer_new()
 // and thus it doesn't check if p itself exists.
 // Returns the existing peer if peer exists, NULL otherwise
