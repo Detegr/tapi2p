@@ -176,7 +176,8 @@ int main(int argc, char** argv)
 		{"help",		required_argument, 0, 'h'},
 		{"message",		required_argument, 0, 'm'},
 		{"list",		no_argument		 , 0, 'l'},
-		{"dump-pubkey", no_argument      , 0, 'd'},
+		{"dump-key",    no_argument      , 0, 'd'},
+		{"import-key",  required_argument, 0, 'i'},
 		{0, 0, 0, 0}
 	};
 
@@ -188,7 +189,7 @@ int main(int argc, char** argv)
 	opterr=0;
 	for(;;)
 	{
-		int c=getopt_long(argc, argv, "s:a:p:k:h:m:l:d", options, &optind);
+		int c=getopt_long(argc, argv, "s:a:p:k:h:m:l:d:i:", options, &optind);
 		if(c==-1) break;
 		switch(c)
 		{
@@ -287,6 +288,20 @@ int main(int argc, char** argv)
 				}
 				printf("%s", selfkey.keyastext);
 				return 0;
+			}
+			case 'i':
+			{
+				if(argc > 4)
+				{
+					printf("Too many arguments\n");
+					return 0;
+				}
+				if(argc==4)
+				{
+					struct config* conf=getconfig();
+					printf("%s\n", optarg);
+					printf("%s\n", argv[3]);
+				}
 			}
 			case '?':
 			{
