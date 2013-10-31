@@ -32,7 +32,7 @@ int pubkey_load(struct pubkey* pkey, const char* file)
 	fseek(f, 0, SEEK_SET);
 	char* ktext;
 	ktext = (char*)malloc(size*sizeof(char));
-	fgets(ktext, size, f);
+	fread(ktext, size, 1, f);
 	fclose(f);
 
 	pkey->keyastext=ktext;

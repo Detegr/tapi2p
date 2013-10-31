@@ -1,6 +1,7 @@
 #include "../../core/pathmanager.h"
 #include "../../core/event.h"
 #include "../../core/pipemanager.h"
+#include "../../crypto/publickey.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -50,11 +51,13 @@ void usage(int usage_page)
 		}
 		case usage_help:
 		{
-			printf(	"tapi2p -- Usage\n"
-					"Flags:\n"
-					"\t-a|--add-peer\tAdd peer to config file. See ./tapi2p --help add-peer\n"
-					"\t-h|--help\tThis help. For help about specific command, use: ./tapi2p --help command\n"
-					"\t-s|--setup\tSet up user information for tapi2p\n");
+			printf(	"%s%s  %-20s%s  %-20s%s  %-20s%s  %-20s%s",
+					"tapi2p -- Usage\n",
+					"Flags:\n",
+					"-a|--add-peer",    "Add peer to config file. See ./tapi2p --help add-peer\n",
+					"-h|--help",        "This help. For help about specific command, use: ./tapi2p --help command\n",
+					"-s|--setup",       "Set up user information for tapi2p\n",
+					"-d|--dump-pubkey", "Dump your public key for sending\n");
 			break;
 		}
 	}
@@ -173,6 +176,7 @@ int main(int argc, char** argv)
 		{"help",		required_argument, 0, 'h'},
 		{"message",		required_argument, 0, 'm'},
 		{"list",		no_argument		 , 0, 'l'},
+		{"dump-pubkey", no_argument      , 0, 'd'},
 		{0, 0, 0, 0}
 	};
 
@@ -184,7 +188,7 @@ int main(int argc, char** argv)
 	opterr=0;
 	for(;;)
 	{
-		int c=getopt_long(argc, argv, "s:a:p:k:h:m:l", options, &optind);
+		int c=getopt_long(argc, argv, "s:a:p:k:h:m:l:d", options, &optind);
 		if(c==-1) break;
 		switch(c)
 		{
@@ -272,6 +276,17 @@ int main(int argc, char** argv)
 				}
 				setup_args[0]=optarg;
 				break;
+			}
+			case 'd':
+			{
+				static struct pubkey selfkey;
+				if(pubkey_load(&selfkey, selfkeypath_pub()))
+				{
+					fprintf(stderr, "Failed to load private key. Have you set up tapi2p correctly?\n");
+					return -1;
+				}
+				printf("%s", selfkey.keyastext);
+				return 0;
 			}
 			case '?':
 			{
