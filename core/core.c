@@ -114,9 +114,34 @@ int core_socket()
 	return fd;
 }
 
+static int mkdirp(const char* ppath, mode_t mode)
+{
+	char path[255];
+	strcpy(path, ppath);
+	char* p=path;
+	int directories=0;
+	while(*p)
+	{
+		if(*p == '/' && p!=path)
+		{
+			*p=0;
+			if(mkdir(path, mode) && errno != EEXIST)
+			{
+				return -1;
+			}
+			*p='/';
+		}
+		p++;
+	}
+	if(mkdir(path, mode) && errno != EEXIST)
+	{
+		return -1;
+	}
+}
+
 static int core_init(void)
 {
-	if(mkdir(basepath(), 0755) == -1 && errno!=EEXIST)
+	if(mkdirp(basepath(), 0755) == -1 && errno!=EEXIST)
 	{
 		fprintf(stderr, "Failed to create tapi2p folder!\n");
 		return -1;
@@ -361,6 +386,7 @@ void* connection_thread(void* args)
 							// we have oneway connection with the old one
 							if(check_peer_key(pp, hbuf, newconn, conf) == 0)
 							{
+								pp->m_key_ok=1;
 								peer_updateset(pp);
 #ifndef NDEBUG
 								printf("Oneway connection to bidirectional for %s:%u\n", hbuf, port);
@@ -368,6 +394,7 @@ void* connection_thread(void* args)
 							}
 							else
 							{
+								pp->m_key_ok=0;
 #ifndef NDEBUG
 								printf("Peer exists\n");
 #endif
@@ -384,8 +411,12 @@ void* connection_thread(void* args)
 					}
 					if(check_peer_key(p, hbuf, newconn, conf))
 					{// Key checking failed
+						printf("Key checking failed for peer %s\n", hbuf);
+						p->m_key_ok=0;
 						continue;
 					}
+					else p->m_key_ok=1;
+
 					p->osock=socket(AF_INET, SOCK_STREAM, 0);
 					((struct sockaddr_in*)&addr)->sin_port=htons(p->port);
 #ifndef NDEBUG
@@ -436,9 +467,10 @@ void* read_thread(void* args)
 			struct peer* p;
 			while((p=peer_next()))
 			{
-				if(FD_ISSET(p->isock, &rset))
+				int recvsock=p->isock!=SOCKET_ONEWAY ? p->isock : p->osock;
+				if(FD_ISSET(recvsock, &rset))
 				{
-					ssize_t b=recv(p->isock, readbuf, BUFLEN, 0);
+					ssize_t b=recv(recvsock, readbuf, BUFLEN, 0);
 					assert(b<4096); // NYI
 					if(b<=0)
 					{
@@ -518,9 +550,13 @@ static int connect_to_peers()
 					p->port=atoi(ci->val);
 					assert(p->port);
 					peer_addtoset(p);
+					if(check_peer_key(p, sect->items[i]->key, SOCKET_ONEWAY, conf) == 0)
+					{
+						p->m_key_ok=1;
 #ifndef NDEBUG
-					printf("Connected to %s:%s\n", sect->items[i]->key, ci->val);
+						printf("Connected to %s:%s\n", sect->items[i]->key, ci->val);
 #endif
+					}
 				}
 			}
 			else

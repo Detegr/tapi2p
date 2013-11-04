@@ -35,7 +35,7 @@ const char* basepath(void)
 		}
 		else
 		{
-			const char* tapipath="/.tapi2p/";
+			const char* tapipath="/.config/tapi2p/";
 			tapiroot=getenv("HOME");
 			if(!tapiroot)
 			{

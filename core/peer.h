@@ -12,6 +12,7 @@ struct peer
 	unsigned short port;
 
 	int m_connectable;
+	int m_key_ok;
 	int isock;
 	int osock;
 	pthread_t thread;

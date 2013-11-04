@@ -114,6 +114,11 @@ int peer_addtoset(struct peer* p)
 		FD_SET(p->isock, &m_readset);
 		if(p->isock > read_max_int) read_max_int=p->isock;
 	}
+	else
+	{// Oneway
+		FD_SET(p->osock, &m_readset);
+		if(p->osock > read_max_int) read_max_int=p->osock;
+	}
 	pthread_mutex_unlock(&m_lock);
 	return 0;
 }

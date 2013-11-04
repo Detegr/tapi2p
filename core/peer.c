@@ -10,6 +10,7 @@ void peer_init(struct peer* p)
 	p->isock=-1;
 	p->osock=-1;
 	p->thread=0;
+	p->m_key_ok=0;
 }
 
 void peer_free(struct peer* p)

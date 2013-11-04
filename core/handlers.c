@@ -28,7 +28,8 @@ void handlelistpeers(evt_t* e, void* data)
 		dp=stpcpy(dp, "[");
 		dp=stpcpy(dp, p->addr);
 		dp=stpcpy(dp, "]");
-		if(!(p->m_connectable && p->isock>0)) dp=stpcpy(dp, " <One-way>");
+		if(!p->m_key_ok) dp=stpcpy(dp, " <Invalid key. No communication possible.>");
+		else if(!(p->m_connectable && p->isock>0)) dp=stpcpy(dp, " <One-way>");
 		dp=stpcpy(dp, "\n");
 	}
 	dp[-1]=0;
