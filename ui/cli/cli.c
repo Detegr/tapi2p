@@ -30,22 +30,23 @@ void usage(int usage_page)
 	{
 		case usage_add_peer:
 		{
-			printf(	"tapi2p -- Adding peers\n"
-					"First argument:\n"
-					"\tIp address of the peer to be added\n"
-					"Flags needed:\n"
-					"\t-p|--port - Port which peer uses\n"
-					"\t-k|--key  - Name of the keyfile that has the peer's public key\n"
-					"Example: ./tapi2p --add-peer 192.168.1.2 --port 55555 --key mykey\n");
+			printf(	"%s%s  %s%s  %-20s%s%s",
+					"tapi2p -- Adding peers\n",
+					"First argument:\n",
+					"Ip address of the peer to be added\n",
+					"Flags needed:\n",
+					"-p|--port", "Port which peer uses\n",
+					"Example: ./tapi2p --add-peer 192.168.1.2 --port 55555\n");
 			break;
 		}
 		case usage_setup:
 		{
-			printf(	"tapi2p -- Setting up tapi2p\n"
-					"First argument:\n"
-					"\tNickname for your own use\n"
-					"Flags needed:\n"
-					"\t-p|--port - Port in which you accept connections from other peers\n"
+			printf(	"%s%s  %s%s  %-20s%s%s",
+					"tapi2p -- Setting up tapi2p\n",
+					"First argument:\n",
+					"Nickname for your own use\n",
+					"Flags needed:\n",
+					"-p|--port", "Port in which you accept connections from other peers\n",
 					"Example: ./tapi2p --setup Tapi2pUser --port 50000\n");
 			break;
 		}
@@ -127,7 +128,8 @@ void add_peer(char** args)
 {
 	char* peer_ip_str=args[0];
 	char* peer_port_str=args[1];
-	char* peer_key_str=args[2];
+	char peer_key_str[PATH_MAX];
+	memset(peer_key_str, 0, PATH_MAX);
 
 	int port=check_port(peer_port_str);
 	if(port==-1) return;
@@ -138,6 +140,8 @@ void add_peer(char** args)
 		usage(usage_add_peer);
 		return;
 	}
+
+	stpcpy(stpcpy(peer_key_str, "public_key_"), peer_ip_str);
 
 	struct config* c = getconfig();
 	config_add(c, "Peers", peer_ip_str, NULL);
@@ -172,7 +176,6 @@ int main(int argc, char** argv)
 		{"setup",		required_argument, 0, 's'},
 		{"add-peer",	required_argument, 0, 'a'},
 		{"port",		required_argument, 0, 'p'},
-		{"key",			required_argument, 0, 'k'},
 		{"help",		required_argument, 0, 'h'},
 		{"message",		required_argument, 0, 'm'},
 		{"list",		no_argument		 , 0, 'l'},
@@ -189,7 +192,7 @@ int main(int argc, char** argv)
 	opterr=0;
 	for(;;)
 	{
-		int c=getopt_long(argc, argv, "s:a:p:k:h:m:l:d:i:", options, &optind);
+		int c=getopt_long(argc, argv, "s:a:p:h:m:l:di:", options, &optind);
 		if(c==-1) break;
 		switch(c)
 		{
@@ -207,7 +210,7 @@ int main(int argc, char** argv)
 			{
 				setup_args[1]=optarg;
 				add_peer_args[1]=optarg;
-				if(add_peer_args[0] && add_peer_args[2])
+				if(add_peer_args[0])
 				{
 					add_peer(add_peer_args);
 					return 0;
@@ -215,16 +218,6 @@ int main(int argc, char** argv)
 				if(setup_args[0])
 				{
 					setup(setup_args);
-					return 0;
-				}
-				break;
-			}
-			case 'k':
-			{
-				add_peer_args[2]=optarg;
-				if(add_peer_args[0] && add_peer_args[1])
-				{
-					add_peer(add_peer_args);
 					return 0;
 				}
 				break;
@@ -291,17 +284,91 @@ int main(int argc, char** argv)
 			}
 			case 'i':
 			{
-				if(argc > 4)
+				if(argc > 3)
 				{
 					printf("Too many arguments\n");
 					return 0;
 				}
-				if(argc==4)
+				if(argc==3)
 				{
 					struct config* conf=getconfig();
-					printf("%s\n", optarg);
-					printf("%s\n", argv[3]);
+					struct configsection* peers=config_find_section(conf, "Peers");
+					struct configsection* peer=NULL;
+
+					if(!peers)
+					{
+						printf("No peers found\n");
+						return 0;
+					}
+					if(!(peer=config_find_section(conf, argv[2])))
+					{
+						for(unsigned i=0; i<peers->itemcount; ++i)
+						{
+							if(peers->items[i]->key)
+							{
+								struct configitem* nick=config_find_item(conf, "Nick", peers->items[i]->key);
+								if(nick && nick->val)
+								{
+									if(strncmp(nick->val, argv[2], ITEM_MAXLEN) == 0)
+									{
+										peer=config_find_section(conf, peers->items[i]->key);
+										break;
+									}
+								}
+							}
+						}
+					}
+					if(!peer)
+					{
+						printf("No peer found: %s\n", argv[2]);
+						return 0;
+					}
+
+					if(strlen(keypath()) + strlen("public_key_") + strlen(peer->name) > PATH_MAX)
+					{
+						fprintf(stderr, "Path for public key too long. Please check TAPI2P_ROOT environment variable and try again.\n");
+						return -1;
+					}
+
+					printf("Paste public key for peer %s\n", peer->name);
+
+					const size_t pubkey_size=800;
+					char keybuf[pubkey_size+1]; // +1 for last \n
+					memset(keybuf, 0, pubkey_size);
+					unsigned read=0;
+					while(read!=pubkey_size)
+					{
+						if(!fgets(keybuf+read, pubkey_size-read+1, stdin))
+						{
+							fprintf(stderr, "Failed to read public key\n");
+							return -1;
+						}
+						read+=strnlen(keybuf+read, pubkey_size-read);
+					}
+					if(strncmp(keybuf, "-----BEGIN PUBLIC KEY-----\n", 27))
+					{
+						fprintf(stderr, "Error, not a valid public key\n");
+						return -1;
+					}
+					else if(strncmp(keybuf+775, "-----END PUBLIC KEY-----\n", 25))
+					{
+						fprintf(stderr, "Error, not a valid public key\n");
+						return -1;
+					}
+
+					printf("Public key ok, saving to %spublic_key_%s\n", keypath(), peer->name);
+					char pubfpath[PATH_MAX];
+					memset(pubfpath, 0, PATH_MAX);
+					stpcpy(stpcpy(stpcpy(pubfpath, keypath()), "public_key_"), peer->name);
+					FILE* pubf=fopen(pubfpath, "w+");
+					if(fwrite(keybuf, 800, 1, pubf) != 1)
+					{
+						fprintf(stderr, "Writing public key to a file failed!\n");
+						return -1;
+					}
+					fclose(pubf);
 				}
+				return 0;
 			}
 			case '?':
 			{
