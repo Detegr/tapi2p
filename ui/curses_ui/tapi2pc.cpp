@@ -106,5 +106,6 @@ int main()
 			tapi2p::UI::WriteLine(tapi2p::UI::Main(), L"[" + tapi2p::UI::GetItem("Nick", "Account") + L"] " + i);
 		}
 	}
+	eventsystem_stop();
 	tapi2p::UI::Destroy();
 }
