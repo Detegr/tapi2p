@@ -17,6 +17,8 @@ struct peer
 	int osock;
 	pthread_t thread;
 	struct pubkey key;
+
+	int file_sockets[64];
 };
 
 void peer_init(struct peer* p);
