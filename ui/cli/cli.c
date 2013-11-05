@@ -178,6 +178,7 @@ int main(int argc, char** argv)
 		{"port",		required_argument, 0, 'p'},
 		{"help",		required_argument, 0, 'h'},
 		{"message",		required_argument, 0, 'm'},
+		{"filepart",    no_argument      , 0, 'f'},
 		{"list",		no_argument		 , 0, 'l'},
 		{"dump-key",    no_argument      , 0, 'd'},
 		{"import-key",  required_argument, 0, 'i'},
@@ -192,7 +193,7 @@ int main(int argc, char** argv)
 	opterr=0;
 	for(;;)
 	{
-		int c=getopt_long(argc, argv, "s:a:p:h:m:l:di:", options, &optind);
+		int c=getopt_long(argc, argv, "s:a:p:h:m:l:di:f", options, &optind);
 		if(c==-1) break;
 		switch(c)
 		{
@@ -259,6 +260,15 @@ int main(int argc, char** argv)
 					fprintf(stderr, "Error sending an event!\n");
 				}
 				event_free_s(&e);
+				return 0;
+			}
+			case 'f':
+			{
+				int fd=core_socket();
+				if(event_send_simple(RequestFileTransfer, NULL, 0, fd) == -1)
+				{
+					fprintf(stderr, "Error sending an event!\n");
+				}
 				return 0;
 			}
 			case 's':
