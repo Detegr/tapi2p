@@ -7,6 +7,7 @@
 #include <locale.h>
 #include "../../../dtgconf/src/config.h"
 #include "../../../core/pathmanager.h"
+#include <unistd.h>
 
 static int welcome_message_sent=0;
 static sig_atomic_t run_server=1;
@@ -126,6 +127,7 @@ static int tapi2p_callback(struct libwebsocket_context *ctx,
 				}
 				pthread_mutex_unlock(&datalock);
 			}
+			usleep(10000);
 			libwebsocket_callback_on_writable(ctx, wsi);
 			break;
 		}
