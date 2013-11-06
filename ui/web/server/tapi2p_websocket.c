@@ -4,6 +4,9 @@
 #include "../../../core/core.h"
 #include "../../../core/event.h"
 #include <jansson.h>
+#include <locale.h>
+#include "../../../dtgconf/src/config.h"
+#include "../../../core/pathmanager.h"
 
 static int welcome_message_sent=0;
 static sig_atomic_t run_server=1;
@@ -57,8 +60,9 @@ static void send_json(char* str, size_t len)
 	}
 	EventType t=(EventType)json_integer_value(cmd);
 	int datalen=json_integer_value(data_len);
+	printf("Got: %s\n", str);
 	event_send_simple(t, datalen ? json_string_value(data) : NULL, datalen, corefd);
-	printf("Cmd: %d\nData: %s\nData_len: %d\n", t, datalen ? json_string_value(data) : "NULL", datalen);
+	//printf("Cmd: %d\nData: %s\nData_len: %d\n", t, datalen ? json_string_value(data) : "NULL", datalen);
 	json_decref(root);
 	return;
 }
@@ -93,17 +97,30 @@ static int tapi2p_callback(struct libwebsocket_context *ctx,
 			}
 			else if(!welcome_message_sent)
 			{
-				char* conn_reply="{\"cmd\": 0, \"data\":\"Welcome to tapi2p,\"}";
-				welcome_message_sent=1;
-				lwsl_notice("Sent welcome message.\n");
-				websocket_send(wsi, conn_reply, strlen(conn_reply));
+				struct config* conf=getconfig();
+				if(conf)
+				{
+					struct configitem* ci=config_find_item(conf, "Nick", "Account");
+					if(ci && ci->val)
+					{
+						char* conn_base="{\"cmd\": 0, \"data\":\"Welcome to tapi2p, ";
+						size_t conn_len=strlen(conn_base) + ITEM_MAXLEN;
+						char conn_reply[conn_len];
+						memset(conn_reply, 0, conn_len);
+						stpcpy(stpcpy(stpcpy(conn_reply, conn_base), ci->val), "\"}");
+						welcome_message_sent=1;
+						lwsl_notice("Sent welcome message.\n");
+						websocket_send(wsi, conn_reply, strlen(conn_reply));
+					}
+				}
 			}
-			else
+			else if(unsent_data>0)
 			{
 				pthread_mutex_lock(&datalock);
 				while(unsent_data)
 				{
 					char* data=data_to_send[--unsent_data];
+					printf("Sent: %s\n", data);
 					websocket_send(wsi, data, strlen(data));
 					free(data);
 				}
@@ -136,6 +153,7 @@ static json_t* createjsonobject(evt_t* e)
 	json_t* ret=json_object();
 	json_t* cmd=json_integer(e->type);
 	json_t* data=json_string(e->data);
+	json_t* addr=json_string(e->addr);
 
 	if(!cmd || !json_is_integer(cmd))
 	{
@@ -147,8 +165,14 @@ static json_t* createjsonobject(evt_t* e)
 		fprintf(stderr, "JSON: data is not a string\n");
 		goto err;
 	}
+	if(!addr || !json_is_string(addr))
+	{
+		fprintf(stderr, "JSON: addr is not a string\n");
+		goto err;
+	}
 	json_object_set(ret, "cmd", cmd);
 	json_object_set(ret, "data", data);
+	json_object_set(ret, "addr", addr);
 	return ret;
 err:
 	json_decref(cmd);
@@ -175,16 +199,32 @@ static void coreeventhandler(evt_t* e, void* data)
 		}
 		json_decref(json);
 	}
+	else
+	{
+		printf("Failed to create JSON object\n");
+	}
 }
 
 int main()
 {
+	if(!setlocale(LC_CTYPE, "en_US.UTF-8"))
+	{
+		fprintf(stderr, "Cannot set UTF-8 encoding. Please make sure that en_US.UTF-8 encoding is installed.\n");
+	}
+
 	memset(data_to_send, 0, 16*sizeof(char*));
 	signal(SIGINT, sighandler);
 
 	corefd=core_socket();
+	if(corefd == -1)
+	{
+		fprintf(stderr, "tapi2p core not running!\n");
+		return 1;
+	}
 	event_addlistener(ListPeers, &coreeventhandler, NULL);
 	event_addlistener(Message, &coreeventhandler, NULL);
+	event_addlistener(PeerConnected, &coreeventhandler, NULL);
+	event_addlistener(PeerDisconnected, &coreeventhandler, NULL);
 	eventsystem_start(corefd);
 
 	struct libwebsocket_context* ctx;
