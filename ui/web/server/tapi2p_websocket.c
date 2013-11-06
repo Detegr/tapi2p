@@ -9,6 +9,10 @@ static int welcome_message_sent=0;
 static sig_atomic_t run_server=1;
 static int corefd=-1;
 
+static sig_atomic_t unsent_data=0;
+static char* data_to_send[16];
+pthread_mutex_t datalock=PTHREAD_MUTEX_INITIALIZER;
+
 void sighandler(int signal)
 {
 	if(signal==SIGINT) run_server=0;
@@ -82,18 +86,30 @@ static int tapi2p_callback(struct libwebsocket_context *ctx,
 			break;
 		case LWS_CALLBACK_SERVER_WRITEABLE:
 		{
-			const char* conn_reply;
 			if(corefd==-1)
 			{
-				conn_reply="Could not connect to tapi2p. Is tapi2p core running?";
+				char* conn_reply="Could not connect to tapi2p. Is tapi2p core running?";
+				websocket_send(wsi, conn_reply, strlen(conn_reply));
 			}
 			else if(!welcome_message_sent)
 			{
-				conn_reply="Welcome to tapi2p, ";
+				char* conn_reply="{\"cmd\": 0, \"data\":\"Welcome to tapi2p,\"}";
 				welcome_message_sent=1;
 				lwsl_notice("Sent welcome message.\n");
+				websocket_send(wsi, conn_reply, strlen(conn_reply));
 			}
-			websocket_send(wsi, conn_reply, strlen(conn_reply));
+			else
+			{
+				pthread_mutex_lock(&datalock);
+				while(unsent_data)
+				{
+					char* data=data_to_send[--unsent_data];
+					websocket_send(wsi, data, strlen(data));
+					free(data);
+				}
+				pthread_mutex_unlock(&datalock);
+			}
+			libwebsocket_callback_on_writable(ctx, wsi);
 			break;
 		}
 		case LWS_CALLBACK_CLOSED:
@@ -118,47 +134,40 @@ static struct libwebsocket_protocols protocols[] =
 static json_t* createjsonobject(evt_t* e)
 {
 	json_t* ret=json_object();
-	json_t* cmd=json_integer();
-	json_t* data=json_string();
-	json_t* data_len=json_integer();
+	json_t* cmd=json_integer(e->type);
+	json_t* data=json_string(e->data);
 
-	if(!json_set_integer(cmd, e->type))
+	if(!cmd || !json_is_integer(cmd))
 	{
-		fprintf("Failed to set JSON integer %d\n", e->type);
+		fprintf(stderr, "JSON: cmd is not an integer\n");
 		goto err;
 	}
-	if(!json_set_data(data, e->data))
+	if(!data || !json_is_string(data))
 	{
-		fprintf("Failed to set JSON string %s\n", e->data);
-		goto err;
-	}
-	if(!json_set_data_len(data_len, e->data_len))
-	{
-		fprintf("Failed to set JSON integer %s\n", e->data_len);
+		fprintf(stderr, "JSON: data is not a string\n");
 		goto err;
 	}
 	json_object_set(ret, "cmd", cmd);
 	json_object_set(ret, "data", data);
-	json_object_set(ret, "data_len", data_len);
 	return ret;
 err:
 	json_decref(cmd);
 	json_decref(data);
-	json_decref(data_len);
 	json_decref(ret);
 	return NULL;
 }
 
-static void handlelistpeers(evt_t* e, void* data)
+static void coreeventhandler(evt_t* e, void* data)
 {
-	json_t json=createjsonobject(e);
+	json_t* json=createjsonobject(e);
 	if(json)
 	{
-		char* json_str=json_dumps(json);
+		char* json_str=json_dumps(json, 0);
 		if(json_str)
 		{
-			libwebsocket_callback_on_writable(ctx, wsi);
-			free(json_str);
+			pthread_mutex_lock(&datalock);
+			data_to_send[unsent_data++]=json_str;
+			pthread_mutex_unlock(&datalock);
 		}
 		else
 		{
@@ -170,11 +179,13 @@ static void handlelistpeers(evt_t* e, void* data)
 
 int main()
 {
+	memset(data_to_send, 0, 16*sizeof(char*));
 	signal(SIGINT, sighandler);
 
 	corefd=core_socket();
-	event_addlistener(ListPeers, &handlelistpeers, NULL);
-	eventsystem_start();
+	event_addlistener(ListPeers, &coreeventhandler, NULL);
+	event_addlistener(Message, &coreeventhandler, NULL);
+	eventsystem_start(corefd);
 
 	struct libwebsocket_context* ctx;
 	struct lws_context_creation_info info;
