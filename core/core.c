@@ -25,6 +25,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <semaphore.h>
+#include <fcntl.h>
 
 #define SOCKET_ONEWAY -2
 // Length of the password used to AES encrypt data
@@ -107,9 +108,16 @@ int core_socket()
 	memset(&u, 0, sizeof(struct sockaddr_un));
 	u.sun_family=AF_UNIX;
 	strcpy(u.sun_path, socketpath());
+	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
 	if(connect(fd, (struct sockaddr*)&u, sizeof(u)))
 	{
 		perror("Connect");
+		return -1;
+	}
+	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) & ~O_NONBLOCK);
+	if(!check_writability(fd))
+	{
+		fprintf(stderr, "Socket %d connected, but not writable\n");
 		return -1;
 	}
 
@@ -352,7 +360,8 @@ void* connection_thread(void* args)
 #ifndef NDEBUG
 					printf("Connecting %s:%d\n", hbuf, p->port);
 #endif
-					if(connect(p->osock, &addr, addrlen))
+					fcntl(p->osock, F_SETFL, fcntl(p->osock, F_GETFL, 0) | O_NONBLOCK);
+					if(connect(p->osock, &addr, addrlen) || !check_writability(p->osock))
 					{
 #ifndef NDEBUG
 						printf("%s not connectable, errno: %d\n", hbuf, errno);
@@ -365,6 +374,7 @@ void* connection_thread(void* args)
 					}
 #ifndef NDEBUG
 					else printf("Connected successfully!\n");
+					fcntl(p->osock, F_SETFL, fcntl(p->osock, F_GETFL, 0) & ~O_NONBLOCK);
 #endif
 					send_event_to_pipes_simple(PeerConnected, p->addr, 0);
 					peer_addtoset(p);

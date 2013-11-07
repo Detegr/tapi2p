@@ -8,6 +8,7 @@
 #include <sys/un.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 int new_socket(const char* addr, const char* port)
 {
@@ -37,6 +38,7 @@ int new_socket(const char* addr, const char* port)
 	{
 		if(addr)
 		{
+			fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
 			if(connect(fd, ai->ai_addr, ai->ai_addrlen))
 			{
 				fprintf(stderr, "Failed to connect to %s:%s\n", addr, port);
@@ -44,6 +46,14 @@ int new_socket(const char* addr, const char* port)
 				close(fd);
 				return -1;
 			}
+			if(!check_writability(fd))
+			{
+				fprintf(stderr, "Socket %d connected, but not writable\n");
+				if(ai) freeaddrinfo(ai);
+				close(fd);
+				return -1;
+			}
+			fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) & ~O_NONBLOCK);
 		}
 		else
 		{
@@ -80,3 +90,16 @@ int new_socket(const char* addr, const char* port)
 	if(ai) freeaddrinfo(ai);
 	return fd;
 }
+
+int check_writability(int fd)
+{
+	fd_set ws;
+	FD_ZERO(&ws);
+	FD_SET(fd, &ws);
+
+	struct timeval to;
+	to.tv_sec=2; to.tv_usec=0;
+
+	return (select(fd+1, NULL, &ws, NULL, &to) > 0);
+}
+
