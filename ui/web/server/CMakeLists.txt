@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 2.8)
+project(tapi2pws)
+include_directories($OpenSSL_INCLUDE_DIRS)
+find_package(Jansson REQUIRED)
+find_package(Websockets REQUIRED)
+set(CMAKE_C_FLAGS "-std=c99 -D_GNU_SOURCE -g3 -Wno-unused-parameter")
+add_executable(tapi2pws tapi2p_websocket.c)
+target_link_libraries(tapi2pws tapi2p_corelib ssl crypto pthread jansson websockets)

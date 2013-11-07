@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 project(test)
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/build/bin/test)
 #include_directories(${PROJECT_SOURCE_DIR}/core)
 include_directories($OpenSSL_INCLUDE_DIRS)
 add_definitions(-std=c99 -D_GNU_SOURCE -g3 -Wall -Wextra)

@@ -1,13 +1,13 @@
 #include <string.h>
 #include <signal.h>
-#include "libwebsockets/lib/libwebsockets.h"
-#include "../../../core/core.h"
-#include "../../../core/event.h"
+#include <libwebsockets.h>
 #include <jansson.h>
 #include <locale.h>
+#include <unistd.h>
+#include "../../../core/core.h"
+#include "../../../core/event.h"
 #include "../../../dtgconf/src/config.h"
 #include "../../../core/pathmanager.h"
-#include <unistd.h>
 
 static int welcome_message_sent=0;
 static sig_atomic_t run_server=1;
