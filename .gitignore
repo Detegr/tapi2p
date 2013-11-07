@@ -6,6 +6,6 @@ Makefile
 .*.swo
 CMakeCache.txt
 CMakeFiles/
-*.cmake
+*/*.cmake
 build/
 tags
