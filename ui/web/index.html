@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title></title>
+	<script src="js/jquery-1.10.2.min.js"></script>
+	<script src="js/bootstrap.min.js"></script>
+	<link rel="stylesheet" href="css/bootstrap.min.css"/>
+	<link rel="stylesheet" href="css/bootstrap-responsive.min.css"/>
+	<style>
+		html,body {
+			height: 100%;
+		}
+		.container-narrow {
+			height: 100%;
+			margin: 0 auto;
+			max-width: 700px;
+		}
+		#chat {
+			height: 35%;
+		}
+		#peerdiv {
+			display: none;
+		}
+		.dirty {
+			background-color: #EEF;
+		}
+	</style>
+	<script src="js/tapi2p.js"></script>
+</head>
+<body>
+	<div class="container-narrow">
+		<div class="masthead">
+			<ul class="nav nav-pills pull-right">
+				<li class="active"><a id="chatbtn" href="">Chat</a></li>
+				<li><a id="peerbtn" href="">Peers</a></li>
+			</ul>
+			<h3 class="muted">tapi2p</h3>
+		</div>
+		<hr/>
+		<div id="chatdiv">
+			<pre id="chat"></pre>
+			<input id="chat_input" class="input-block-level" type="text" placeholder="Chat">
+		</div>
+		<div id="peerdiv">
+			<table class="table table-bordered">
+				<thead>
+					<tr><th>Ip</th><th>Nick</th><th>Status</th></tr>
+				</thead>
+				<tbody id="peertable">
+				</tbody>
+			</table>
+		</div>
+	</div>
+</body>
+</html>
