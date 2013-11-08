@@ -118,6 +118,16 @@ int event_send_simple(EventType t, const unsigned char* data, unsigned int data_
 	return event_send_internal(t, data, data_len, NULL, 0, fd);
 }
 
+int event_send_simple_to_peer(EventType t, const unsigned char* data, unsigned int data_len, struct peer* p, int fd)
+{
+	return event_send_internal(t, data, data_len, p->addr, p->port, fd);
+}
+
+int event_send_simple_to_addr(EventType t, const unsigned char* data, unsigned int data_len, const char* addr, unsigned short port, int fd)
+{
+	return event_send_internal(t, data, data_len, addr, port, fd);
+}
+
 evt_t* event_recv(int fd, int* status)
 {
 	char buf[EVENT_MAX];

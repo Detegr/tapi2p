@@ -9,6 +9,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 
 int new_socket(const char* addr, const char* port)
 {
@@ -41,10 +42,13 @@ int new_socket(const char* addr, const char* port)
 			fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
 			if(connect(fd, ai->ai_addr, ai->ai_addrlen))
 			{
-				fprintf(stderr, "Failed to connect to %s:%s\n", addr, port);
-				if(ai) freeaddrinfo(ai);
-				close(fd);
-				return -1;
+				if(errno!=EINPROGRESS)
+				{
+					fprintf(stderr, "Failed to connect to %s:%s\n", addr, port);
+					if(ai) freeaddrinfo(ai);
+					close(fd);
+					return -1;
+				}
 			}
 			if(!check_writability(fd))
 			{

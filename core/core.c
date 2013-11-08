@@ -111,8 +111,11 @@ int core_socket()
 	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
 	if(connect(fd, (struct sockaddr*)&u, sizeof(u)))
 	{
-		perror("Connect");
-		return -1;
+		if(errno!=EINPROGRESS)
+		{
+			perror("Connect");
+			return -1;
+		}
 	}
 	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) & ~O_NONBLOCK);
 	if(!check_writability(fd))
@@ -363,14 +366,17 @@ void* connection_thread(void* args)
 					fcntl(p->osock, F_SETFL, fcntl(p->osock, F_GETFL, 0) | O_NONBLOCK);
 					if(connect(p->osock, &addr, addrlen) || !check_writability(p->osock))
 					{
+						if(errno!=EINPROGRESS)
+						{
 #ifndef NDEBUG
-						printf("%s not connectable, errno: %d\n", hbuf, errno);
+							printf("%s not connectable, errno: %d\n", hbuf, errno);
 #endif
-						p->m_connectable=0;
-						close(p->osock);
-						// Use special number for outgoing socket
-						// to tell that we currently have a oneway connection
-						p->osock=SOCKET_ONEWAY;
+							p->m_connectable=0;
+							close(p->osock);
+							// Use special number for outgoing socket
+							// to tell that we currently have a oneway connection
+							p->osock=SOCKET_ONEWAY;
+						}
 					}
 #ifndef NDEBUG
 					else printf("Connected successfully!\n");
@@ -599,6 +605,7 @@ int core_start(void)
 	event_addlistener(Message, &handlemessage, NULL);
 	event_addlistener(ListPeers, &handlelistpeers, getconfig());
 	event_addlistener(RequestFileTransfer, &handlefiletransfer, NULL);
+	event_addlistener(RequestFileTransferLocal, &handlefiletransferlocal, NULL);
 	event_addlistener(FilePart, &fileparthandler, NULL);
 	while(run_threads)
 	{

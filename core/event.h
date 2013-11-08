@@ -15,6 +15,7 @@ typedef enum {
 	PeerConnected,
 	PeerDisconnected,
 	RequestFileTransfer,
+	RequestFileTransferLocal,
 	FilePart,
 	EventCount // For iterating through eventtypes
 } EventType;
@@ -39,6 +40,8 @@ unsigned char* event_as_databuffer(evt_t* e);
 int event_set(evt_t* evt, const unsigned char* data, unsigned int data_len);
 int event_send(evt_t* evt, int fd);
 int event_send_simple(EventType t, const unsigned char* data, unsigned int data_len, int fd);
+int event_send_simple_to_peer(EventType t, const unsigned char* data, unsigned int data_len, struct peer* p, int fd);
+int event_send_simple_to_addr(EventType t, const unsigned char* data, unsigned int data_len, const char* addr, unsigned short port, int fd);
 evt_t* event_recv(int fd, int* status);
 void event_free(evt_t* evt);
 void event_free_s(evt_t* evt); // Frees event that is allocated from stack

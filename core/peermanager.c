@@ -142,6 +142,16 @@ struct peer* peer_exists(struct peer* p)
 	return NULL;
 }
 
+struct peer* peer_exists_simple(char* addr, unsigned short port)
+{
+	struct peer* sp=peer_new();
+	strncpy(sp->addr, addr, IPV4_MAX);
+	sp->port=port;
+	struct peer* ret=peer_exists(sp);
+	peer_remove(sp);
+	return ret;
+}
+
 struct peer* peer_next()
 {
 	pthread_mutex_unlock(&m_lock);

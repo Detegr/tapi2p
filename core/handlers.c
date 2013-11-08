@@ -39,29 +39,46 @@ void handlelistpeers(evt_t* e, void* data)
 	event_send(e, e->fd_from);
 }
 
+void handlefiletransferlocal(evt_t* e, void* data)
+{
+	struct peer* p;
+	if((p=peer_exists_simple(e->addr, e->port)))
+	{
+		e->type=RequestFileTransfer;
+		send_data_to_peer(p,e);
+		printf("Sent HandleFileTransfer to: %s:%u\n", e->addr, e->port);
+	}
+	else
+	{
+		printf("Peer %s:%u not found.\n", e->addr, e->port);
+	}
+}
+
 void handlefiletransfer(evt_t* e, void* data)
 {
 	struct peer* p;
-	struct peer* sp=peer_new();
-	strncpy(sp->addr, e->addr, IPV4_MAX);
-	sp->port=e->port;
-	printf("Addr & port: %s:%u\n", e->addr, e->port);
-	if((p=peer_exists(sp)))
+	if((p=peer_exists_simple(e->addr, e->port)))
 	{
-		peer_remove(sp);
 		FILE* f=fopen("testfile.mp3", "r");
-		unsigned char filebuf[FILE_PART_BYTES];
-		unsigned char buf[EVENT_MAX];
-		for(int i=0; i<63; ++i)
+		if(f)
 		{
-			if(p->file_sockets[i] == 0)
+			unsigned char filebuf[FILE_PART_BYTES];
+			unsigned char buf[EVENT_MAX];
+			for(int i=0; i<63; ++i)
 			{
-				char portstr[5];
-				snprintf(portstr, 5, "%u", p->port);
-				int filesock=new_socket(p->addr, portstr);
-				printf("Created new socket: %d for peer %s:%u\n", p->addr, p->port);
-				p->file_sockets[i]=filesock;
+				if(p->file_sockets[i] == 0)
+				{
+					char portstr[5];
+					snprintf(portstr, 5, "%u", p->port);
+					int filesock=new_socket(p->addr, portstr);
+					printf("Created new socket: %d for peer %s:%u\n", p->addr, p->port);
+					p->file_sockets[i]=filesock;
+				}
 			}
+		}
+		else
+		{
+			printf("Requested file not found\n");
 		}
 	}
 	else

@@ -20,6 +20,7 @@ void peer_removefromset(struct peer* p);
 // and thus it doesn't check if p itself exists.
 // Returns the existing peer if peer exists, NULL otherwise
 struct peer* peer_exists(struct peer* p);
+struct peer* peer_exists_simple(char* addr, unsigned short port);
 int peer_remove(struct peer* p);
 void peers_free(void);
 

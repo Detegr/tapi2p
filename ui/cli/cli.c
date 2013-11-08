@@ -2,6 +2,7 @@
 #include "../../core/event.h"
 #include "../../core/pipemanager.h"
 #include "../../crypto/publickey.h"
+#include "../../core/peermanager.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -264,11 +265,15 @@ int main(int argc, char** argv)
 			}
 			case 'f':
 			{
-				int fd=core_socket();
-				if(event_send_simple(RequestFileTransfer, NULL, 0, fd) == -1)
+				if(argc==4)
 				{
-					fprintf(stderr, "Error sending an event!\n");
+					int fd=core_socket();
+					if(event_send_simple_to_addr(RequestFileTransferLocal, NULL, 0, argv[2], atoi(argv[3]), fd) == -1)
+					{
+						fprintf(stderr, "Error sending an event!\n");
+					}
 				}
+				else usage(usage_help);
 				return 0;
 			}
 			case 's':
