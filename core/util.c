@@ -58,6 +58,7 @@ int new_socket(const char* addr, const char* port)
 				return -1;
 			}
 			fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) & ~O_NONBLOCK);
+			printf("Connected to %s:%s\n", addr, port);
 		}
 		else
 		{

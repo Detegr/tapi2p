@@ -69,10 +69,12 @@ void handlefiletransfer(evt_t* e, void* data)
 				if(p->file_sockets[i] == 0)
 				{
 					char portstr[5];
+					memset(portstr, 0, 5);
 					snprintf(portstr, 5, "%u", p->port);
 					int filesock=new_socket(p->addr, portstr);
-					printf("Created new socket: %d for peer %s:%u\n", p->addr, p->port);
+					printf("Created new socket: %d for peer %s:%u\n", filesock, p->addr, p->port);
 					p->file_sockets[i]=filesock;
+					break;
 				}
 			}
 		}
