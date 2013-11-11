@@ -3,6 +3,7 @@
 
 #include <pthread.h>
 #include "../crypto/publickey.h"
+#include "file.h"
 
 #define IPV4_MAX 16
 
@@ -18,7 +19,7 @@ struct peer
 	pthread_t thread;
 	struct pubkey key;
 
-	int file_sockets[64];
+	file_t file_transfers[64];
 };
 
 void peer_init(struct peer* p);

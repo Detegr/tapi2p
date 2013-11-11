@@ -1,6 +1,7 @@
 #include "handlers.h"
 #include "core.h"
 #include "peermanager.h"
+#include "pathmanager.h"
 #include "../dtgconf/src/config.h"
 #include "util.h"
 
@@ -56,36 +57,59 @@ void handlefiletransferlocal(evt_t* e, void* data)
 
 void handlefiletransfer(evt_t* e, void* data)
 {
+	struct config* conf=getconfig();
+	const char* filehash=e->data;
 	struct peer* p;
-	if((p=peer_exists_simple(e->addr, e->port)))
+	struct configitem* ci;
+	if((ci=config_find_item(conf, "Filename", filehash)) && ci->val)
 	{
-		FILE* f=fopen("testfile.mp3", "r");
-		if(f)
+		if((p=peer_exists_simple(e->addr, e->port)))
 		{
-			unsigned char filebuf[FILE_PART_BYTES];
-			unsigned char buf[EVENT_MAX];
-			for(int i=0; i<63; ++i)
+			FILE* f=fopen(ci->val, "r");
+			if(f)
 			{
-				if(p->file_sockets[i] == 0)
+				unsigned char filebuf[FILE_PART_BYTES];
+				unsigned char buf[EVENT_MAX];
+				for(int i=0; i<64; ++i)
 				{
-					char portstr[5];
-					memset(portstr, 0, 5);
-					snprintf(portstr, 5, "%u", p->port);
-					int filesock=new_socket(p->addr, portstr);
-					printf("Created new socket: %d for peer %s:%u\n", filesock, p->addr, p->port);
-					p->file_sockets[i]=filesock;
-					break;
+					if(p->file_transfers[i].sock == 0)
+					{
+						char portstr[5];
+						memset(portstr, 0, 5);
+						snprintf(portstr, 5, "%u", p->port);
+						int filesock=new_socket(p->addr, portstr);
+						if(filesock==-1)
+						{
+							fprintf(stderr, "Could not create socket for file transfer\n");
+						}
+						else
+						{
+							p->file_transfers[i].sock=filesock;
+							p->file_transfers[i].part_count=0;
+							p->file_transfers[i].file_size=0;
+						}
+						break;
+					}
 				}
+				fclose(f);
+			}
+			else
+			{
+#ifndef NDEBUG
+				printf("Requested file not found\n");
+#endif
 			}
 		}
 		else
 		{
-			printf("Requested file not found\n");
+			fprintf(stderr, "HandleFileTransfer: Peer not found\n");
 		}
 	}
 	else
 	{
-		fprintf(stderr, "HandleFileTransfer: Peer not found\n");
+#ifndef NDEBUG
+		printf("No file name corresponding hash %s\n", filehash);
+#endif
 	}
 }
 

@@ -10,6 +10,7 @@
 #include "ptrlist.h"
 #include "handlers.h"
 #include "util.h"
+#include "file.h"
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -156,12 +157,17 @@ static int core_init(void)
 {
 	if(mkdirp(basepath(), 0755) == -1 && errno!=EEXIST)
 	{
-		fprintf(stderr, "Failed to create tapi2p folder!\n");
+		fprintf(stderr, "Failed to create tapi2p directory!\n");
 		return -1;
 	}
 	if(mkdir(keypath(), 0755) == -1 && errno!=EEXIST)
 	{
-		fprintf(stderr, "Failed to create tapi2p key folder!\n");
+		fprintf(stderr, "Failed to create tapi2p key directory!\n");
+		return -1;
+	}
+	if(mkdir(metadatapath(), 0755) == -1 && errno!=EEXIST)
+	{
+		fprintf(stderr, "Failed to create tapi2p metadata directory!\n");
 		return -1;
 	}
 
@@ -192,6 +198,37 @@ static int core_init(void)
 		printf("tapi2p needs to be configured before use.\n"
 				"Please set your username and port and restart tapi2p.\n");
 		return 1;
+	}
+
+	const char* md="Metadata";
+	struct configsection* files=config_find_section(conf, md);
+	if(files)
+	{
+		char sha_str[SHA_DIGEST_LENGTH*2+1];
+		memset(sha_str, 0, SHA_DIGEST_LENGTH*2+1);
+		for(int i=0; i<files->itemcount; ++i)
+		{
+			struct configitem* ci=files->items[i];
+			struct stat buf;
+			char* mdpath=NULL;
+			if(ci->val)
+			{
+				getpath(metadatapath(), ci->val, &mdpath);
+			}
+			if(!ci->val || stat(mdpath, &buf) == -1)
+			{
+				free(mdpath);
+				printf("Generating metadata for %s\n", ci->key);
+				create_metadata_file(ci->key, sha_str);
+				config_add(conf, md, ci->key, sha_str);
+			}
+			struct configsection* mdci;
+			if(!(mdci=config_find_section(conf, ci->val)))
+			{
+				config_add(conf, ci->val, "Filename", ci->key);
+			}
+		}
+		config_save(conf, configpath());
 	}
 
 	if(create_core_socket() == -1) return -1;

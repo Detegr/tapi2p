@@ -265,10 +265,10 @@ int main(int argc, char** argv)
 			}
 			case 'f':
 			{
-				if(argc==4)
+				if(argc==5)
 				{
 					int fd=core_socket();
-					if(event_send_simple_to_addr(RequestFileTransferLocal, NULL, 0, argv[2], atoi(argv[3]), fd) == -1)
+					if(event_send_simple_to_addr(RequestFileTransferLocal, argv[4], strlen(argv[4])+1, argv[2], atoi(argv[3]), fd) == -1)
 					{
 						fprintf(stderr, "Error sending an event!\n");
 					}

@@ -11,7 +11,7 @@ void peer_init(struct peer* p)
 	p->osock=-1;
 	p->thread=0;
 	p->m_key_ok=0;
-	memset(p->file_sockets, 0, 64*sizeof(int));
+	memset(p->file_transfers, 0, 64*sizeof(file_t*));
 }
 
 void peer_free(struct peer* p)

@@ -4,8 +4,10 @@
 #include <stdio.h>
 #include "../dtgconf/src/config.h"
 
+char* getpath(const char* base, const char* add, char** to);
 const char* basepath(void);
 const char* configpath(void);
+const char* metadatapath(void);
 const char* keypath(void);
 const char* selfkeypath(void);
 const char* selfkeypath_pub(void);

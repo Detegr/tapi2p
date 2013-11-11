@@ -6,14 +6,13 @@
 
 static char* basepath_str=NULL;
 static char* configpath_str=NULL;
+static char* metadatapath_str=NULL;
 static char* keypath_str=NULL;
 static char* selfkeypath_str=NULL;
 static char* selfkeypath_pub_str=NULL;
 static char* socketpath_str=NULL;
 static struct config conf={0};
 static struct config* conf_ptr=NULL;
-
-static const char* getpath(const char* base, const char* add, char** to);
 
 const char* basepath(void)
 {
@@ -57,7 +56,7 @@ const char* basepath(void)
 	return basepath_str;
 }
 
-static const char* getpath(const char* base, const char* add, char** to)
+char* getpath(const char* base, const char* add, char** to)
 {
 	if(!*to)
 	{
@@ -70,6 +69,11 @@ static const char* getpath(const char* base, const char* add, char** to)
 			return NULL;
 		}
 		*to = (char*)malloc(newlen * sizeof(char));
+		if(!*to)
+		{
+			fprintf(stderr, "Could not allocate memory for path.\n");
+			return NULL;
+		}
 		stpncpy(stpncpy(*to, base, baselen+1), add, addlen+1);
 	}
 	return *to;
@@ -78,6 +82,11 @@ static const char* getpath(const char* base, const char* add, char** to)
 const char* configpath(void)
 {
 	return getpath(basepath(), "config", &configpath_str);
+}
+
+const char* metadatapath(void)
+{
+	return getpath(basepath(), "metadata/", &metadatapath_str);
 }
 
 const char* keypath(void)
@@ -104,6 +113,7 @@ void pathmanager_free(void)
 {
 	if(basepath_str) free(basepath_str);
 	if(configpath_str) free(configpath_str);
+	if(metadatapath_str) free(metadatapath_str);
 	if(keypath_str) free(keypath_str);
 	if(selfkeypath_str) free(selfkeypath_str);
 	if(socketpath_str) free(socketpath_str);

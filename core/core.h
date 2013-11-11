@@ -1,8 +1,6 @@
 #ifndef TAPI2P_CORE_H
 #define TAPI2P_CORE_H
 
-#define FILE_PART_BYTES 524288 // 512kb file part size
-
 #include "event.h"
 
 int core_start(void);
