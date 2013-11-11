@@ -10,6 +10,7 @@ typedef struct file_transfer
 	int sock;
 	size_t part_count;
 	size_t file_size;
+	pthread_mutex_t file_lock;
 } file_t;
 
 void create_metadata_file(const char* from, char* file_sha_as_str);

@@ -5,6 +5,21 @@
 #include "../dtgconf/src/config.h"
 #include "util.h"
 
+static void* sendfile(void* args)
+{
+	file_t* f=(file_t*)args;
+	pthread_mutex_lock(&f->file_lock);
+	printf("Simulating file transfer...\n");
+	sleep(10);
+	printf("Done simulating file transfer\n");
+	close(f->sock);
+	f->sock=0;
+	f->part_count=0;
+	f->file_size=0;
+	pthread_mutex_unlock(&f->file_lock);
+	return 0;
+}
+
 void handlemessage(evt_t* e, void* data)
 {
 	send_to_all(e);
@@ -72,7 +87,8 @@ void handlefiletransfer(evt_t* e, void* data)
 				unsigned char buf[EVENT_MAX];
 				for(int i=0; i<64; ++i)
 				{
-					if(p->file_transfers[i].sock == 0)
+					if(pthread_mutex_trylock(&p->file_transfers[i].file_lock) == 0 &&
+						p->file_transfers[i].sock == 0)
 					{
 						char portstr[5];
 						memset(portstr, 0, 5);
@@ -87,7 +103,12 @@ void handlefiletransfer(evt_t* e, void* data)
 							p->file_transfers[i].sock=filesock;
 							p->file_transfers[i].part_count=0;
 							p->file_transfers[i].file_size=0;
+
+							pthread_t sendthread;
+							void* data[2]={&(p->file_transfers[i]), p};
+							pthread_create(&sendthread, NULL, &sendfile, data);
 						}
+						pthread_mutex_unlock(&p->file_transfers[i].file_lock);
 						break;
 					}
 				}
