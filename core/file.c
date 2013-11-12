@@ -1,9 +1,11 @@
 #include "file.h"
 #include "pathmanager.h"
+#include <sys/stat.h>
 #include <openssl/sha.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "event.h"
 
 unsigned char* SHA1_for_part(unsigned part, unsigned char* data, size_t datasize)
 {
@@ -18,6 +20,17 @@ unsigned char* SHA1_for_part(unsigned part, unsigned char* data, size_t datasize
 	SHA1(data+(part*FILE_PART_BYTES), bytes, ret);
 
 	return ret;
+}
+
+void sha_to_str(const unsigned char* sha, char* out)
+{
+	char sha_char[2];
+	char* shap=out;
+	for(int i=0; i<SHA_DIGEST_LENGTH; ++i)
+	{
+		sprintf(sha_char, "%02x", sha[i]);
+		shap=stpcpy(shap, sha_char);
+	}
 }
 
 void create_metadata_file(const char* from, char* file_sha_as_str)
@@ -43,14 +56,7 @@ void create_metadata_file(const char* from, char* file_sha_as_str)
 		printf("SHA1 for file: ");
 #endif
 		SHA1(filebuf, filesize, fullsha);
-
-		char sha_char[2];
-		char* shap=file_sha_as_str;
-		for(int i=0; i<SHA_DIGEST_LENGTH; ++i)
-		{
-			sprintf(sha_char, "%02x", fullsha[i]);
-			shap=stpcpy(shap, sha_char);
-		}
+		sha_to_str(fullsha, file_sha_as_str);
 
 		char* mdpath=NULL;
 		getpath(metadatapath(), file_sha_as_str, &mdpath);
@@ -59,6 +65,8 @@ void create_metadata_file(const char* from, char* file_sha_as_str)
 			FILE* mdbin=fopen(mdpath, "w");
 			free(mdpath);
 
+			unsigned char fp=Metadata; // To distinguish the beginning of a
+			fwrite(&fp, 1, 1, mdbin); //  metadata from the data when receiving
 			fwrite(fullsha, SHA_DIGEST_LENGTH, 1, mdbin);
 			for(int i=0; i<part_count; ++i)
 			{
@@ -74,4 +82,34 @@ void create_metadata_file(const char* from, char* file_sha_as_str)
 	{
 		printf("Failed to create metadata for file %s\n", from);
 	}
+}
+
+void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size)
+{
+	struct config* conf=getconfig();
+	struct stat buf;
+	char sha_str[SHA_DIGEST_LENGTH*2+1];
+	sha_to_str(sha_data, sha_str);
+	char* mdpath=NULL;
+	getpath(metadatapath(), sha_str, &mdpath);
+	if(stat(mdpath, &buf) == -1)
+	{
+		FILE* f=fopen(mdpath, "w");
+		if(f)
+		{
+			unsigned char type=Metadata;
+			fwrite(&type, 1, 1, f);
+			fwrite(sha_data, sha_size, 1, f);
+			fclose(f);
+		}
+		else
+		{
+			fprintf(stderr, "Could not open file %s. Failed to write metadata.\n", mdpath);
+		}
+	}
+	else
+	{
+		printf("Metadata %s already exists\n", sha_str);
+	}
+	free(mdpath);
 }

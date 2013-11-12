@@ -6,6 +6,7 @@
 #include "file.h"
 
 #define IPV4_MAX 16
+#define MAX_TRANSFERS 64
 
 struct peer
 {
@@ -19,10 +20,11 @@ struct peer
 	pthread_t thread;
 	struct pubkey key;
 
-	file_t file_transfers[64];
+	file_t file_transfers[MAX_TRANSFERS];
 };
 
 void peer_init(struct peer* p);
 void peer_free(struct peer* p);
+void update_file_transfer(const char* sha);
 
 #endif

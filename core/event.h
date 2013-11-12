@@ -16,8 +16,12 @@ typedef enum {
 	PeerDisconnected,
 	RequestFileTransfer,
 	RequestFileTransferLocal,
-	FilePart,
-	EventCount // For iterating through eventtypes
+	RequestFilePart,
+	EventCount, // For iterating through eventtypes
+	// File transfer types. Not actually event types
+	// but stored in the same enum for simplicity
+	FilePart=0xFE,
+	Metadata=0xFF
 } EventType;
 
 typedef struct event

@@ -28,10 +28,6 @@
 #include <semaphore.h>
 #include <fcntl.h>
 
-#define SOCKET_ONEWAY -2
-// Length of the password used to AES encrypt data
-#define PW_LEN 80
-
 static volatile sig_atomic_t run_threads=1;
 
 static int sock_in;
@@ -121,7 +117,7 @@ int core_socket()
 	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) & ~O_NONBLOCK);
 	if(!check_writability(fd))
 	{
-		fprintf(stderr, "Socket %d connected, but not writable\n");
+		fprintf(stderr, "Socket %d connected, but not writable\n", fd);
 		return -1;
 	}
 
@@ -133,7 +129,6 @@ static int mkdirp(const char* ppath, mode_t mode)
 	char path[255];
 	strcpy(path, ppath);
 	char* p=path;
-	int directories=0;
 	while(*p)
 	{
 		if(*p == '/' && p!=path)
@@ -151,6 +146,7 @@ static int mkdirp(const char* ppath, mode_t mode)
 	{
 		return -1;
 	}
+	return 0;
 }
 
 static int core_init(void)
@@ -429,11 +425,24 @@ void* connection_thread(void* args)
 	return 0;
 }
 
+static void* request_thread(void* args)
+{
+	char* sha_str=args;
+	const char* filename="testfile.out"; // For testing
+	struct peer* p;
+	unsigned char data[SHA_DIGEST_LENGTH*2+1+sizeof(unsigned int)];
+	while((p=peer_next()))
+	{
+		//event_send_simple_to_peer(RequestFilePart, 
+	}
+	free(sha_str);
+	return 0;
+}
+
 void* read_thread(void* args)
 {
 	sem_t* sem=(sem_t*)args;
 	fd_set rset;
-	fd_set wset;
 
 	const int BUFLEN=4096;
 	char readbuf[BUFLEN];
@@ -491,7 +500,20 @@ void* read_thread(void* args)
 						}
 						else
 						{
-							fprintf(stderr, "Failed to construct event from the received data\n");
+							if(data[0] == Metadata)
+							{
+#ifndef NDEBUG
+								printf("Metadata found\n");
+#endif
+								char* sha_str=malloc(2*SHA_DIGEST_LENGTH+1);
+								sha_to_str(&data[1], sha_str);
+								check_or_create_metadata(&data[1], datalen-1);
+								/*
+								pthread_t requestt;
+								pthread_create(&requestt, NULL, &request_thread, sha_str);
+								*/
+							}
+							else fprintf(stderr, "Failed to construct event from the received data\n");
 						}
 					}
 				}
@@ -508,13 +530,14 @@ void* read_thread(void* args)
 			perror("read");
 		}
 	}
+	return 0;
 }
 
 static int connect_to_peers()
 {
 	struct config* conf=getconfig();
 	struct configsection* sect;
-	if(sect=config_find_section(conf, "Peers"))
+	if((sect=config_find_section(conf, "Peers")))
 	{
 		for(int i=0; i<sect->itemcount; ++i)
 		{// Connect to peers
@@ -580,7 +603,7 @@ void send_data_to_peer(struct peer* p, evt_t* e)
 								&p->key,
 								&enclen);
 			free(eventdata);
-			printf("Sending %d bytes to %d\n", enclen, fd);
+			printf("Sending %lu bytes to %d\n", enclen, fd);
 			if(send(fd, data, enclen, 0) != enclen)
 			{
 				// TODO: Remove peer on error
@@ -593,7 +616,7 @@ void send_data_to_peer(struct peer* p, evt_t* e)
 void send_to_all(evt_t* e)
 {
 	struct peer* p;
-	while(p=peer_next())
+	while((p=peer_next()))
 	{
 		send_data_to_peer(p, e);
 	}

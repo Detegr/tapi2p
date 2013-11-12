@@ -1,6 +1,11 @@
 #ifndef TAPI2P_CORE_H
 #define TAPI2P_CORE_H
 
+#define SOCKET_ONEWAY -2
+
+// Length of the password used to AES encrypt data
+#define PW_LEN 80
+
 #include "event.h"
 
 int core_start(void);

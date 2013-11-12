@@ -25,6 +25,7 @@ void event_init(evt_t* evt, EventType t, const unsigned char* data, unsigned int
 
 evt_t* new_event_fromstr(const char* str, struct peer* p)
 {
+	if(*(unsigned char*)&str[0]  == Metadata) return NULL;
 	for(unsigned int i=0; i<EventCount; ++i)
 	{
 		if(*(unsigned char*)&str[0] == i)

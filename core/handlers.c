@@ -4,19 +4,63 @@
 #include "pathmanager.h"
 #include "../dtgconf/src/config.h"
 #include "util.h"
+#include "../crypto/aes.h"
 
-static void* sendfile(void* args)
+#include <sys/socket.h>
+#include <unistd.h>
+#include <assert.h>
+
+static void* sendmetadata(void* args)
 {
-	file_t* f=(file_t*)args;
+	void** argarr=(void**)args;
+	file_t* f=argarr[0];
+	struct peer* p=argarr[1];
+	char* filename=argarr[2];
+
 	pthread_mutex_lock(&f->file_lock);
-	printf("Simulating file transfer...\n");
-	sleep(10);
-	printf("Done simulating file transfer\n");
-	close(f->sock);
-	f->sock=0;
-	f->part_count=0;
-	f->file_size=0;
+
+	FILE* md=fopen(filename, "r");
+	if(md)
+	{
+		fseek(md, 0, SEEK_END);
+		long size=ftell(md);
+		fseek(md, 0, SEEK_SET);
+		long sent=0;
+		f->part_count=(size/FILE_PART_BYTES)+1;
+		f->file_size=size;
+		while(sent<size)
+		{
+			unsigned char buf[FILE_PART_BYTES];
+			size_t read=fread(buf, FILE_PART_BYTES, 1, md);
+			size_t enclen=0;
+			// FIXME: NOT THREAD SAFE!
+			unsigned char* data=aes_encrypt_random_pass(
+								buf,
+								read ? FILE_PART_BYTES : size,
+								PW_LEN,
+								&p->key,
+								&enclen);
+			ssize_t s=send(f->sock, data, enclen, 0);
+			if(s<0)
+			{
+				perror("Send");
+				f->part_count=0;
+				f->file_size=0;
+				return NULL;
+			}
+			sent+=read ? FILE_PART_BYTES : size;
+			printf("Sent %lu bytes of encrypted data.\n", s); 
+			printf("Sent %lu bytes of %lu\n", sent, size); 
+		}
+	}
+	else
+	{
+		printf("Could not open metadata file\n");
+	}
 	pthread_mutex_unlock(&f->file_lock);
+
+	free(filename);
+	free(args);
 	return 0;
 }
 
@@ -83,36 +127,28 @@ void handlefiletransfer(evt_t* e, void* data)
 			FILE* f=fopen(ci->val, "r");
 			if(f)
 			{
-				unsigned char filebuf[FILE_PART_BYTES];
-				unsigned char buf[EVENT_MAX];
+				fclose(f);
 				for(int i=0; i<64; ++i)
 				{
 					if(pthread_mutex_trylock(&p->file_transfers[i].file_lock) == 0 &&
 						p->file_transfers[i].sock == 0)
 					{
-						char portstr[5];
-						memset(portstr, 0, 5);
-						snprintf(portstr, 5, "%u", p->port);
-						int filesock=new_socket(p->addr, portstr);
-						if(filesock==-1)
-						{
-							fprintf(stderr, "Could not create socket for file transfer\n");
-						}
-						else
-						{
-							p->file_transfers[i].sock=filesock;
-							p->file_transfers[i].part_count=0;
-							p->file_transfers[i].file_size=0;
+						p->file_transfers[i].sock=p->osock==SOCKET_ONEWAY?p->isock:p->osock;
+						p->file_transfers[i].part_count=0;
+						p->file_transfers[i].file_size=0;
 
-							pthread_t sendthread;
-							void* data[2]={&(p->file_transfers[i]), p};
-							pthread_create(&sendthread, NULL, &sendfile, data);
-						}
+						pthread_t sendthread;
+						void** data=malloc(3*sizeof(int*));
+						data[0]=&(p->file_transfers[i]);
+						data[1]=p;
+						data[2]=NULL;
+						getpath(metadatapath(), filehash, (char**)&data[2]);
+						pthread_create(&sendthread, NULL, &sendmetadata, data);
+
 						pthread_mutex_unlock(&p->file_transfers[i].file_lock);
 						break;
 					}
 				}
-				fclose(f);
 			}
 			else
 			{
