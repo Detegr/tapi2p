@@ -431,20 +431,6 @@ void* connection_thread(void* args)
 	return 0;
 }
 
-static void* request_thread(void* args)
-{
-	char* sha_str=args;
-	const char* filename="testfile.out"; // For testing
-	struct peer* p;
-	unsigned char data[SHA_DIGEST_LENGTH*2+1+sizeof(unsigned int)];
-	while((p=peer_next()))
-	{
-		//event_send_simple_to_peer(RequestFilePart, 
-	}
-	free(sha_str);
-	return 0;
-}
-
 void* read_thread(void* args)
 {
 	sem_t* sem=(sem_t*)args;
@@ -486,7 +472,7 @@ void* read_thread(void* args)
 							switch(e->type)
 							{
 								// Event types that core will run listeners for
-								case FilePart:
+								case RequestFilePart:
 								case RequestFileTransfer:
 								{
 									event_run_callbacks(e);
@@ -511,13 +497,10 @@ void* read_thread(void* args)
 #ifndef NDEBUG
 								printf("Metadata found\n");
 #endif
-								char* sha_str=malloc(2*SHA_DIGEST_LENGTH+1);
+								char sha_str[2*SHA_DIGEST_LENGTH+1];
 								sha_to_str(&data[1], sha_str);
 								check_or_create_metadata(&data[1], datalen-1);
-								/*
-								pthread_t requestt;
-								pthread_create(&requestt, NULL, &request_thread, sha_str);
-								*/
+								request_file_part_from_peer(0, sha_str, p);
 							}
 							else fprintf(stderr, "Failed to construct event from the received data\n");
 						}
@@ -672,7 +655,7 @@ int core_start(void)
 	event_addlistener(ListPeers, &handlelistpeers, getconfig());
 	event_addlistener(RequestFileTransfer, &handlefiletransfer, NULL);
 	event_addlistener(RequestFileTransferLocal, &handlefiletransferlocal, NULL);
-	event_addlistener(FilePart, &fileparthandler, NULL);
+	event_addlistener(RequestFilePart, &fileparthandler, NULL);
 	while(run_threads)
 	{
 		pipe_accept();

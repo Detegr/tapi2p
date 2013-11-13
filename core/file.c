@@ -5,7 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "peer.h"
 #include "event.h"
+#include "core.h"
 
 unsigned char* SHA1_for_part(unsigned part, unsigned char* data, size_t datasize)
 {
@@ -112,4 +114,32 @@ void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size)
 		printf("Metadata %s already exists\n", sha_str);
 	}
 	free(mdpath);
+}
+
+
+static void* request_thread(void* args)
+{
+	fprequest_t* req=((void**)args)[0];
+	struct peer* p=((void**)args)[1];
+	const char* filename="testfile.out"; // For testing
+	evt_t e;
+	event_init(&e, RequestFilePart, (const unsigned char*)req, sizeof(*req));
+	send_data_to_peer(p, &e);
+	event_free_s(&e);
+	free(req);
+	free(args);
+	return 0;
+}
+
+void request_file_part_from_peer(int partnum, const char* sha_str, struct peer* p)
+{
+	printf("Requesting file part for %s for peer %s:%u\n", sha_str, p->addr, p->port);
+	fprequest_t* req=malloc(sizeof(fprequest_t));
+	req->part=partnum;
+	strncpy(req->sha_str, sha_str, SHA_DIGEST_LENGTH*2+1);
+	void** data=malloc(2*sizeof(void*));
+	data[0]=req;
+	data[1]=p;
+	pthread_t requestt;
+	pthread_create(&requestt, NULL, &request_thread, data);
 }
