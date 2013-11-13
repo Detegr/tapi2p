@@ -17,11 +17,11 @@ typedef enum {
 	RequestFileTransfer,
 	RequestFileTransferLocal,
 	RequestFilePart,
-	EventCount, // For iterating through eventtypes
 	// File transfer types. Not actually event types
 	// but stored in the same enum for simplicity
-	FilePart=0xFE,
-	Metadata=0xFF
+	FilePart,
+	Metadata,
+	EventCount // For iterating through eventtypes
 } EventType;
 
 typedef struct event

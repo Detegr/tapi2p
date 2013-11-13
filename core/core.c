@@ -397,9 +397,14 @@ void* connection_thread(void* args)
 					printf("Connecting %s:%d\n", hbuf, p->port);
 #endif
 					fcntl(p->osock, F_SETFL, fcntl(p->osock, F_GETFL, 0) | O_NONBLOCK);
-					if(connect(p->osock, &addr, addrlen) || !check_writability(p->osock))
+					if(connect(p->osock, &addr, addrlen))
 					{
-						if(errno!=EINPROGRESS)
+						int writable=0;
+						if(errno==EINPROGRESS)
+						{
+							writable=check_writability(p->osock);
+						}
+						if(!writable)
 						{
 #ifndef NDEBUG
 							printf("%s not connectable, errno: %d\n", hbuf, errno);
@@ -410,6 +415,7 @@ void* connection_thread(void* args)
 							// to tell that we currently have a oneway connection
 							p->osock=SOCKET_ONEWAY;
 						}
+						else printf("Connected successfully!\n");
 					}
 #ifndef NDEBUG
 					else printf("Connected successfully!\n");
