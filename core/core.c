@@ -655,7 +655,7 @@ int core_start(void)
 	event_addlistener(ListPeers, &handlelistpeers, getconfig());
 	event_addlistener(RequestFileTransfer, &handlefiletransfer, NULL);
 	event_addlistener(RequestFileTransferLocal, &handlefiletransferlocal, NULL);
-	event_addlistener(RequestFilePart, &fileparthandler, NULL);
+	event_addlistener(RequestFilePart, &handlefilepartrequest, NULL);
 	while(run_threads)
 	{
 		pipe_accept();

@@ -170,7 +170,7 @@ void handlefiletransfer(evt_t* e, void* data)
 	}
 }
 
-void fileparthandler(evt_t* e, void* data)
+void handlefilepartrequest(evt_t* e, void* data)
 {
 	fprequest_t* req=(fprequest_t*)e->data;
 	printf("File part %d requested for hash %s\n", req->part, req->sha_str);
