@@ -1,6 +1,7 @@
 #include "peermanager.h"
 #include <assert.h>
 #include <pthread.h>
+#include "event.h"
 
 static fd_set m_readset;
 static fd_set m_writeset;
@@ -193,4 +194,9 @@ void peers_free()
 	free(m_peers);
 	pthread_mutex_unlock(&m_lock);
 	pthread_mutex_destroy(&m_lock);
+}
+
+struct peer* peer_from_event(struct event* e)
+{
+	return peer_exists_simple(e->addr, e->port);
 }

@@ -10,57 +10,70 @@
 #include <unistd.h>
 #include <assert.h>
 
-static void* sendmetadata(void* args)
+struct file_part_thread_data
 {
-	void** argarr=(void**)args;
-	file_t* f=argarr[0];
-	struct peer* p=argarr[1];
-	char* filename=argarr[2];
+	uint32_t partnum;
+	struct peer* peer;
+	file_t* transfer;
+};
 
-	pthread_mutex_lock(&f->file_lock);
+static ssize_t send_file_part(struct file_part_thread_data* td)
+{
+	unsigned char buf[FILE_PART_BYTES];
+	size_t read=fread(buf+(td->partnum*FILE_PART_BYTES), FILE_PART_BYTES, 1, td->transfer->file);
+	size_t enclen=0;
 
-	FILE* md=fopen(filename, "r");
-	if(md)
+	if(td->transfer->file_size==0)
 	{
-		fseek(md, 0, SEEK_END);
-		long size=ftell(md);
-		fseek(md, 0, SEEK_SET);
-		long sent=0;
-		f->part_count=(size/FILE_PART_BYTES)+1;
-		f->file_size=size;
-		while(sent<size)
-		{
-			unsigned char buf[FILE_PART_BYTES];
-			size_t read=fread(buf, FILE_PART_BYTES, 1, md);
-			size_t enclen=0;
-			// FIXME: NOT THREAD SAFE!
-			unsigned char* data=aes_encrypt_random_pass(
-								buf,
-								read ? FILE_PART_BYTES : size,
-								PW_LEN,
-								&p->key,
-								&enclen);
-			ssize_t s=send(f->sock, data, enclen, 0);
-			if(s<0)
-			{
-				perror("Send");
-				f->part_count=0;
-				f->file_size=0;
-				return NULL;
-			}
-			sent+=read ? FILE_PART_BYTES : size;
-			printf("Sent %lu bytes of encrypted data.\n", s); 
-			printf("Sent %lu bytes of %lu\n", sent, size); 
-		}
+		fseek(td->transfer->file, 0, SEEK_END);
+		td->transfer->file_size=ftell(td->transfer->file);
+		printf("File size: %lu\n", td->transfer->file_size);
+		fseek(td->transfer->file, 0, SEEK_SET);
+		td->transfer->part_count=(td->transfer->file_size/FILE_PART_BYTES)+1;
+	}
+
+	unsigned char* data=aes_encrypt_random_pass(
+						buf,
+						read ? FILE_PART_BYTES : (td->transfer->file_size)-(td->partnum*FILE_PART_BYTES),
+						PW_LEN,
+						&td->peer->key,
+						&enclen);
+	ssize_t s=send(td->transfer->sock, data, enclen, 0);
+	if(s<0)
+	{
+		perror("Send");
+		return -1;
 	}
 	else
 	{
-		printf("Could not open metadata file\n");
+		printf("Sent %lu bytes of encrypted data.\n", s); 
+		return read ? FILE_PART_BYTES : (td->transfer->file_size)-(td->partnum*FILE_PART_BYTES);
 	}
-	pthread_mutex_unlock(&f->file_lock);
+}
 
-	free(filename);
-	free(args);
+static void* send_file_part_thread(void* args)
+{
+	struct file_part_thread_data* td=args;
+	send_file_part(td);
+	pthread_mutex_unlock(&td->transfer->file_lock);
+	free(td);
+	return 0;
+}
+
+static void* sendmetadata(void* args)
+{
+	struct file_part_thread_data* td=args;
+	ssize_t sent=0;
+	do
+	{
+		ssize_t read=send_file_part(td);
+		sent+=read ? FILE_PART_BYTES : td->transfer->file_size;
+		printf("Sent %lu bytes of %lu\n", sent, td->transfer->file_size); 
+	} while(sent < td->transfer->file_size);
+
+	clear_file_transfer(td->transfer);
+	pthread_mutex_unlock(&td->transfer->file_lock);
+	free(td);
 	return 0;
 }
 
@@ -114,64 +127,116 @@ void handlefiletransferlocal(evt_t* e, void* data)
 	}
 }
 
+static FILE* check_peer_and_open_file_for_sha(struct peer* p, const char* sha_str)
+{
+	if(!p) return NULL;
+
+	FILE* ret=NULL;
+	struct config* conf=getconfig();
+	struct configitem* ci;
+	if((ci=config_find_item(conf, "Filename", sha_str)) && ci->val)
+	{
+		ret=fopen(ci->val, "r");
+		if(!ret)
+		{
+			printf("Could not open file for hash %s\n", sha_str);
+		}
+	}
+	return ret;
+}
+
+static FILE* check_peer_and_open_metadata(struct peer* p, const char* sha_str)
+{
+	if(!p) return NULL;
+
+	FILE* ret=NULL;
+	struct config* conf=getconfig();
+	struct configitem* ci;
+	if((ci=config_find_item(conf, "Filename", sha_str)) && ci->val)
+	{
+		char* mdpath=NULL;
+		getpath(metadatapath(), sha_str, &mdpath);
+		ret=fopen(mdpath, "r");
+		if(!ret)
+		{
+			printf("Could not open metadata file %s\n", mdpath);
+		}
+		free(mdpath);
+	}
+	return ret;
+}
+
+static file_t* get_and_lock_filetransfer_for_peer(struct peer* p)
+{
+	for(int i=0; i<MAX_TRANSFERS; ++i)
+	{
+		if(pthread_mutex_trylock(&p->file_transfers[i].file_lock) == 0 &&
+			p->file_transfers[i].sock == 0)
+		{
+			return &(p->file_transfers[i]);
+		}
+	}
+	return NULL;
+}
+
 void handlefiletransfer(evt_t* e, void* data)
 {
-	struct config* conf=getconfig();
-	const char* filehash=e->data;
-	struct peer* p;
-	struct configitem* ci;
-	if((ci=config_find_item(conf, "Filename", filehash)) && ci->val)
+	const char* filehash=(const char*)e->data;
+	struct peer* p=peer_from_event(e);
+	FILE* f=check_peer_and_open_metadata(p, filehash);
+	if(f)
 	{
-		if((p=peer_exists_simple(e->addr, e->port)))
+		file_t* t=get_and_lock_filetransfer_for_peer(p);
+		if(t)
 		{
-			FILE* f=fopen(ci->val, "r");
-			if(f)
-			{
-				fclose(f);
-				for(int i=0; i<64; ++i)
-				{
-					if(pthread_mutex_trylock(&p->file_transfers[i].file_lock) == 0 &&
-						p->file_transfers[i].sock == 0)
-					{
-						p->file_transfers[i].sock=p->osock==SOCKET_ONEWAY?p->isock:p->osock;
-						p->file_transfers[i].part_count=0;
-						p->file_transfers[i].file_size=0;
+			t->sock=p->osock==SOCKET_ONEWAY?p->isock:p->osock;
+			t->part_count=0;
+			t->file_size=0;
+			t->file=f;
 
-						pthread_t sendthread;
-						void** data=malloc(3*sizeof(int*));
-						data[0]=&(p->file_transfers[i]);
-						data[1]=p;
-						data[2]=NULL;
-						getpath(metadatapath(), filehash, (char**)&data[2]);
-						pthread_create(&sendthread, NULL, &sendmetadata, data);
+			pthread_t sendthread;
+			struct file_part_thread_data* td=malloc(sizeof(struct file_part_thread_data));
+			td->partnum=0;
+			td->peer=p;
+			td->transfer=t;
 
-						pthread_mutex_unlock(&p->file_transfers[i].file_lock);
-						break;
-					}
-				}
-			}
-			else
-			{
-#ifndef NDEBUG
-				printf("Requested file not found\n");
-#endif
-			}
+			pthread_create(&sendthread, NULL, &sendmetadata, td);
+			pthread_mutex_unlock(&t->file_lock);
 		}
 		else
 		{
-			fprintf(stderr, "HandleFileTransfer: Peer not found\n");
+			printf("Maximum amount of file transfers for peer %s in use\n", p->addr);
 		}
-	}
-	else
-	{
-#ifndef NDEBUG
-		printf("No file name corresponding hash %s\n", filehash);
-#endif
 	}
 }
 
 void handlefilepartrequest(evt_t* e, void* data)
 {
+	struct peer* p=peer_from_event(e);
 	fprequest_t* req=(fprequest_t*)e->data;
 	printf("File part %d requested for hash %s\n", req->part, req->sha_str);
+	FILE* f=check_peer_and_open_file_for_sha(p, (const char*)req->sha_str);
+	if(f)
+	{
+		file_t* t=get_and_lock_filetransfer_for_peer(p);
+		if(t)
+		{
+			t->sock=p->osock==SOCKET_ONEWAY?p->isock:p->osock;
+			t->part_count=0;
+			t->file_size=0;
+			t->file=f;
+
+			struct file_part_thread_data* td=malloc(sizeof(struct file_part_thread_data));
+			td->partnum=req->part;
+			td->peer=p;
+			td->transfer=t;
+			pthread_t sendthread;
+			pthread_create(&sendthread, NULL, &send_file_part_thread, td);
+		}
+		else
+		{
+			printf("Maximum amount of file transfers for peer %s in use\n", p->addr);
+			fclose(f);
+		}
+	}
 }

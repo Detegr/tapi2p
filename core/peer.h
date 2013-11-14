@@ -25,6 +25,6 @@ struct peer
 
 void peer_init(struct peer* p);
 void peer_free(struct peer* p);
-void update_file_transfer(const char* sha);
+void clear_file_transfer(file_t* transfer);
 
 #endif

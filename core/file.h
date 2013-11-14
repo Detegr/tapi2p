@@ -5,6 +5,8 @@
 
 #include <stdlib.h>
 #include <openssl/sha.h>
+#include <stdint.h>
+#include <stdio.h>
 
 struct peer;
 
@@ -13,13 +15,14 @@ typedef struct file_transfer
 	int sock;
 	size_t part_count;
 	size_t file_size;
+	FILE* file;
 	pthread_mutex_t file_lock;
 } file_t;
 
 typedef struct filepartrequest
 {
-	unsigned int part;
-	char sha_str[SHA_DIGEST_LENGTH*2+1];
+	uint32_t part;
+	int8_t sha_str[SHA_DIGEST_LENGTH*2+1];
 } fprequest_t;
 
 void sha_to_str(const unsigned char* sha, char* out);

@@ -4,6 +4,8 @@
 #include "peer.h"
 #include <stdint.h>
 
+struct event;
+
 /* These functions are thread-safe */
 
 void peermanager_init(void);
@@ -23,6 +25,7 @@ struct peer* peer_exists(struct peer* p);
 struct peer* peer_exists_simple(char* addr, unsigned short port);
 int peer_remove(struct peer* p);
 void peers_free(void);
+struct peer* peer_from_event(struct event* e);
 
 int read_max(void);
 int write_max(void);
