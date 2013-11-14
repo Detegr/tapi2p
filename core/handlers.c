@@ -32,6 +32,7 @@ static ssize_t send_file_part(struct file_part_thread_data* td)
 		td->transfer->part_count=(td->transfer->file_size/FILE_PART_BYTES)+1;
 	}
 
+	// FIXME: NOT THREAD SAFE
 	unsigned char* data=aes_encrypt_random_pass(
 						buf,
 						read ? FILE_PART_BYTES : (td->transfer->file_size)-(td->partnum*FILE_PART_BYTES),
@@ -91,7 +92,7 @@ void handlelistpeers(evt_t* e, void* data)
 	memset(edata, 0, sizeof(char)*EVENT_DATALEN);
 	char* dp=edata;
 	struct peer* p;
-	while(p=peer_next())
+	while((p=peer_next()))
 	{
 		struct configitem* ci=config_find_item(c, "Nick", p->addr);
 		if(ci && ci->val)

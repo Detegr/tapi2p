@@ -105,7 +105,7 @@ int core_socket()
 	memset(&u, 0, sizeof(struct sockaddr_un));
 	u.sun_family=AF_UNIX;
 	strcpy(u.sun_path, socketpath());
-	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+	set_nonblocking(fd);
 	if(connect(fd, (struct sockaddr*)&u, sizeof(u)))
 	{
 		if(errno!=EINPROGRESS)
@@ -114,7 +114,7 @@ int core_socket()
 			return -1;
 		}
 	}
-	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) & ~O_NONBLOCK);
+	set_blocking(fd);
 	if(!check_writability(fd))
 	{
 		fprintf(stderr, "Socket %d connected, but not writable\n", fd);
@@ -396,7 +396,7 @@ void* connection_thread(void* args)
 #ifndef NDEBUG
 					printf("Connecting %s:%d\n", hbuf, p->port);
 #endif
-					fcntl(p->osock, F_SETFL, fcntl(p->osock, F_GETFL, 0) | O_NONBLOCK);
+					set_nonblocking(p->osock);
 					if(connect(p->osock, &addr, addrlen))
 					{
 						int writable=0;
@@ -419,7 +419,7 @@ void* connection_thread(void* args)
 					}
 #ifndef NDEBUG
 					else printf("Connected successfully!\n");
-					fcntl(p->osock, F_SETFL, fcntl(p->osock, F_GETFL, 0) & ~O_NONBLOCK);
+					set_blocking(p->osock);
 #endif
 					send_event_to_pipes_simple(PeerConnected, p->addr, 0);
 					peer_addtoset(p);
@@ -563,7 +563,7 @@ static int connect_to_peers()
 	return 0;
 }
 
-void send_data_to_peer(struct peer* p, evt_t* e)
+static void send_data_to_peer_internal(struct peer* p, evt_t* e, int nonblocking)
 {
 	fd_set wset;
 	peer_writeset(&wset);
@@ -593,14 +593,35 @@ void send_data_to_peer(struct peer* p, evt_t* e)
 								&enclen);
 			free(eventdata);
 			printf("Sending %lu bytes to %d\n", enclen, fd);
+			if(nonblocking) set_nonblocking(fd);
 			if(send(fd, data, enclen, 0) != enclen)
 			{
-				// TODO: Remove peer on error
-				perror("send");
+				if(nonblocking && errno != EINPROGRESS)
+				{
+					// TODO: Remove peer on error
+					perror("send");
+				}
+				else if(!nonblocking)
+				{
+					// TODO: Remove peer on error
+					perror("send");
+				}
 			}
+			if(nonblocking) set_blocking(fd);
 		}
 	}
 }
+
+void send_data_to_peer(struct peer* p, evt_t* e)
+{
+	send_data_to_peer_internal(p, e, 0);
+}
+
+void send_data_to_peer_nonblocking(struct peer* p, evt_t* e)
+{
+	send_data_to_peer_internal(p, e, 1);
+}
+
 
 void send_to_all(evt_t* e)
 {

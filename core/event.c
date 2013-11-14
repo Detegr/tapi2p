@@ -224,6 +224,7 @@ static void* event_threadfunc(void* args)
 		fds[0].fd=fd;
 		fds[0].events=POLLIN;
 	}
+	free(args);
 	return NULL;
 }
 

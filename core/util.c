@@ -11,6 +11,17 @@
 #include <fcntl.h>
 #include <errno.h>
 
+void set_nonblocking(int fd)
+{
+	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+}
+
+void set_blocking(int fd)
+{
+	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) & ~O_NONBLOCK);
+}
+
+
 int new_socket(const char* addr, const char* port)
 {
 	struct addrinfo* ai=NULL;
@@ -39,7 +50,7 @@ int new_socket(const char* addr, const char* port)
 	{
 		if(addr)
 		{
-			fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+			set_nonblocking(fd);
 			if(connect(fd, ai->ai_addr, ai->ai_addrlen))
 			{
 				if(errno!=EINPROGRESS)
@@ -57,7 +68,7 @@ int new_socket(const char* addr, const char* port)
 				close(fd);
 				return -1;
 			}
-			fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) & ~O_NONBLOCK);
+			set_blocking(fd);
 			printf("Connected to %s:%s\n", addr, port);
 		}
 		else
