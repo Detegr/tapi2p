@@ -3,9 +3,6 @@
 
 #define SOCKET_ONEWAY -2
 
-// Length of the password used to AES encrypt data
-#define PW_LEN 80
-
 #include "event.h"
 
 int core_start(void);

@@ -436,8 +436,13 @@ void* read_thread(void* args)
 	sem_t* sem=(sem_t*)args;
 	fd_set rset;
 
-	const int BUFLEN=4096;
-	char readbuf[BUFLEN];
+	uint8_t* databuf=NULL;
+	size_t maxdatabuflen=0;
+	enc_t encdata;
+	encdata.m_Magic=0;
+	encdata.m_DataLen=0;
+	encdata.m_PassLen=0;
+	encdata.m_Data=NULL;
 	sem_post(sem);
 
 	while(run_threads)
@@ -454,18 +459,42 @@ void* read_thread(void* args)
 				int recvsock=p->isock!=SOCKET_ONEWAY ? p->isock : p->osock;
 				if(FD_ISSET(recvsock, &rset))
 				{
-					ssize_t b=recv(recvsock, readbuf, BUFLEN, 0);
-					assert(b<4096); // NYI
+					ssize_t b=recv(recvsock, &encdata, sizeof(enc_t), 0);
 					if(b<=0)
 					{
+						printf("Removing peer %s:%u\n", p->addr, p->port);
+						peer_removefromset(p);
+						list_add_node(&delptrs, p);
+						send_event_to_pipes_simple(PeerDisconnected, p->addr, 0);
+						continue;
+					}
+					else printf("Received header\n");
+					if(encdata.m_Magic != 0x0074B12B)
+					{
+						printf("Invalid magic!\n");
+						continue;
+					}
+					if(encdata.m_PassLen+encdata.m_DataLen > maxdatabuflen)
+					{
+						printf("Max datalen now %d, was %d\n", encdata.m_PassLen+encdata.m_DataLen, maxdatabuflen);
+						maxdatabuflen=encdata.m_PassLen+encdata.m_DataLen;
+						uint8_t* tmp=realloc(databuf, maxdatabuflen);
+						databuf=tmp;
+					}
+					b=recv(recvsock, databuf, encdata.m_PassLen+encdata.m_DataLen, 0);
+					if(b<=0)
+					{
+						printf("Removing peer %s:%u\n", p->addr, p->port);
 						peer_removefromset(p);
 						list_add_node(&delptrs, p);
 						send_event_to_pipes_simple(PeerDisconnected, p->addr, 0);
 					}
 					else
 					{// Send received event to core pipe listeners
+						printf("Received %lu bytes\n", b);
+						encdata.m_Data=databuf;
 						size_t datalen;
-						unsigned char* data=aes_decrypt_with_key(readbuf, b, &deckey, &datalen);
+						unsigned char* data=aes_decrypt_with_key(&encdata, &deckey, &datalen);
 						evt_t* e=new_event_fromstr(data, p);
 						if(e)
 						{
@@ -585,14 +614,14 @@ static void send_data_to_peer_internal(struct peer* p, evt_t* e, int nonblocking
 		{
 			size_t enclen=0;
 			unsigned char* eventdata=event_as_databuffer(e);
-			unsigned char* data=aes_encrypt_random_pass(
+			enc_t* data=aes_encrypt_random_pass(
 								eventdata,
 								EVENT_LEN(e),
 								PW_LEN,
 								&p->key,
 								&enclen);
 			free(eventdata);
-			printf("Sending %lu bytes to %d\n", enclen, fd);
+			printf("Sending %lu bytes to %d, %u bytes decrypted\n", enclen, fd, data->m_DataLen);
 			if(nonblocking) set_nonblocking(fd);
 			if(send(fd, data, enclen, 0) != enclen)
 			{
@@ -607,6 +636,7 @@ static void send_data_to_peer_internal(struct peer* p, evt_t* e, int nonblocking
 					perror("send");
 				}
 			}
+			free(data);
 			if(nonblocking) set_blocking(fd);
 		}
 	}

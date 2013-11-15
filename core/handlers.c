@@ -32,14 +32,14 @@ static ssize_t send_file_part(struct file_part_thread_data* td)
 		td->transfer->part_count=(td->transfer->file_size/FILE_PART_BYTES)+1;
 	}
 
-	// FIXME: NOT THREAD SAFE
-	unsigned char* data=aes_encrypt_random_pass(
+	enc_t* data=aes_encrypt_random_pass(
 						buf,
 						read ? FILE_PART_BYTES : (td->transfer->file_size)-(td->partnum*FILE_PART_BYTES),
 						PW_LEN,
 						&td->peer->key,
 						&enclen);
 	ssize_t s=send(td->transfer->sock, data, enclen, 0);
+	free(data);
 	if(s<0)
 	{
 		perror("Send");

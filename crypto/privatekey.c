@@ -58,7 +58,7 @@ int privkey_decrypt(struct privkey* pkey, const unsigned char* in, size_t inlen,
 	}
 	else
 	{
-		*out=(unsigned char*)OPENSSL_malloc(*outlen);
+		*out=(unsigned char*)malloc(*outlen);
 		if(!*out)
 		{
 			fprintf(stderr, "Failed to allocate output buffer\n");

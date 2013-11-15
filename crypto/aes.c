@@ -4,14 +4,14 @@
 
 #define ROUNDS 1
 #define BLOCK_SIZE 16
-#define MAGIC_LEN 8
+#define MAGIC_LEN 4
 
 static EVP_CIPHER_CTX	m_Encrypt;
 static EVP_CIPHER_CTX	m_Decrypt;
 
 static unsigned char	m_Salt[8];
 
-static const char*		m_Magic="TAPI2P__";
+static uint32_t			m_Magic=0x0074B12B;
 
 static unsigned int		m_enclen=0;
 static unsigned char*	m_encdata;
@@ -19,8 +19,8 @@ static unsigned int		m_declen=0;
 static unsigned char*	m_decdata;
 
 static int m_encryptinit(const char* pw, size_t pwlen);
-static int m_decryptinit(const unsigned char* magic, const unsigned char* salt, const unsigned char* pass, struct privkey* privatekey);
-static unsigned char* aes_encrypt_with_pass(unsigned char* data, int len, const char* pw, size_t pwlen, struct pubkey* pubkey, size_t* enclen);
+static void m_decryptinit(enc_t* data, struct privkey* privkey);
+static enc_t* aes_encrypt_with_pass(unsigned char* data, int len, const char* pw, size_t pwlen, struct pubkey* pubkey, size_t* enclen);
 
 static int m_encryptinit(const char* pw, size_t pwlen)
 {
@@ -43,7 +43,7 @@ static int m_encryptinit(const char* pw, size_t pwlen)
 	return 0;
 }
 
-unsigned char* aes_encrypt_random_pass(unsigned char* data, int len, size_t pwlen, struct pubkey* pubkey, size_t* enclen)
+enc_t* aes_encrypt_random_pass(unsigned char* data, int len, size_t pwlen, struct pubkey* pubkey, size_t* enclen)
 {
 	unsigned char pw[pwlen];
 	if(!RAND_bytes(pw, pwlen))
@@ -53,17 +53,17 @@ unsigned char* aes_encrypt_random_pass(unsigned char* data, int len, size_t pwle
 	return aes_encrypt_with_pass(data, len, (const char*)pw, pwlen, pubkey, enclen);
 }
 
-unsigned char* aes_encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, const char* keyname, size_t* enclen)
+enc_t* aes_encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, const char* keyname, size_t* enclen)
 {
 	struct pubkey pub;
 	pubkey_init(&pub);
 	pubkey_load(&pub, keyname);
-	unsigned char* encdata=aes_encrypt_with_pass(data,len,pw,pwlen,&pub,enclen);
+	enc_t* encdata=aes_encrypt_with_pass(data,len,pw,pwlen,&pub,enclen);
 	pubkey_free(&pub);
 	return encdata;
 }
 
-static unsigned char* aes_encrypt_with_pass(unsigned char* data, int len, const char* pw, size_t pwlen, struct pubkey* pubkey, size_t* enclen)
+static enc_t* aes_encrypt_with_pass(unsigned char* data, int len, const char* pw, size_t pwlen, struct pubkey* pubkey, size_t* enclen)
 {
 	m_encryptinit(pw, pwlen);
 
@@ -77,54 +77,46 @@ static unsigned char* aes_encrypt_with_pass(unsigned char* data, int len, const 
 	EVP_CIPHER_CTX_cleanup(&m_Encrypt);
 
 	unsigned char* encpass;
-	size_t passlen;
-	pubkey_encrypt(pubkey, (const unsigned char*)pw, pwlen, &encpass, &passlen);
+	size_t encpasslen;
+	pubkey_encrypt(pubkey, (const unsigned char*)pw, pwlen, &encpass, &encpasslen);
+	
+	size_t elen=sizeof(enc_t)+encpasslen+c_len+f_len;
 
-	memset(m_encdata, 0, m_enclen);
-	m_enclen=MAGIC_LEN+PKCS5_SALT_LEN+sizeof(int)+passlen+c_len+f_len;
-	unsigned char* encdata=realloc(m_encdata, m_enclen);
-	if(encdata) m_encdata=encdata;
-	else
-	{
-		fprintf(stderr, "Failed to allocate memory for encrypting!\n");
-		free(m_encdata);
-		return NULL;
-	}
-	memcpy(&m_encdata[0], m_Magic, MAGIC_LEN);
-	memcpy(&m_encdata[MAGIC_LEN], m_Salt, PKCS5_SALT_LEN);
-	memcpy(&m_encdata[MAGIC_LEN+PKCS5_SALT_LEN], &passlen, sizeof(int));
-	memcpy(&m_encdata[MAGIC_LEN+PKCS5_SALT_LEN+sizeof(int)], encpass, passlen);
-	memcpy(&m_encdata[MAGIC_LEN+PKCS5_SALT_LEN+sizeof(int)+passlen], c, c_len+f_len);
+	enc_t* enc=malloc(elen);
+	enc->m_Magic=m_Magic;
+	memcpy(enc->m_Salt, m_Salt, PKCS5_SALT_LEN);
+	enc->m_PassLen=encpasslen;
+	enc->m_DataLen=c_len+f_len;
+	enc->m_Data=(uint8_t*)enc + sizeof(enc_t);
+	memcpy(&enc->m_Data[0], encpass, enc->m_PassLen);
+	memcpy(&enc->m_Data[enc->m_PassLen], c, c_len+f_len);
+
 	free(encpass);
 
-	*enclen = m_enclen;
-	return m_encdata;
+	*enclen = elen;
+	return enc;
 }
 
-int m_decryptinit(const unsigned char* const magic, const unsigned char* const salt, const unsigned char* const pass, struct privkey* privkey)
+void m_decryptinit(enc_t* data, struct privkey* privkey)
 {
 	unsigned char buf[48];
 	unsigned char key[32];
 	unsigned char iv[16];
 
 	memset(m_decdata, 0, m_declen);
-	if(memcmp(m_Magic, magic, MAGIC_LEN) != 0)
+	if(data->m_Magic != m_Magic)
 	{
 		fprintf(stderr, "Invalid magic number\n");
-		return -1;
+		return;
 	}
 
-	int epasslen=(*(const int*)pass);
-	char epass[epasslen];
-	memcpy(epass, pass+sizeof(int), epasslen);
-	
 	char* plainpass;
 	size_t plainpasslen;
-	privkey_decrypt(privkey, (const unsigned char*)epass, epasslen, (unsigned char**)&plainpass, &plainpasslen);
-	if(!PKCS5_PBKDF2_HMAC_SHA1(plainpass, plainpasslen, salt, PKCS5_SALT_LEN, ROUNDS, sizeof(buf), buf))
+	privkey_decrypt(privkey, data->m_Data, data->m_PassLen, (unsigned char**)&plainpass, &plainpasslen);
+	if(!PKCS5_PBKDF2_HMAC_SHA1(plainpass, plainpasslen, data->m_Salt, PKCS5_SALT_LEN, ROUNDS, sizeof(buf), buf))
 	{
 		fprintf(stderr, "Key derivation failed!\n");
-		return -1;
+		return;
 	}
 	free(plainpass);
 
@@ -136,32 +128,30 @@ int m_decryptinit(const unsigned char* const magic, const unsigned char* const s
 	if(!EVP_DecryptInit_ex(&m_Decrypt, EVP_aes_256_cbc(), NULL, key, iv))
 	{
 		fprintf(stderr, "Encryptinit failed!\n");
-		return -1;
+		return;
 	}
-
-	return epasslen+sizeof(int);
 }
 
-unsigned char* aes_decrypt(unsigned char* data, int len, const char* keyname, size_t* declen)
+unsigned char* aes_decrypt(enc_t* data, const char* keyname, size_t* declen)
 {
 	struct privkey pk;
 	privkey_init(&pk);
 	privkey_load(&pk, keyname);
-	unsigned char* decdata=aes_decrypt_with_key(data,len,&pk,declen);
+	unsigned char* decdata=aes_decrypt_with_key(data,&pk,declen);
 	privkey_free(&pk);
 	return decdata;
 }
 
-unsigned char* aes_decrypt_with_key(unsigned char* data, int len, struct privkey* privkey, size_t* declen)
+unsigned char* aes_decrypt_with_key(enc_t* data, struct privkey* privkey, size_t* declen)
 {
-	int passlen=m_decryptinit(&data[0], &data[MAGIC_LEN], &data[MAGIC_LEN+PKCS5_SALT_LEN], privkey);
-	int llen=len-MAGIC_LEN-PKCS5_SALT_LEN-passlen;
+	m_decryptinit(data, privkey);
+	int llen=data->m_DataLen;
 	int p_len=llen;
 	int f_len=0;
 	unsigned char p[p_len+BLOCK_SIZE];
 
 	EVP_DecryptInit_ex(&m_Decrypt, NULL, NULL, NULL, NULL);
-	EVP_DecryptUpdate(&m_Decrypt, p, &p_len, &data[MAGIC_LEN+PKCS5_SALT_LEN+passlen], llen);
+	EVP_DecryptUpdate(&m_Decrypt, p, &p_len, data->m_Data+data->m_PassLen, llen);
 	EVP_DecryptFinal_ex(&m_Decrypt, p+p_len, &f_len);
 	EVP_CIPHER_CTX_cleanup(&m_Decrypt);
 
