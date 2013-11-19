@@ -67,8 +67,6 @@ void create_metadata_file(const char* from, char* file_sha_as_str)
 			FILE* mdbin=fopen(mdpath, "w");
 			free(mdpath);
 
-			unsigned char fp=Metadata; // To distinguish the beginning of a
-			fwrite(&fp, 1, 1, mdbin); //  metadata from the data when receiving
 			fwrite(fullsha, SHA_DIGEST_LENGTH, 1, mdbin);
 			for(int i=0; i<part_count; ++i)
 			{
@@ -122,8 +120,7 @@ void request_file_part_from_peer(int partnum, const char* sha_str, struct peer* 
 	fprequest_t* req=malloc(sizeof(fprequest_t));
 	req->part=partnum;
 	strncpy((char*)req->sha_str, sha_str, SHA_DIGEST_LENGTH*2+1);
-	evt_t e;
-	event_init(&e, RequestFilePart, (const unsigned char*)req, sizeof(*req));
-	send_data_to_peer_nonblocking(p, &e);
-	event_free_s(&e);
+	evt_t* e=event_new(RequestFilePart, (const unsigned char*)req, sizeof(*req));
+	send_data_to_peer_nonblocking(p, e);
+	free(e);
 }

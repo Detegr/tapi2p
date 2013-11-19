@@ -4,6 +4,7 @@
 #include "pathmanager.h"
 #include "../dtgconf/src/config.h"
 #include "util.h"
+#include "event.h"
 #include "../crypto/aes.h"
 
 #include <sys/socket.h>
@@ -12,6 +13,7 @@
 
 struct file_part_thread_data
 {
+	EventType type;
 	uint32_t partnum;
 	struct peer* peer;
 	file_t* transfer;
@@ -31,10 +33,10 @@ static ssize_t send_file_part(struct file_part_thread_data* td)
 		fseek(td->transfer->file, 0, SEEK_SET);
 		td->transfer->part_count=(td->transfer->file_size/FILE_PART_BYTES)+1;
 	}
-
+	evt_t* evt=event_new(td->type, buf, read ? FILE_PART_BYTES : (td->transfer->file_size));
 	enc_t* data=aes_encrypt_random_pass(
-						buf,
-						read ? FILE_PART_BYTES : (td->transfer->file_size)-(td->partnum*FILE_PART_BYTES),
+						(uint8_t*)evt,
+						sizeof(evt_t) + evt->data_len,
 						PW_LEN,
 						&td->peer->key,
 						&enclen);
@@ -83,13 +85,12 @@ void handlemessage(evt_t* e, void* data)
 	send_to_all(e);
 }
 
-void handlelistpeers(evt_t* e, void* data)
+void handlelistpeers(pipeevt_t* e, void* data)
 {
-	// TODO: If datalen>EVENT_DATALEN, strange things will happen...
 	printf("ListPeers\n");
 	struct config* c=(struct config*)data;
-	char edata[EVENT_DATALEN];
-	memset(edata, 0, sizeof(char)*EVENT_DATALEN);
+	char edata[1024];
+	memset(edata, 0, 1024);
 	char* dp=edata;
 	struct peer* p;
 	while((p=peer_next()))
@@ -109,8 +110,7 @@ void handlelistpeers(evt_t* e, void* data)
 	}
 	dp[-1]=0;
 	printf("%s\n", edata);
-	event_set(e, edata, strnlen(edata, EVENT_DATALEN));
-	event_send(e, e->fd_from);
+	pipe_event_send_back_to_caller(e, (const unsigned char*)edata, strnlen(edata, 1023)+1);
 }
 
 void handlefiletransferlocal(evt_t* e, void* data)
@@ -183,6 +183,7 @@ static file_t* get_and_lock_filetransfer_for_peer(struct peer* p)
 void handlefiletransfer(evt_t* e, void* data)
 {
 	const char* filehash=(const char*)e->data;
+	printf("File transfer requested for hash %s\n", filehash);
 	struct peer* p=peer_from_event(e);
 	FILE* f=check_peer_and_open_metadata(p, filehash);
 	if(f)
@@ -197,6 +198,7 @@ void handlefiletransfer(evt_t* e, void* data)
 
 			pthread_t sendthread;
 			struct file_part_thread_data* td=malloc(sizeof(struct file_part_thread_data));
+			td->type=Metadata;
 			td->partnum=0;
 			td->peer=p;
 			td->transfer=t;
@@ -208,6 +210,10 @@ void handlefiletransfer(evt_t* e, void* data)
 		{
 			printf("Maximum amount of file transfers for peer %s in use\n", p->addr);
 		}
+	}
+	else
+	{
+		printf("Failed to open file\n");
 	}
 }
 
@@ -228,6 +234,7 @@ void handlefilepartrequest(evt_t* e, void* data)
 			t->file=f;
 
 			struct file_part_thread_data* td=malloc(sizeof(struct file_part_thread_data));
+			td->type=FilePart;
 			td->partnum=req->part;
 			td->peer=p;
 			td->transfer=t;
@@ -239,5 +246,28 @@ void handlefilepartrequest(evt_t* e, void* data)
 			printf("Maximum amount of file transfers for peer %s in use\n", p->addr);
 			fclose(f);
 		}
+	}
+	else
+	{
+		printf("Failed to open file\n");
+	}
+}
+
+void handlemetadata(evt_t* e, void* data)
+{
+#ifndef NDEBUG
+	printf("Metadata found\n");
+#endif
+	struct peer* p=peer_from_event(e);
+	if(p)
+	{
+		char sha_str[2*SHA_DIGEST_LENGTH+1];
+		sha_to_str(e->data, sha_str);
+		check_or_create_metadata(e->data, e->data_len);
+		request_file_part_from_peer(0, sha_str, p);
+	}
+	else
+	{
+		printf("Peer not found\n");
 	}
 }

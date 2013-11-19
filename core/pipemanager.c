@@ -54,7 +54,7 @@ void pipe_remove(int fd)
 	}
 }
 
-evt_t* poll_event_from_pipes(void)
+pipeevt_t* poll_event_from_pipes(void)
 {
 	struct timeval to;
 	to.tv_sec=0; to.tv_usec=100000;
@@ -63,35 +63,28 @@ evt_t* poll_event_from_pipes(void)
 	memcpy(&set, &pipeset, sizeof(fd_set));
 	int nfds=select(fd_max+1, &set, NULL, NULL, &to);
 
-	evt_t* ret=NULL;
+	pipeevt_t* ret=NULL;
 	if(nfds>0)
 	{
-		evt_t* cur=NULL;
 		for(int i=0; i<=pipe_slot; ++i)
 		{
 			if(pipe_fds[i] != -1 && FD_ISSET(pipe_fds[i], &set))
 			{
 				int s;
-				cur=event_recv(pipe_fds[i], &s);
+				ret=event_recv(pipe_fds[i], &s);
 				if(s==1)
 				{
 					pipe_remove(pipe_fds[i]);
 					continue;
 				}
-				if(!ret) ret=cur;
-				else
-				{
-					evt_t* e=ret;
-					while(e->next) e=e->next;
-					e->next=cur;
-				}
+				return ret;
 			}
 		}
 	}
 	return ret;
 }
 
-int send_event_to_pipes(evt_t* e)
+int send_event_to_pipes(pipeevt_t* e)
 {
 	struct timeval to;
 	to.tv_sec=1; to.tv_usec=0;
@@ -106,7 +99,7 @@ int send_event_to_pipes(evt_t* e)
 			{
 				if(FD_ISSET(pipe_fds[i], &set))
 				{
-					int s=event_send(e, pipe_fds[i]);
+					int s=event_send((evt_t*)e, pipe_fds[i]);
 					if(s<0)
 					{
 						//perror("Send");

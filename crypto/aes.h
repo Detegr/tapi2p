@@ -26,8 +26,8 @@ typedef struct encrypted_data
 
 enc_t* aes_encrypt_random_pass(unsigned char* data, int len, size_t pwlen, struct pubkey* pubkey, size_t* enclen);
 enc_t* aes_encrypt(unsigned char* data, int len, const char* pw, size_t pwlen, const char* keyname, size_t* enclen);
-unsigned char* aes_decrypt(enc_t* data, const char* keyname, size_t *declen);
-unsigned char* aes_decrypt_with_key(enc_t* data, struct privkey* privkey, size_t* declen);
+void* aes_decrypt(enc_t* data, const char* keyname, size_t *declen);
+void* aes_decrypt_with_key(enc_t* data, struct privkey* privkey, size_t* declen);
 
 void free_encdata(enc_t* enc);
 

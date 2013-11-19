@@ -132,7 +132,7 @@ void m_decryptinit(enc_t* data, struct privkey* privkey)
 	}
 }
 
-unsigned char* aes_decrypt(enc_t* data, const char* keyname, size_t* declen)
+void* aes_decrypt(enc_t* data, const char* keyname, size_t* declen)
 {
 	struct privkey pk;
 	privkey_init(&pk);
@@ -142,7 +142,7 @@ unsigned char* aes_decrypt(enc_t* data, const char* keyname, size_t* declen)
 	return decdata;
 }
 
-unsigned char* aes_decrypt_with_key(enc_t* data, struct privkey* privkey, size_t* declen)
+void* aes_decrypt_with_key(enc_t* data, struct privkey* privkey, size_t* declen)
 {
 	m_decryptinit(data, privkey);
 	int llen=data->m_DataLen;
@@ -155,17 +155,23 @@ unsigned char* aes_decrypt_with_key(enc_t* data, struct privkey* privkey, size_t
 	EVP_DecryptFinal_ex(&m_Decrypt, p+p_len, &f_len);
 	EVP_CIPHER_CTX_cleanup(&m_Decrypt);
 
-	memset(m_decdata, 0, m_declen);
-	unsigned char* decdata=(unsigned char*)realloc(m_decdata, p_len+f_len);
-	if(decdata)
+	if(m_declen>0)
 	{
-		m_decdata=decdata;
+		memset(m_decdata, 0, m_declen);
 	}
-	else
+	if(p_len+f_len > m_declen)
 	{
-		fprintf(stderr, "Failed to allocate memory for decrypting!\n");
-		free(m_decdata);
-		return NULL;
+		unsigned char* decdata=realloc(m_decdata, p_len+f_len);
+		if(decdata)
+		{
+			m_decdata=decdata;
+		}
+		else
+		{
+			fprintf(stderr, "Failed to allocate memory for decrypting!\n");
+			free(m_decdata);
+			return NULL;
+		}
 	}
 	m_declen=p_len+f_len;
 	memcpy(&m_decdata[0], p, p_len+f_len);

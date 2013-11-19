@@ -494,8 +494,10 @@ void* read_thread(void* args)
 						printf("Received %lu bytes\n", b);
 						encdata.m_Data=databuf;
 						size_t datalen;
-						unsigned char* data=aes_decrypt_with_key(&encdata, &deckey, &datalen);
-						evt_t* e=new_event_fromstr(data, p);
+						evt_t* e=aes_decrypt_with_key(&encdata, &deckey, &datalen);
+						e->data=(uint8_t*)e + sizeof(evt_t);
+						memcpy(e->addr, p->addr, IPV4_MAX);
+						e->port=p->port;
 						if(e)
 						{
 							switch(e->type)
@@ -513,25 +515,21 @@ void* read_thread(void* args)
 #ifndef NDEBUG
 									printf("Got %d bytes of data\n", e->data_len);
 #endif
-									send_event_to_pipes(e);
-									event_free(e);
+									send_event_to_pipes((pipeevt_t*)e);
+									//free(e);
 									break;
 								}
+								// Event types that won't be sent to pipe listeners
+								case Metadata:
+								case FilePart:
+									event_run_callbacks(e);
+									//free(e);
+									break;
 							}
 						}
 						else
 						{
-							if(data[0] == Metadata)
-							{
-#ifndef NDEBUG
-								printf("Metadata found\n");
-#endif
-								char sha_str[2*SHA_DIGEST_LENGTH+1];
-								sha_to_str(&data[1], sha_str);
-								check_or_create_metadata(&data[1], datalen-1);
-								request_file_part_from_peer(0, sha_str, p);
-							}
-							else fprintf(stderr, "Failed to construct event from the received data\n");
+							fprintf(stderr, "Failed to construct event from the received data\n");
 						}
 					}
 				}
@@ -613,14 +611,12 @@ static void send_data_to_peer_internal(struct peer* p, evt_t* e, int nonblocking
 		if(FD_ISSET(fd, &wset))
 		{
 			size_t enclen=0;
-			unsigned char* eventdata=event_as_databuffer(e);
 			enc_t* data=aes_encrypt_random_pass(
-								eventdata,
-								EVENT_LEN(e),
+								(unsigned char*)e,
+								sizeof(evt_t) + e->data_len,
 								PW_LEN,
 								&p->key,
 								&enclen);
-			free(eventdata);
 			printf("Sending %lu bytes to %d, %u bytes decrypted\n", enclen, fd, data->m_DataLen);
 			if(nonblocking) set_nonblocking(fd);
 			if(send(fd, data, enclen, 0) != enclen)
@@ -703,15 +699,16 @@ int core_start(void)
 
 	printf("Tapi2p core started.\n");
 	event_addlistener(Message, &handlemessage, NULL);
-	event_addlistener(ListPeers, &handlelistpeers, getconfig());
+	pipe_event_addlistener(ListPeers, &handlelistpeers, getconfig());
 	event_addlistener(RequestFileTransfer, &handlefiletransfer, NULL);
 	event_addlistener(RequestFileTransferLocal, &handlefiletransferlocal, NULL);
 	event_addlistener(RequestFilePart, &handlefilepartrequest, NULL);
+	event_addlistener(Metadata, &handlemetadata, NULL);
 	while(run_threads)
 	{
 		pipe_accept();
-		evt_t* e=poll_event_from_pipes();
-		if(e) event_free(e);
+		pipeevt_t* e=poll_event_from_pipes();
+		if(e) free(e);
 	}
 
 	printf("Tapi2p core shutting down...\n");

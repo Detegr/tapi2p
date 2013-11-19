@@ -159,10 +159,9 @@ void add_peer(char** args)
 	printf("Peer %s:%s added successfully!\n", peer_ip_str, peer_port_str);
 }
 
-void handlelistpeers(evt_t* e, void* data)
+void handlelistpeers(pipeevt_t* e, void* data)
 {
-	unsigned int datalen=e->data_len;
-	for(unsigned int i=0; i<datalen; ++i)
+	for(unsigned int i=0; i<e->data_len; ++i)
 	{
 		printf("%c", e->data[i]);
 	}
@@ -189,7 +188,7 @@ int main(int argc, char** argv)
 	char* add_peer_args[3]={0,0,0};
 	char* setup_args[2]={0,0};
 
-	event_addlistener(ListPeers, handlelistpeers, NULL);
+	pipe_event_addlistener(ListPeers, handlelistpeers, NULL);
 
 	opterr=0;
 	for(;;)
@@ -247,20 +246,20 @@ int main(int argc, char** argv)
 			{
 				int fd=core_socket();
 				event_send_simple(ListPeers, NULL, 0, fd);
-				event_recv(fd, NULL);
+				pipeevt_t* e=event_recv(fd, NULL);
+				free(e);
 				close(fd);
 				return 0;
 			}
 			case 'm':
 			{
 				int fd=core_socket();
-				evt_t e;
-				event_init(&e, Message, (const unsigned char*)optarg, strnlen(optarg, EVENT_DATALEN));
-				if(event_send(&e, fd) == -1)
+				evt_t* e=event_new(Message, (const unsigned char*)optarg, strlen(optarg)+1);
+				if(event_send(e, fd) == -1)
 				{
 					fprintf(stderr, "Error sending an event!\n");
 				}
-				event_free_s(&e);
+				free(e);
 				return 0;
 			}
 			case 'f':
