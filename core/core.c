@@ -108,7 +108,7 @@ int core_socket()
 	set_nonblocking(fd);
 	if(connect(fd, (struct sockaddr*)&u, sizeof(u)))
 	{
-		if(errno!=EINPROGRESS || errno != EAGAIN)
+		if(errno!=EINPROGRESS || errno != EALREADY)
 		{
 			perror("Connect");
 			return -1;
@@ -400,7 +400,7 @@ void* connection_thread(void* args)
 					if(connect(p->osock, &addr, addrlen))
 					{
 						int writable=0;
-						if(errno==EINPROGRESS || errno == EAGAIN)
+						if(errno==EINPROGRESS || errno == EALREADY)
 						{
 							set_blocking(p->osock);
 							writable=check_writability(p->osock);

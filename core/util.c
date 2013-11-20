@@ -53,8 +53,7 @@ int new_socket(const char* addr, const char* port)
 			set_nonblocking(fd);
 			if(connect(fd, ai->ai_addr, ai->ai_addrlen))
 			{
-				perror("util:connect");
-				if(errno!=EINPROGRESS || errno != EAGAIN)
+				if(errno!=EINPROGRESS || errno != EALREADY)
 				{
 					fprintf(stderr, "Failed to connect to %s:%s\n", addr, port);
 					if(ai) freeaddrinfo(ai);
