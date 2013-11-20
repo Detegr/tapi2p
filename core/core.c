@@ -704,6 +704,7 @@ int core_start(void)
 	event_addlistener(RequestFileTransferLocal, &handlefiletransferlocal, NULL);
 	event_addlistener(RequestFilePart, &handlefilepartrequest, NULL);
 	event_addlistener(Metadata, &handlemetadata, NULL);
+	event_addlistener(FilePart, &handlefilepart, NULL);
 	while(run_threads)
 	{
 		pipe_accept();

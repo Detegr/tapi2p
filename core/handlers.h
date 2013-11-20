@@ -10,5 +10,6 @@ void handlefiletransfer(evt_t* e, void* data);
 void handlefilepartrequest(evt_t* e, void* data);
 void handlefiletransferlocal(evt_t* e, void* data);
 void handlemetadata(evt_t* e, void* data);
+void handlefilepart(evt_t* e, void* data);
 
 #endif

@@ -14,6 +14,7 @@
 struct file_part_thread_data
 {
 	EventType type;
+	int8_t sha_str[SHA_DIGEST_LENGTH*2+1];
 	uint32_t partnum;
 	struct peer* peer;
 	file_t* transfer;
@@ -33,7 +34,22 @@ static ssize_t send_file_part(struct file_part_thread_data* td)
 		fseek(td->transfer->file, 0, SEEK_SET);
 		td->transfer->part_count=(td->transfer->file_size/FILE_PART_BYTES)+1;
 	}
-	evt_t* evt=event_new(td->type, buf, read ? FILE_PART_BYTES : (td->transfer->file_size));
+	size_t size=read ? FILE_PART_BYTES : (td->transfer->file_size);
+	evt_t* evt;
+	if(td->type == Metadata)
+	{
+		evt=event_new(td->type, buf, size);
+	}
+	else
+	{
+		fp_t* part=alloca(sizeof(fp_t) + size);
+		printf("SHASTR: %s\n", td->sha_str);
+		memcpy(part->sha_str, td->sha_str, SHA_DIGEST_LENGTH*2+1);
+		part->partnum=td->partnum;
+		part->data=(uint8_t*)part + sizeof(fp_t);
+		memcpy(part->data, buf, size);
+		evt=event_new(td->type, (uint8_t*)part, sizeof(fp_t) + size);
+	}
 	enc_t* data=aes_encrypt_random_pass(
 						(uint8_t*)evt,
 						sizeof(evt_t) + evt->data_len,
@@ -137,7 +153,7 @@ static FILE* check_peer_and_open_file_for_sha(struct peer* p, const char* sha_st
 	struct configitem* ci;
 	if((ci=config_find_item(conf, "Filename", sha_str)) && ci->val)
 	{
-		ret=fopen(ci->val, "r");
+		ret=fopen(ci->val, "r+");
 		if(!ret)
 		{
 			printf("Could not open file for hash %s\n", sha_str);
@@ -238,6 +254,9 @@ void handlefilepartrequest(evt_t* e, void* data)
 			td->partnum=req->part;
 			td->peer=p;
 			td->transfer=t;
+			memset(td->sha_str, 0, SHA_DIGEST_LENGTH*2+1);
+			strcpy((char*)td->sha_str, (const char*)req->sha_str);
+
 			pthread_t sendthread;
 			pthread_create(&sendthread, NULL, &send_file_part_thread, td);
 		}
@@ -269,5 +288,28 @@ void handlemetadata(evt_t* e, void* data)
 	else
 	{
 		printf("Peer not found\n");
+	}
+}
+
+void handlefilepart(evt_t* e, void* data)
+{
+	struct peer* p=peer_from_event(e);
+	fp_t* fp=(fp_t*)e->data;
+	fp->data=(uint8_t*)fp + sizeof(fp_t);
+	printf("Received FilePart %d for %s\n", fp->partnum, fp->sha_str);
+	FILE* f=check_peer_and_open_file_for_sha(p, (const char*)fp->sha_str);
+	if(f)
+	{
+		fseek(f, FILE_PART_BYTES*fp->partnum, SEEK_SET);
+		size_t b=fwrite(fp->data, e->data_len-sizeof(fp_t), 1, f);
+		if(b)
+		{
+			printf("Wrote %lu bytes (part %d)\n", e->data_len-sizeof(fp_t), fp->partnum);
+		}
+		else
+		{
+			printf("Couldn't write to file\n");
+		}
+		fclose(f);
 	}
 }
