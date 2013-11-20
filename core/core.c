@@ -114,12 +114,12 @@ int core_socket()
 			return -1;
 		}
 	}
-	set_blocking(fd);
 	if(!check_writability(fd))
 	{
 		fprintf(stderr, "Socket %d connected, but not writable\n", fd);
 		return -1;
 	}
+	set_blocking(fd);
 
 	return fd;
 }
@@ -264,7 +264,7 @@ static int check_peer_key(struct peer* p, char* addr, int newconn, struct config
 		else
 		{
 #ifndef NDEBUG
-			printf("Key %s loaded for peer %s, address %x\n", keybuf, addr, p);
+			printf("Key %s loaded for peer %s\n", keybuf, addr);
 #endif
 		}
 		p->isock=newconn;
@@ -330,10 +330,8 @@ void* connection_thread(void* args)
 				{
 					struct peer* p;
 					struct configitem* ci;
-					printf("Finding port for %s\n", hbuf);
 					if((ci=config_find_item(conf, "Port", hbuf)))
 					{
-						printf("Found port for %s\n", hbuf);
 						unsigned short port;
 						port=atoi(ci->val);
 						if(port>65535)
@@ -402,7 +400,6 @@ void* connection_thread(void* args)
 						int writable=0;
 						if(errno==EINPROGRESS || errno == EALREADY)
 						{
-							set_blocking(p->osock);
 							writable=check_writability(p->osock);
 						}
 						if(!writable)
@@ -517,14 +514,12 @@ void* read_thread(void* args)
 									printf("Got %d bytes of data\n", e->data_len);
 #endif
 									send_event_to_pipes((pipeevt_t*)e);
-									//free(e);
 									break;
 								}
 								// Event types that won't be sent to pipe listeners
 								case Metadata:
 								case FilePart:
 									event_run_callbacks(e);
-									//free(e);
 									break;
 							}
 						}
@@ -561,6 +556,14 @@ static int connect_to_peers()
 			struct configitem* ci=config_find_item(conf, "Port", sect->items[i]->key);
 			if(ci)
 			{
+				unsigned short port = atoi(ci->val);
+				if(port==0 || port>65535)
+				{
+					fprintf(stderr, "Invalid port number: %u\n", port);
+					run_threads=0;
+				}
+				struct peer* p=peer_exists_simple(sect->items[i]->key, port);
+				if(p) continue;
 				int sock=new_socket(sect->items[i]->key, ci->val);
 				if(sock != -1)
 				{
@@ -577,7 +580,7 @@ static int connect_to_peers()
 					{
 						p->m_key_ok=1;
 #ifndef NDEBUG
-						printf("1 Connected to %s:%s\n", sect->items[i]->key, ci->val);
+						printf("Connected to %s:%s\n", sect->items[i]->key, ci->val);
 #endif
 					}
 				}
@@ -595,7 +598,10 @@ static void send_data_to_peer_internal(struct peer* p, evt_t* e, int nonblocking
 {
 	fd_set wset;
 	peer_writeset(&wset);
-	int nfds=select(write_max()+1, NULL, &wset, NULL, NULL);
+	struct timeval to;
+	to.tv_sec=1;
+	to.tv_usec=0;
+	int nfds=select(write_max()+1, NULL, &wset, NULL, &to);
 	if(nfds>0)
 	{
 		int fd;
@@ -637,6 +643,10 @@ static void send_data_to_peer_internal(struct peer* p, evt_t* e, int nonblocking
 			if(nonblocking) set_blocking(fd);
 		}
 	}
+	else
+	{
+		printf("Send timed out for %s:%u\n", p->addr, p->port);
+	}
 }
 
 void send_data_to_peer(struct peer* p, evt_t* e)
@@ -657,6 +667,16 @@ void send_to_all(evt_t* e)
 	{
 		send_data_to_peer(p, e);
 	}
+}
+
+void* try_connect_loop(void* args)
+{
+	while(run_threads)
+	{
+		sleep(15);
+		connect_to_peers();
+	}
+	return 0;
 }
 
 int core_start(void)
@@ -690,6 +710,7 @@ int core_start(void)
 
 	pthread_t accept_connections;
 	pthread_t read_connections;
+	pthread_t try_connecting_to_peers;
 	pthread_create(&accept_connections, NULL, &connection_thread, &init_semaphore);
 	pthread_create(&read_connections, NULL, &read_thread, &init_semaphore);
 
@@ -697,6 +718,7 @@ int core_start(void)
 	sem_wait(&init_semaphore);
 
 	connect_to_peers();
+	pthread_create(&try_connecting_to_peers, NULL, &try_connect_loop, NULL);
 
 	printf("Tapi2p core started.\n");
 	event_addlistener(Message, &handlemessage, NULL);
@@ -714,6 +736,8 @@ int core_start(void)
 	}
 
 	printf("Tapi2p core shutting down...\n");
+	pthread_cancel(try_connecting_to_peers);
+	pthread_join(try_connecting_to_peers, NULL);
 	pthread_join(accept_connections, NULL);
 	pthread_join(read_connections, NULL);
 	return 0;
