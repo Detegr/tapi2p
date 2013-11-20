@@ -53,7 +53,8 @@ int new_socket(const char* addr, const char* port)
 			set_nonblocking(fd);
 			if(connect(fd, ai->ai_addr, ai->ai_addrlen))
 			{
-				if(errno!=EINPROGRESS)
+				perror("util:connect");
+				if(errno!=EINPROGRESS || errno != EAGAIN)
 				{
 					fprintf(stderr, "Failed to connect to %s:%s\n", addr, port);
 					if(ai) freeaddrinfo(ai);
@@ -61,15 +62,14 @@ int new_socket(const char* addr, const char* port)
 					return -1;
 				}
 			}
+			set_blocking(fd);
 			if(!check_writability(fd))
 			{
-				fprintf(stderr, "Socket %d connected, but not writable\n");
+				fprintf(stderr, "Socket %d connected, but not writable\n", fd);
 				if(ai) freeaddrinfo(ai);
 				close(fd);
 				return -1;
 			}
-			set_blocking(fd);
-			printf("Connected to %s:%s\n", addr, port);
 		}
 		else
 		{
@@ -114,8 +114,24 @@ int check_writability(int fd)
 	FD_SET(fd, &ws);
 
 	struct timeval to;
-	to.tv_sec=2; to.tv_usec=0;
+	to.tv_sec=0; to.tv_usec=1000000;
 
-	return (select(fd+1, NULL, &ws, NULL, &to) > 0);
+	int nfds=select(fd+1, NULL, &ws, NULL, &to);
+	if(nfds>0)
+	{
+		int err=0;
+		socklen_t errlen=0;
+		if(getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &errlen) != 0)
+		{
+			perror("getsockopt");
+			return 0;
+		}
+		if(err==0) return 1;
+		else
+		{
+			printf("SO_ERR: %d\n", err);
+		}
+	}
+	return 0;
 }
 

@@ -108,7 +108,7 @@ int core_socket()
 	set_nonblocking(fd);
 	if(connect(fd, (struct sockaddr*)&u, sizeof(u)))
 	{
-		if(errno!=EINPROGRESS)
+		if(errno!=EINPROGRESS || errno != EAGAIN)
 		{
 			perror("Connect");
 			return -1;
@@ -400,8 +400,9 @@ void* connection_thread(void* args)
 					if(connect(p->osock, &addr, addrlen))
 					{
 						int writable=0;
-						if(errno==EINPROGRESS)
+						if(errno==EINPROGRESS || errno == EAGAIN)
 						{
+							set_blocking(p->osock);
 							writable=check_writability(p->osock);
 						}
 						if(!writable)
@@ -576,7 +577,7 @@ static int connect_to_peers()
 					{
 						p->m_key_ok=1;
 #ifndef NDEBUG
-						printf("Connected to %s:%s\n", sect->items[i]->key, ci->val);
+						printf("1 Connected to %s:%s\n", sect->items[i]->key, ci->val);
 #endif
 					}
 				}
