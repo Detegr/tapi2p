@@ -26,5 +26,8 @@ struct peer
 void peer_init(struct peer* p);
 void peer_free(struct peer* p);
 void clear_file_transfer(file_t* transfer);
+int create_file_transfer(struct peer* p, const char* sha_str, metadata_t* metadata);
+file_t* get_and_lock_new_filetransfer(struct peer* p);
+file_t* get_and_lock_existing_filetransfer_for_sha(struct peer* p, const char* sha_str);
 
 #endif

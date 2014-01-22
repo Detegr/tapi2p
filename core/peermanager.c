@@ -11,6 +11,8 @@ static int m_peersize=5;
 static int m_peercount=0;
 static struct peer* m_peers=NULL;
 static pthread_mutex_t m_lock;
+static pthread_mutex_t m_writeset_lock;
+static pthread_mutex_t m_readset_lock;
 static int m_iterator=0;
 
 void peermanager_init(void)
@@ -18,6 +20,8 @@ void peermanager_init(void)
 	pthread_mutexattr_t attr;
 	pthread_mutexattr_init(&attr);
 	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+	pthread_mutex_init(&m_writeset_lock, NULL);
+	pthread_mutex_init(&m_readset_lock, NULL);
 	pthread_mutex_init(&m_lock, &attr);
 }
 
@@ -32,6 +36,7 @@ struct peer* peer_new(void)
 		if(!newp)
 		{
 			free(newp);
+			pthread_mutex_unlock(&m_lock);
 			return NULL;
 		}
 		else m_peers=newp;
@@ -45,54 +50,63 @@ struct peer* peer_new(void)
 void peer_writeset(fd_set* set)
 {
 	FD_ZERO(set);
-	pthread_mutex_lock(&m_lock);
+	pthread_mutex_lock(&m_writeset_lock);
 	memcpy(set, &m_writeset, sizeof(fd_set));
-	pthread_mutex_unlock(&m_lock);
+	pthread_mutex_unlock(&m_writeset_lock);
 }
 
 void peer_readset(fd_set* set)
 {
 	FD_ZERO(set);
-	pthread_mutex_lock(&m_lock);
+	pthread_mutex_lock(&m_readset_lock);
 	memcpy(set, &m_readset, sizeof(fd_set));
-	pthread_mutex_unlock(&m_lock);
+	pthread_mutex_unlock(&m_readset_lock);
 }
 
 void peer_removefromset(struct peer* p)
 {
+	pthread_mutex_lock(&m_writeset_lock);
 	FD_CLR(p->osock, &m_writeset);
 	FD_CLR(p->isock, &m_writeset);
+	pthread_mutex_unlock(&m_writeset_lock);
+	pthread_mutex_lock(&m_readset_lock);
 	FD_CLR(p->isock, &m_readset);
+	pthread_mutex_unlock(&m_readset_lock);
 }
 
 int read_max(void)
 {
-	pthread_mutex_lock(&m_lock);
+	pthread_mutex_lock(&m_readset_lock);
 	int ret=read_max_int;
-	pthread_mutex_unlock(&m_lock);
+	pthread_mutex_unlock(&m_readset_lock);
 	return ret;
 }
 
 int write_max(void)
 {
-	pthread_mutex_lock(&m_lock);
+	pthread_mutex_lock(&m_writeset_lock);
 	int ret=write_max_int;
-	pthread_mutex_unlock(&m_lock);
+	pthread_mutex_unlock(&m_writeset_lock);
 	return ret;
 }
 
 int peer_updateset(struct peer* p)
 {
-	pthread_mutex_lock(&m_lock);
+	pthread_mutex_lock(&m_writeset_lock);
 	FD_CLR(p->osock, &m_writeset);
+	pthread_mutex_unlock(&m_writeset_lock);
+
+	pthread_mutex_lock(&m_readset_lock);
 	FD_CLR(p->osock, &m_readset);
-	pthread_mutex_unlock(&m_lock);
+	pthread_mutex_unlock(&m_readset_lock);
 	return peer_addtoset(p);
 }
 
 int peer_addtoset(struct peer* p)
 {
-	pthread_mutex_lock(&m_lock);
+	pthread_mutex_lock(&m_lock); // Required?
+	pthread_mutex_lock(&m_writeset_lock);
+	pthread_mutex_lock(&m_readset_lock);
 	assert(p->isock != p->osock);
 	if(p->osock >= 0)
 	{
@@ -107,6 +121,8 @@ int peer_addtoset(struct peer* p)
 	else
 	{
 		pthread_mutex_unlock(&m_lock);
+		pthread_mutex_unlock(&m_writeset_lock);
+		pthread_mutex_unlock(&m_readset_lock);
 		fprintf(stderr, "Peer with no sockets!\n");
 		return -1;
 	}
@@ -120,7 +136,9 @@ int peer_addtoset(struct peer* p)
 		FD_SET(p->osock, &m_readset);
 		if(p->osock > read_max_int) read_max_int=p->osock;
 	}
-	pthread_mutex_unlock(&m_lock);
+	pthread_mutex_unlock(&m_writeset_lock);
+	pthread_mutex_unlock(&m_readset_lock);
+	pthread_mutex_unlock(&m_lock); // Required?
 	return 0;
 }
 
@@ -157,7 +175,10 @@ struct peer* peer_next()
 {
 	pthread_mutex_unlock(&m_lock);
 	pthread_mutex_lock(&m_lock);
-	if(m_iterator < m_peercount) return &m_peers[m_iterator++];
+	if(m_iterator < m_peercount)
+	{
+		return &m_peers[m_iterator++];
+	}
 	else
 	{
 		m_iterator=0;
@@ -178,7 +199,7 @@ int peer_remove(struct peer* p)
 			{
 				memmove(&m_peers[i], &m_peers[i+1], (m_peercount-i+1) * sizeof(struct peer));
 			}
-			if(m_iterator) m_iterator--;
+			if(m_iterator == m_peercount) m_iterator--;
 			m_peercount--;
 			pthread_mutex_unlock(&m_lock);
 			return 0;
@@ -194,6 +215,8 @@ void peers_free()
 	free(m_peers);
 	pthread_mutex_unlock(&m_lock);
 	pthread_mutex_destroy(&m_lock);
+	pthread_mutex_destroy(&m_writeset_lock);
+	pthread_mutex_destroy(&m_readset_lock);
 }
 
 struct peer* peer_from_event(struct event* e)

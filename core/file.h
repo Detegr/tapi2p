@@ -1,7 +1,7 @@
 #ifndef TAPI2P_FILE_H
 #define TAPI2P_FILE_H
 
-#define FILE_PART_BYTES 524288 // 512kb file part size
+#define FILE_PART_BYTES 524288 // 512kB file part size
 
 #include <stdlib.h>
 #include <openssl/sha.h>
@@ -10,13 +10,19 @@
 
 struct peer;
 
+typedef struct metadatareply
+{
+	uint32_t part_count;
+	uint64_t file_size;
+	uint8_t* data;
+} metadata_t;
+
 typedef struct file_transfer
 {
-	int sock;
-	size_t part_count;
-	size_t file_size;
+	char sha_str[SHA_DIGEST_LENGTH*2+1];
 	FILE* file;
 	pthread_mutex_t file_lock;
+	metadata_t metadata;
 } file_t;
 
 typedef struct filepartrequest

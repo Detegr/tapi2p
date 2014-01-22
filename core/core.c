@@ -466,7 +466,7 @@ void* read_thread(void* args)
 						send_event_to_pipes_simple(PeerDisconnected, p->addr, 0);
 						continue;
 					}
-					else printf("Received header\n");
+					else printf("Received %ld bytes of header\n", b);
 					if(encdata.m_Magic != 0x0074B12B)
 					{
 						printf("Invalid magic!\n");
