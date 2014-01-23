@@ -13,8 +13,6 @@ static unsigned char	m_Salt[8];
 
 static uint32_t			m_Magic=0x0074B12B;
 
-static unsigned int		m_enclen=0;
-static unsigned char*	m_encdata;
 static unsigned int		m_declen=0;
 static unsigned char*	m_decdata;
 

@@ -121,6 +121,6 @@ void request_file_part_from_peer(int partnum, const char* sha_str, struct peer* 
 	req->part=partnum;
 	strncpy((char*)req->sha_str, sha_str, SHA_DIGEST_LENGTH*2+1);
 	evt_t* e=event_new(RequestFilePart, (const unsigned char*)req, sizeof(*req));
-	send_data_to_peer_nonblocking(p, e);
+	send_event_to_peer_nonblocking(p, e);
 	free(e);
 }

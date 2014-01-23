@@ -157,7 +157,7 @@ void handlefiletransferlocal(evt_t* e, void* data)
 	if((p=peer_exists_simple(e->addr, e->port)))
 	{
 		e->type=RequestFileTransfer;
-		send_data_to_peer(p,e);
+		send_event_to_peer(p,e);
 		printf("Sent HandleFileTransfer to: %s:%u\n", e->addr, e->port);
 	}
 	else
@@ -366,13 +366,14 @@ static json_t *get_file_list_as_json(void)
 	return root;
 }
 
-void handlelistfileslocal(evt_t* e, void* data)
+void handlerequestfilelistlocal(evt_t* e, void* data)
 {
+	printf("Requesting file list\n");
 	struct peer *p;
 	if((p=peer_exists_simple(e->addr, e->port)))
 	{
-		e->type=ListFiles;
-		send_data_to_peer(p,e);
+		e->type=RequestFileList;
+		send_event_to_peer(p,e);
 		printf("Sent ListFiles to: %s:%u\n", e->addr, e->port);
 		return;
 	}
@@ -392,11 +393,24 @@ void handlelistfileslocal(evt_t* e, void* data)
 	}
 }
 
-void handlelistfiles(evt_t* e, void* data)
+void handlerequestfilelist(evt_t* e, void* data)
 {
+	printf("File list requested\n");
 	json_t *root=get_file_list_as_json();
 	char *str=json_dumps(root, 0);
-	printf("%s\n", str);
+	struct peer *p=peer_exists_simple(e->addr, e->port);
+	if(p)
+	{
+		printf("Peer exists\n");
+		evt_t *evt = event_new(FileList, str, strlen(str));
+		send_event_to_peer(p, evt);
+		free(evt);
+		printf("Sent data to peer\n");
+	}
+	else
+	{
+		fprintf(stderr, "Failed to send EventList to peer. No such peer.\n");
+	}
 	free(str);
 	json_decref(root);
 }

@@ -99,7 +99,7 @@ int send_event_to_pipes(pipeevt_t* e)
 			{
 				if(FD_ISSET(pipe_fds[i], &set))
 				{
-					int s=event_send((evt_t*)e, pipe_fds[i]);
+					int s=event_send(e, pipe_fds[i]);
 					if(s<0)
 					{
 						//perror("Send");

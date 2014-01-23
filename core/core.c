@@ -503,17 +503,22 @@ void* read_thread(void* args)
 					e->port=p->port;
 					if(e)
 					{
+						printf("Event type %d\n", e->type);
 						switch(e->type)
 						{
 							// Event types that core will run listeners for
 							case RequestFilePart:
 							case RequestFileTransfer:
+							case RequestFileTransferLocal:
+							case RequestFileList:
+							case RequestFileListLocal:
 							{
 								event_run_callbacks(e);
-							} // Fall through to send event to pipe listeners in any case
+							} // Fall through to send event to pipe listeners as well
 							case Message:
 							case ListPeers:
 							case PeerConnected:
+							case FileList:
 							{
 #ifndef NDEBUG
 								printf("Got %d bytes of data\n", e->data_len);
@@ -524,8 +529,6 @@ void* read_thread(void* args)
 							// Event types that won't be sent to pipe listeners
 							case Metadata:
 							case FilePart:
-							case ListFiles:
-							case ListFilesLocal:
 								event_run_callbacks(e);
 								break;
 						}
@@ -600,7 +603,7 @@ static int connect_to_peers()
 	return 0;
 }
 
-static void send_data_to_peer_internal(struct peer* p, evt_t* e, int nonblocking)
+static void send_event_to_peer_internal(struct peer* p, evt_t* e, int nonblocking)
 {
 	fd_set wset;
 	peer_writeset(&wset);
@@ -655,14 +658,14 @@ static void send_data_to_peer_internal(struct peer* p, evt_t* e, int nonblocking
 	}
 }
 
-void send_data_to_peer(struct peer* p, evt_t* e)
+void send_event_to_peer(struct peer* p, evt_t* e)
 {
-	send_data_to_peer_internal(p, e, 0);
+	send_event_to_peer_internal(p, e, 0);
 }
 
-void send_data_to_peer_nonblocking(struct peer* p, evt_t* e)
+void send_event_to_peer_nonblocking(struct peer* p, evt_t* e)
 {
-	send_data_to_peer_internal(p, e, 1);
+	send_event_to_peer_internal(p, e, 1);
 }
 
 
@@ -671,7 +674,7 @@ void send_to_all(evt_t* e)
 	struct peer* p;
 	while((p=peer_next()))
 	{
-		send_data_to_peer(p, e);
+		send_event_to_peer(p, e);
 	}
 }
 
@@ -734,8 +737,9 @@ int core_start(void)
 	event_addlistener(RequestFilePart, &handlefilepartrequest, NULL);
 	event_addlistener(Metadata, &handlemetadata, NULL);
 	event_addlistener(FilePart, &handlefilepart, NULL);
-	event_addlistener(ListFiles, &handlelistfiles, NULL);
-	event_addlistener(ListFilesLocal, &handlelistfileslocal, NULL);
+	event_addlistener(RequestFileList, &handlerequestfilelist, NULL);
+	event_addlistener(RequestFileListLocal, &handlerequestfilelistlocal, NULL);
+
 	while(run_threads)
 	{
 		pipe_accept();

@@ -14,8 +14,9 @@ typedef enum {
 	RequestFilePart,
 	FilePart,
 	Metadata,
-	ListFiles,
-	ListFilesLocal,
+	RequestFileListLocal,
+	RequestFileList,
+	FileList,
 	EventCount // For iterating through eventtypes
 } EventType;
 
@@ -43,8 +44,7 @@ void eventsystem_start(int corefd);
 void eventsystem_stop(void);
 
 evt_t* event_new(EventType t, const unsigned char* data, unsigned int data_len);
-evt_t* new_event_from_buffer(const uint8_t* buf, struct peer* p);
-int event_send(evt_t* evt, int fd);
+int event_send(pipeevt_t* evt, int fd);
 int event_send_simple(EventType t, const unsigned char* data, unsigned int data_len, int fd);
 int event_send_simple_to_peer(EventType t, const unsigned char* data, unsigned int data_len, struct peer* p, int fd);
 int event_send_simple_to_addr(EventType t, const unsigned char* data, unsigned int data_len, const char* addr, unsigned short port, int fd);

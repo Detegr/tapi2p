@@ -25,7 +25,7 @@ evt_t* event_new(EventType t, const unsigned char* data, unsigned int data_len)
 	return ret;
 }
 
-int event_send(evt_t* evt, int fd)
+int event_send(pipeevt_t* evt, int fd)
 {
 	int b=send(fd, evt, sizeof(evt_t) + evt->data_len, 0);
 	if(b<0) return -1;
@@ -35,7 +35,7 @@ int event_send(evt_t* evt, int fd)
 int event_send_simple(EventType t, const unsigned char* data, unsigned int data_len, int fd)
 {
 	evt_t* evt=event_new(t, data, data_len);
-	int ret=event_send(evt, fd);
+	int ret=event_send((pipeevt_t*)evt, fd);
 	free(evt);
 	return ret;
 }
@@ -50,7 +50,7 @@ int event_send_simple_to_addr(EventType t, const unsigned char* data, unsigned i
 	evt_t* evt=event_new(t, data, data_len);
 	memcpy(evt->addr, addr, IPV4_MAX);
 	evt->port=port;
-	int ret=event_send(evt, fd);
+	int ret=event_send((pipeevt_t*)evt, fd);
 	free(evt);
 	return ret;
 }

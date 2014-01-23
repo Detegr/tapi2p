@@ -262,11 +262,9 @@ int main(int argc, char** argv)
 					ip=argv[2];
 					port=atoi(argv[3]);
 				}
-				printf("%d\n", ip);
-				printf("%d\n", port);
 				if(!ip)
 				{
-					if(event_send_simple(ListFilesLocal, NULL, 0, fd) == -1)
+					if(event_send_simple(RequestFileListLocal, NULL, 0, fd) == -1)
 					{
 						fprintf(stderr, "Error sending an event!\n");
 					}
@@ -276,10 +274,13 @@ int main(int argc, char** argv)
 				}
 				else
 				{
-					if(event_send_simple_to_addr(ListFilesLocal, NULL, 0, ip, port, fd) == -1)
+					if(event_send_simple_to_addr(RequestFileListLocal, NULL, 0, ip, port, fd) == -1)
 					{
 						fprintf(stderr, "Error sending an event!\n");
 					}
+					pipeevt_t* e=event_recv(fd, NULL);
+					printf("%s\n", e->data);
+					free(e);
 				}
 				close(fd);
 				return 0;
@@ -288,7 +289,7 @@ int main(int argc, char** argv)
 			{
 				int fd=core_socket();
 				evt_t* e=event_new(Message, (const unsigned char*)optarg, strlen(optarg)+1);
-				if(event_send(e, fd) == -1)
+				if(event_send((pipeevt_t*)e, fd) == -1)
 				{
 					fprintf(stderr, "Error sending an event!\n");
 				}
