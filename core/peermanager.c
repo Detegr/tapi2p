@@ -163,6 +163,8 @@ struct peer* peer_exists(struct peer* p)
 
 struct peer* peer_exists_simple(char* addr, unsigned short port)
 {
+	if(!addr || !port) return NULL;
+
 	struct peer* sp=peer_new();
 	strncpy(sp->addr, addr, IPV4_MAX);
 	sp->port=port;

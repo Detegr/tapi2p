@@ -345,7 +345,7 @@ void handlefilepart(evt_t* e, void* data)
 	}
 }
 
-void handlelistfiles(evt_t* e, void* data)
+static json_t *get_file_list_as_json(void)
 {
 	struct config* conf=getconfig();
 	struct configsection *cs;
@@ -363,6 +363,38 @@ void handlelistfiles(evt_t* e, void* data)
 		}
 	}
 	json_object_set_new(root, "files", files);
+	return root;
+}
+
+void handlelistfileslocal(evt_t* e, void* data)
+{
+	struct peer *p;
+	if((p=peer_exists_simple(e->addr, e->port)))
+	{
+		e->type=ListFiles;
+		send_data_to_peer(p,e);
+		printf("Sent ListFiles to: %s:%u\n", e->addr, e->port);
+		return;
+	}
+	if(e->addr && e->port)
+	{
+		fprintf(stderr, "Couldn't send FileList request. Peer does not exist.\n");
+		return;
+	}
+	else
+	{
+		json_t *root=get_file_list_as_json();
+		char *str=json_dumps(root, 0);
+		printf("%s - %d\n", str, strlen(str));
+		pipe_event_send_back_to_caller((pipeevt_t*)e, (const unsigned char*)str, strlen(str));
+		free(str);
+		json_decref(root);
+	}
+}
+
+void handlelistfiles(evt_t* e, void* data)
+{
+	json_t *root=get_file_list_as_json();
 	char *str=json_dumps(root, 0);
 	printf("%s\n", str);
 	free(str);

@@ -15,6 +15,7 @@ typedef enum {
 	FilePart,
 	Metadata,
 	ListFiles,
+	ListFilesLocal,
 	EventCount // For iterating through eventtypes
 } EventType;
 

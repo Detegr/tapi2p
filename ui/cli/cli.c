@@ -182,7 +182,7 @@ int main(int argc, char** argv)
 		{"list-peers",	no_argument      , 0, 'l'},
 		{"dump-key",    no_argument      , 0, 'd'},
 		{"import-key",  required_argument, 0, 'i'},
-		{"list-files",  no_argument      , 0, 'L'},
+		{"list-files",  optional_argument, 0, 'L'},
 		{0, 0, 0, 0}
 	};
 
@@ -255,7 +255,32 @@ int main(int argc, char** argv)
 			case 'L':
 			{
 				int fd=core_socket();
-				event_send_simple(ListFiles, NULL, 0, fd);
+				char *ip=NULL;
+				unsigned short port=0;
+				if(argc>=3)
+				{
+					ip=argv[2];
+					port=atoi(argv[3]);
+				}
+				printf("%d\n", ip);
+				printf("%d\n", port);
+				if(!ip)
+				{
+					if(event_send_simple(ListFilesLocal, NULL, 0, fd) == -1)
+					{
+						fprintf(stderr, "Error sending an event!\n");
+					}
+					pipeevt_t* e=event_recv(fd, NULL);
+					printf("%s\n", e->data);
+					free(e);
+				}
+				else
+				{
+					if(event_send_simple_to_addr(ListFilesLocal, NULL, 0, ip, port, fd) == -1)
+					{
+						fprintf(stderr, "Error sending an event!\n");
+					}
+				}
 				close(fd);
 				return 0;
 			}

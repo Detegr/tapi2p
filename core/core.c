@@ -524,6 +524,8 @@ void* read_thread(void* args)
 							// Event types that won't be sent to pipe listeners
 							case Metadata:
 							case FilePart:
+							case ListFiles:
+							case ListFilesLocal:
 								event_run_callbacks(e);
 								break;
 						}
@@ -733,6 +735,7 @@ int core_start(void)
 	event_addlistener(Metadata, &handlemetadata, NULL);
 	event_addlistener(FilePart, &handlefilepart, NULL);
 	event_addlistener(ListFiles, &handlelistfiles, NULL);
+	event_addlistener(ListFilesLocal, &handlelistfileslocal, NULL);
 	while(run_threads)
 	{
 		pipe_accept();
