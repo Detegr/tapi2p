@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <assert.h>
+#include <jansson.h>
 
 struct file_part_thread_data
 {
@@ -342,4 +343,28 @@ void handlefilepart(evt_t* e, void* data)
 	{
 		printf("Could not find ongoing file transfer for %s\n", fp->sha_str);
 	}
+}
+
+void handlelistfiles(evt_t* e, void* data)
+{
+	struct config* conf=getconfig();
+	struct configsection *cs;
+	json_t *root=json_object();
+	json_t *files=json_array();
+	if((cs=config_find_section(conf, "Metadata")))
+	{
+		for(int i=0; i<cs->itemcount; ++i)
+		{
+			struct configitem *ci=cs->items[i];
+			json_t *fileobj=json_object();
+			json_object_set_new(fileobj, "filename", json_string(ci->key));
+			json_object_set_new(fileobj, "hash", json_string(ci->val));
+			json_array_append_new(files, fileobj);
+		}
+	}
+	json_object_set_new(root, "files", files);
+	char *str=json_dumps(root, 0);
+	printf("%s\n", str);
+	free(str);
+	json_decref(root);
 }

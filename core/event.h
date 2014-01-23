@@ -14,6 +14,7 @@ typedef enum {
 	RequestFilePart,
 	FilePart,
 	Metadata,
+	ListFiles,
 	EventCount // For iterating through eventtypes
 } EventType;
 

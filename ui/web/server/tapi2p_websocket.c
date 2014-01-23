@@ -172,9 +172,9 @@ static json_t* createjsonobject(evt_t* e)
 		fprintf(stderr, "JSON: addr is not a string\n");
 		goto err;
 	}
-	json_object_set(ret, "cmd", cmd);
-	json_object_set(ret, "data", data);
-	json_object_set(ret, "addr", addr);
+	json_object_set_new(ret, "cmd", cmd);
+	json_object_set_new(ret, "data", data);
+	json_object_set_new(ret, "addr", addr);
 	return ret;
 err:
 	json_decref(cmd);

@@ -179,9 +179,10 @@ int main(int argc, char** argv)
 		{"help",		required_argument, 0, 'h'},
 		{"message",		required_argument, 0, 'm'},
 		{"filepart",    no_argument      , 0, 'f'},
-		{"list",		no_argument		 , 0, 'l'},
+		{"list-peers",	no_argument      , 0, 'l'},
 		{"dump-key",    no_argument      , 0, 'd'},
 		{"import-key",  required_argument, 0, 'i'},
+		{"list-files",  no_argument      , 0, 'L'},
 		{0, 0, 0, 0}
 	};
 
@@ -193,7 +194,7 @@ int main(int argc, char** argv)
 	opterr=0;
 	for(;;)
 	{
-		int c=getopt_long(argc, argv, "s:a:p:h:m:l:di:f", options, &optind);
+		int c=getopt_long(argc, argv, "s:a:p:h:m:ldi:f:L", options, &optind);
 		if(c==-1) break;
 		switch(c)
 		{
@@ -248,6 +249,13 @@ int main(int argc, char** argv)
 				event_send_simple(ListPeers, NULL, 0, fd);
 				pipeevt_t* e=event_recv(fd, NULL);
 				free(e);
+				close(fd);
+				return 0;
+			}
+			case 'L':
+			{
+				int fd=core_socket();
+				event_send_simple(ListFiles, NULL, 0, fd);
 				close(fd);
 				return 0;
 			}

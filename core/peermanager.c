@@ -28,7 +28,7 @@ void peermanager_init(void)
 struct peer* peer_new(void)
 {
 	pthread_mutex_lock(&m_lock);
-	if(!m_peers) m_peers=(struct peer*)malloc(m_peersize*sizeof(struct peer));
+	if(!m_peers) m_peers=calloc(1, m_peersize*sizeof(struct peer));
 	if(m_peercount>=m_peersize)
 	{
 		m_peersize*=2;

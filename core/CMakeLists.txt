@@ -4,6 +4,7 @@ project(core)
 
 set(CMAKE_C_FLAGS "-g3 -std=c99 -D_GNU_SOURCE -fPIC")
 find_package(OpenSSL REQUIRED)
+find_package(Jansson REQUIRED)
 
 add_library(tapi2p_corelib SHARED \\
 			core.c \\
@@ -24,3 +25,4 @@ add_library(tapi2p_corelib SHARED \\
 			../dtgconf/src/config.c
 )
 
+target_link_libraries(tapi2p_corelib jansson)

@@ -15,7 +15,7 @@ include_directories(${PROJECT_SOURCE_DIR}/core)
 include_directories(${PROJECT_SOURCE_DIR}/crypt)
 
 add_executable(tapi2p_core core/main.c)
-target_link_libraries(tapi2p_core ssl crypto pthread tapi2p_corelib)
+target_link_libraries(tapi2p_core ssl crypto pthread jansson tapi2p_corelib)
 
 add_subdirectory(ui)
 

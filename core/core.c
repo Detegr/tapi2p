@@ -213,11 +213,11 @@ static int core_init(void)
 			}
 			if(!ci->val || stat(mdpath, &buf) == -1)
 			{
-				free(mdpath);
 				printf("Generating metadata for %s\n", ci->key);
 				create_metadata_file(ci->key, sha_str);
 				config_add(conf, md, ci->key, sha_str);
 			}
+			if(mdpath) free(mdpath);
 			struct configsection* mdci;
 			if(!(mdci=config_find_section(conf, ci->val)))
 			{
@@ -479,54 +479,58 @@ void* read_thread(void* args)
 						uint8_t* tmp=realloc(databuf, maxdatabuflen);
 						databuf=tmp;
 					}
-					b=recv(recvsock, databuf, encdata.m_PassLen+encdata.m_DataLen, 0);
-					if(b<=0)
+					uint32_t received=0;
+					while(received < encdata.m_PassLen + encdata.m_DataLen)
 					{
-						printf("Removing peer %s:%u\n", p->addr, p->port);
-						peer_removefromset(p);
-						list_add_node(&delptrs, p);
-						send_event_to_pipes_simple(PeerDisconnected, p->addr, 0);
+						b=recv(recvsock, databuf+received, encdata.m_PassLen+encdata.m_DataLen, 0);
+						if(b<=0)
+						{
+							printf("Removing peer %s:%u\n", p->addr, p->port);
+							peer_removefromset(p);
+							list_add_node(&delptrs, p);
+							send_event_to_pipes_simple(PeerDisconnected, p->addr, 0);
+						}
+						received+=b;
+					}
+
+					// Send received event to core pipe listeners
+					printf("Received %lu bytes\n", b);
+					encdata.m_Data=databuf;
+					size_t datalen;
+					evt_t* e=aes_decrypt_with_key(&encdata, &deckey, &datalen);
+					e->data=(uint8_t*)e + sizeof(evt_t);
+					memcpy(e->addr, p->addr, IPV4_MAX);
+					e->port=p->port;
+					if(e)
+					{
+						switch(e->type)
+						{
+							// Event types that core will run listeners for
+							case RequestFilePart:
+							case RequestFileTransfer:
+							{
+								event_run_callbacks(e);
+							} // Fall through to send event to pipe listeners in any case
+							case Message:
+							case ListPeers:
+							case PeerConnected:
+							{
+#ifndef NDEBUG
+								printf("Got %d bytes of data\n", e->data_len);
+#endif
+								send_event_to_pipes((pipeevt_t*)e);
+								break;
+							}
+							// Event types that won't be sent to pipe listeners
+							case Metadata:
+							case FilePart:
+								event_run_callbacks(e);
+								break;
+						}
 					}
 					else
-					{// Send received event to core pipe listeners
-						printf("Received %lu bytes\n", b);
-						encdata.m_Data=databuf;
-						size_t datalen;
-						evt_t* e=aes_decrypt_with_key(&encdata, &deckey, &datalen);
-						e->data=(uint8_t*)e + sizeof(evt_t);
-						memcpy(e->addr, p->addr, IPV4_MAX);
-						e->port=p->port;
-						if(e)
-						{
-							switch(e->type)
-							{
-								// Event types that core will run listeners for
-								case RequestFilePart:
-								case RequestFileTransfer:
-								{
-									event_run_callbacks(e);
-								} // Fall through to send event to pipe listeners in any case
-								case Message:
-								case ListPeers:
-								case PeerConnected:
-								{
-#ifndef NDEBUG
-									printf("Got %d bytes of data\n", e->data_len);
-#endif
-									send_event_to_pipes((pipeevt_t*)e);
-									break;
-								}
-								// Event types that won't be sent to pipe listeners
-								case Metadata:
-								case FilePart:
-									event_run_callbacks(e);
-									break;
-							}
-						}
-						else
-						{
-							fprintf(stderr, "Failed to construct event from the received data\n");
-						}
+					{
+						fprintf(stderr, "Failed to construct event from the received data\n");
 					}
 				}
 			}
@@ -728,6 +732,7 @@ int core_start(void)
 	event_addlistener(RequestFilePart, &handlefilepartrequest, NULL);
 	event_addlistener(Metadata, &handlemetadata, NULL);
 	event_addlistener(FilePart, &handlefilepart, NULL);
+	event_addlistener(ListFiles, &handlelistfiles, NULL);
 	while(run_threads)
 	{
 		pipe_accept();
