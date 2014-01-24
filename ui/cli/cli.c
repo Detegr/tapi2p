@@ -31,13 +31,15 @@ void usage(int usage_page)
 	{
 		case usage_add_peer:
 		{
-			printf(	"%s%s  %s%s  %-20s%s%s",
+			printf(	"%s%s  %s%s  %-20s%s%s  %-20s%s%s",
 					"tapi2p -- Adding peers\n",
 					"First argument:\n",
 					"Ip address of the peer to be added\n",
 					"Flags needed:\n",
 					"-p|--port", "Port which peer uses\n",
-					"Example: ./tapi2p --add-peer 192.168.1.2 --port 55555\n");
+					"Optional flags:\n",
+					"-n|--nick", "Nickname for the peer to be added\n",
+					"Example: ./tapi2p --add-peer 192.168.1.2 --port 55555 --nick=\"My best friend\"\n");
 			break;
 		}
 		case usage_setup:
@@ -129,6 +131,7 @@ void add_peer(char** args)
 {
 	char* peer_ip_str=args[0];
 	char* peer_port_str=args[1];
+	char* peer_nick=args[2];
 	char peer_key_str[PATH_MAX];
 	memset(peer_key_str, 0, PATH_MAX);
 
@@ -148,6 +151,7 @@ void add_peer(char** args)
 	config_add(c, "Peers", peer_ip_str, NULL);
 	config_add(c, peer_ip_str, "Port", peer_port_str);
 	config_add(c, peer_ip_str, "Key", peer_key_str);
+	if(peer_nick) config_add(c, peer_ip_str, "Nick", peer_nick);
 	FILE* conffile=fopen(configpath(), "w");
 	if(!conffile)
 	{
@@ -178,6 +182,7 @@ int main(int argc, char** argv)
 		{"port",		required_argument, 0, 'p'},
 		{"help",		required_argument, 0, 'h'},
 		{"message",		required_argument, 0, 'm'},
+		{"nick",		required_argument, 0, 'n'},
 		{"filepart",    no_argument      , 0, 'f'},
 		{"list-peers",	no_argument      , 0, 'l'},
 		{"dump-key",    no_argument      , 0, 'd'},
@@ -194,13 +199,13 @@ int main(int argc, char** argv)
 	opterr=0;
 	for(;;)
 	{
-		int c=getopt_long(argc, argv, "s:a:p:h:m:ldi:f:L", options, &optind);
+		int c=getopt_long(argc, argv, "s:a:p:h:m:ldi:f:Ln:", options, &optind);
 		if(c==-1) break;
 		switch(c)
 		{
 			case 'a':
 			{
-				if(argc > 7)
+				if(argc > 9)
 				{
 					printf("Too many arguments.\n");
 					return 0;
@@ -212,7 +217,7 @@ int main(int argc, char** argv)
 			{
 				setup_args[1]=optarg;
 				add_peer_args[1]=optarg;
-				if(add_peer_args[0])
+				if(add_peer_args[0] && add_peer_args[2])
 				{
 					add_peer(add_peer_args);
 					return 0;
@@ -220,6 +225,16 @@ int main(int argc, char** argv)
 				if(setup_args[0])
 				{
 					setup(setup_args);
+					return 0;
+				}
+				break;
+			}
+			case 'n':
+			{
+				add_peer_args[2]=optarg;
+				if(add_peer_args[0] && add_peer_args[1])
+				{
+					add_peer(add_peer_args);
 					return 0;
 				}
 				break;
@@ -438,7 +453,8 @@ int main(int argc, char** argv)
 			}
 		}
 	}
-	if(add_peer_args[0] && !(add_peer_args[1] && add_peer_args[2])) usage(usage_add_peer);
+	if(add_peer_args[0] && !(add_peer_args[1])) usage(usage_add_peer);
+	else if(add_peer_args[0] && add_peer_args[1]) add_peer(add_peer_args);
 	else if(setup_args[0] && !setup_args[1]) usage(usage_setup);
 	else usage(usage_help);
 	return 0;
