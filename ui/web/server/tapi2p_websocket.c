@@ -173,7 +173,18 @@ static json_t* createjsonobject(evt_t* e)
 		goto err;
 	}
 	json_object_set_new(ret, "cmd", cmd);
-	json_object_set_new(ret, "data", data);
+
+	// First check if the data is actually a json object itself
+	json_t *jsondata = json_loads((const char*)e->data, 0, NULL);
+	if(jsondata)
+	{
+		json_object_set_new(ret, "data", jsondata);
+		json_decref(data); // Free the json string won't be used
+	}
+	else
+	{// If not, we're going to use the string representation
+		json_object_set_new(ret, "data", data);
+	}
 	json_object_set_new(ret, "addr", addr);
 	return ret;
 err:

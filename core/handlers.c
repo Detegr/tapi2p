@@ -123,32 +123,43 @@ void handlemessage(evt_t* e, void* data)
 	send_to_all(e);
 }
 
+
 void handlelistpeers(pipeevt_t* e, void* data)
 {
 	printf("ListPeers\n");
 	struct config* c=(struct config*)data;
-	char edata[1024];
-	memset(edata, 0, 1024);
-	char* dp=edata;
 	struct peer* p;
+	json_t *root=json_object();
+	json_t *peers=json_array();
 	while((p=peer_next()))
 	{
 		struct configitem* ci=config_find_item(c, "Nick", p->addr);
+		json_t *peerobj=json_object();
 		if(ci && ci->val)
 		{
-			dp=stpcpy(dp, ci->val);
-			dp=stpcpy(dp, " ");
+			json_object_set_new(peerobj, "nick", json_string(ci->val));
 		}
-		dp=stpcpy(dp, "[");
-		dp=stpcpy(dp, p->addr);
-		dp=stpcpy(dp, "]");
-		if(!p->m_key_ok) dp=stpcpy(dp, " <Invalid key. No communication possible.>");
-		else if(!(p->m_connectable && p->isock>0)) dp=stpcpy(dp, " <One-way>");
-		dp=stpcpy(dp, "\n");
+		json_object_set_new(peerobj, "addr", json_string(p->addr));
+		if(!p->m_key_ok)
+		{
+			json_object_set_new(peerobj, "conn_status", json_string("invalid"));
+		}
+		else if(!(p->m_connectable && p->isock>0))
+		{
+			json_object_set_new(peerobj, "conn_status", json_string("oneway"));
+		}
+		else
+		{
+			json_object_set_new(peerobj, "conn_status", json_string("ok"));
+		}
+		json_array_append_new(peers, peerobj);
 	}
-	dp[-1]=0;
-	printf("%s\n", edata);
-	pipe_event_send_back_to_caller(e, (const unsigned char*)edata, strnlen(edata, 1023)+1);
+	json_object_set_new(root, "peers", peers);
+	char *jsonstr=json_dumps(root, 0);
+	printf("%s\n", jsonstr);
+	pipe_event_send_back_to_caller(e, (const unsigned char*)jsonstr, strlen(jsonstr));
+	free(jsonstr);
+	json_decref(root);
 }
 
 void handlefiletransferlocal(evt_t* e, void* data)

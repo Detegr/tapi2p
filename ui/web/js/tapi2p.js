@@ -88,33 +88,18 @@ function parsePeers(data)
 	$("#peertable").children().remove();
 	if(data)
 	{
-		var lines=data.split("\n");
-		for(var i=0, len=lines.length; i<len; ++i)
+		var peers=data.peers;
+		for(var i=0, len=peers.length; i<len; ++i)
 		{
-			var firstbracketindex=lines[i].lastIndexOf('[');
-			var lastbracketindex=lines[i].lastIndexOf(']');
-			var firststatusindex=lines[i].lastIndexOf('<');
-			var laststatusindex=lines[i].lastIndexOf('>');
-
-			var nick=lines[i].slice(0, firstbracketindex-1);
-			var ip=lines[i].slice(firstbracketindex+1,lastbracketindex);
-			var status;
+			var nick=peers[i].nick;
+			var ip=peers[i].addr;
+			var status=peers[i].conn_status;
 			var cls="";
-			if(firststatusindex === -1 && laststatusindex === -1)
+			switch(status)
 			{
-				status="OK";
-			}
-			else
-			{
-				status=lines[i].slice(firststatusindex+1, laststatusindex);
-				if(status === "One-way")
-				{
-					cls="warning";
-				}
-				else
-				{
-					cls="error";
-				}
+				case "ok": status="OK"; break;
+				case "oneway": status="One-way connection"; cls="warning"; break;
+				case "invalid": status="Connection could not be established"; cls="error"; break;
 			}
 			peermap[ip]={nick: nick, status: status};
 			var $tr=$("<tr class=" + cls + "/>").append(td(ip)).append(td(nick)).append(td(status));
