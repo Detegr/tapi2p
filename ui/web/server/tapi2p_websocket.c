@@ -9,7 +9,8 @@
 #include "../../../dtgconf/src/config.h"
 #include "../../../core/pathmanager.h"
 
-static int welcome_message_sent=0;
+// Initial value is 1 as we have an event that can be used to request the welcome message
+static int welcome_message_sent=1;
 static sig_atomic_t run_server=1;
 static int corefd=-1;
 
@@ -29,7 +30,7 @@ typedef struct tapi2p_session_data
 
 static void send_json(char* str, size_t len)
 {
-	json_t* root, *cmd, *data, *data_len;
+	json_t* root, *cmd, *data, *data_len, *ip, *port;
 	json_error_t error;
 	root = json_loads(str, 0, &error);
 
@@ -59,12 +60,41 @@ static void send_json(char* str, size_t len)
 		json_decref(root);
 		return;
 	}
-	EventType t=(EventType)json_integer_value(cmd);
+	
+	ip = json_object_get(root, "ip");
+	if(!ip || !json_is_string(ip))
+	{
+		json_decref(ip);
+		ip=NULL;
+	}
+
+	port = json_object_get(root, "port");
+	if(!port || !json_is_integer(port))
+	{
+		json_decref(port);
+		port=NULL;
+	}
+
+	int t_int = json_integer_value(cmd);
+	if(t_int == -1)
+	{
+		welcome_message_sent=0;
+		json_decref(root);
+		return;
+	}
+	EventType t=(EventType)t_int;
 	int datalen=json_integer_value(data_len);
 	printf("Got: %s\n", str);
-	event_send_simple(t, datalen ? json_string_value(data) : NULL, datalen, corefd);
-	//printf("Cmd: %d\nData: %s\nData_len: %d\n", t, datalen ? json_string_value(data) : "NULL", datalen);
+	if(ip && port)
+	{
+		event_send_simple_to_addr(t, datalen ? json_string_value(data) : NULL, datalen, json_string_value(ip), json_integer_value(port), corefd);
+	}
+	else
+	{
+		event_send_simple(t, datalen ? json_string_value(data) : NULL, datalen, corefd);
+	}
 	json_decref(root);
+	// TODO: Does other json_t* variables need to be decref'd?
 	return;
 }
 
@@ -104,7 +134,7 @@ static int tapi2p_callback(struct libwebsocket_context *ctx,
 					struct configitem* ci=config_find_item(conf, "Nick", "Account");
 					if(ci && ci->val)
 					{
-						char* conn_base="{\"cmd\": 0, \"data\":\"Welcome to tapi2p, ";
+						char* conn_base="{\"cmd\": 0, \"data\":\"Welcome to tapi2p, \", \"own_nick\": \"";
 						size_t conn_len=strlen(conn_base) + ITEM_MAXLEN;
 						char conn_reply[conn_len];
 						memset(conn_reply, 0, conn_len);
@@ -152,10 +182,18 @@ static struct libwebsocket_protocols protocols[] =
 
 static json_t* createjsonobject(evt_t* e)
 {
-	json_t* ret=json_object();
-	json_t* cmd=json_integer(e->type);
-	json_t* data=json_string(e->data);
-	json_t* addr=json_string(e->addr);
+	json_t *ret=json_object();
+	json_t *cmd=json_integer(e->type);
+	json_t *data=json_string(e->data);
+	json_t *addr=json_string(e->addr);
+	json_t *port=json_integer(e->port);
+
+	if(e)
+	{
+		printf("EVENT BREAKDOWN\n");
+		printf("Event data_len: %d\n", e->data_len);
+		printf("cmd: %d\naddr: %s\nport %d\ndata: %s\n", e->type, e->addr, e->port, e->data);
+	}
 
 	if(!cmd || !json_is_integer(cmd))
 	{
@@ -172,7 +210,14 @@ static json_t* createjsonobject(evt_t* e)
 		fprintf(stderr, "JSON: addr is not a string\n");
 		goto err;
 	}
+	if(!port || !json_is_integer(port))
+	{
+		fprintf(stderr, "JSON: port is not an integer\n");
+		goto err;
+	}
+
 	json_object_set_new(ret, "cmd", cmd);
+	json_object_set_new(ret, "port", port);
 
 	// First check if the data is actually a json object itself
 	json_t *jsondata = json_loads((const char*)e->data, 0, NULL);
@@ -235,6 +280,7 @@ int main()
 		return 1;
 	}
 	event_addlistener(ListPeers, &coreeventhandler, NULL);
+	event_addlistener(FileList, &coreeventhandler, NULL);
 	event_addlistener(Message, &coreeventhandler, NULL);
 	event_addlistener(PeerConnected, &coreeventhandler, NULL);
 	event_addlistener(PeerDisconnected, &coreeventhandler, NULL);

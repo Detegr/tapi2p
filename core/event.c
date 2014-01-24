@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <poll.h>
 #include <pthread.h>
+#include <assert.h>
 
 #define CBMAX 32 // Because I'm lazy
 
@@ -18,6 +19,9 @@ evt_t* event_new(EventType t, const unsigned char* data, unsigned int data_len)
 	ret->type=t;
 	ret->data_len=data_len;
 	ret->data=(uint8_t*)ret + sizeof(evt_t);
+
+	memset(ret->addr, 0, IPV4_MAX);
+	ret->port=0;
 
 	if(data) memcpy(ret->data, data, data_len);
 	else ret->data=NULL;
@@ -97,16 +101,19 @@ pipeevt_t* event_recv(int fd, int* status)
 		if(status) *status=-1;
 		return NULL;
 	}
-	evt=realloc(evt, sizeof(pipeevt_t) + evt->data_len);
+	evt=realloc(evt, sizeof(pipeevt_t) + evt->data_len + 1);
 	evt->data=(uint8_t*)evt + sizeof(pipeevt_t);
 	if(evt->data_len>0)
 	{
-		if(recv(fd, evt->data, evt->data_len, 0) < 0)
+		int b=recv(fd, evt->data, evt->data_len, 0);
+		if(b < 0)
 		{
 			fprintf(stderr, "Failed to read event data\n");
 			if(status) *status=-2;
 			return NULL;
 		}
+		assert(b == evt->data_len);
+		evt->data[evt->data_len]=0;
 	}
 	evt->fd_from=fd;
 

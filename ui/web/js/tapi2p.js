@@ -4,7 +4,7 @@ $(function()
 	$peerdiv=$("#peerdiv");
 	$chatbutton=$("#chatbtn");
 	$peerbutton=$("#peerbtn");
-
+	
 	$peerbutton.on("click", function()
 	{
 		$chatdiv.hide();
@@ -57,11 +57,17 @@ var handleMessage=function(ws, $chat, e)
 			sendTapi2pCommand(ws, ListPeers, null);
 			break;
 		case ListPeers:
-			parsePeers(d.data);
+			parsePeers(ws, d.data);
 			break;
 		case Message:
 			console.log(peermap);
 			console.log(d);
+			if(d.own_nick)
+			{
+				peermap.localhost={};
+				peermap.localhost.nick = d.own_nick;
+				d.data += d.own_nick;
+			}
 			if(peermap[d.addr]) {
 				if(peermap[d.addr].nick)
 				{
@@ -77,7 +83,7 @@ var handleMessage=function(ws, $chat, e)
 	}
 };
 
-function parsePeers(data)
+function parsePeers(ws, data)
 {
 	function td(text)
 	{
@@ -93,6 +99,7 @@ function parsePeers(data)
 		{
 			var nick=peers[i].nick;
 			var ip=peers[i].addr;
+			var port=peers[i].port;
 			var status=peers[i].conn_status;
 			var cls="";
 			switch(status)
@@ -103,6 +110,10 @@ function parsePeers(data)
 			}
 			peermap[ip]={nick: nick, status: status};
 			var $tr=$("<tr class=" + cls + "/>").append(td(ip)).append(td(nick)).append(td(status));
+			$tr.click(function()
+			{
+				sendTapi2pCommand(ws, RequestFileListLocal, null, ip, port);
+			});
 			$("#peertable").append($tr);
 			$peerbutton=$("#peerbtn");
 		}
@@ -115,13 +126,15 @@ function parsePeers(data)
 
 var onConnectionOpen=function(ws,e)
 {
+	sendTapi2pCommand(ws, Hello, null);
+
 	var $chat=$("#chat");
 	$(window).on("keypress", function(e)
 	{
 		if(e.keyCode==13)
 		{
 			var $chatinput=$("#chat_input");
-			$chat.append($chatinput.val() + "\n");
+			$chat.append("[" + peermap.localhost.nick + "] " + $chatinput.val() + "\n");
 			sendTapi2pCommand(ws, Message, $chatinput.val());
 			$chatinput.val("");
 		}
@@ -132,23 +145,33 @@ var onConnectionOpen=function(ws,e)
 
 // Ugly redefine of EventType enum in core/event.h
 var ENUM_BASE=0;
-var Message=ENUM_BASE++;
-var ListPeers=ENUM_BASE++;
-var PeerConnected=ENUM_BASE++;
-var PeerDisconnected=ENUM_BASE++;
-var RequestFileTransfer=ENUM_BASE++;
-var FilePart=ENUM_BASE++;
+var Message                  = ENUM_BASE++;
+var ListPeers                = ENUM_BASE++;
+var PeerConnected            = ENUM_BASE++;
+var PeerDisconnected         = ENUM_BASE++;
+var RequestFileTransfer      = ENUM_BASE++;
+var RequestFileTransferLocal = ENUM_BASE++;
+var RequestFilePart          = ENUM_BASE++;
+var FilePart                 = ENUM_BASE++;
+var Metadata                 = ENUM_BASE++;
+var RequestFileListLocal     = ENUM_BASE++;
+var RequestFileList          = ENUM_BASE++;
+var FileList                 = ENUM_BASE++;
+
+var Hello = -1; // Special for web ui only
 
 function stringByteCount(str)
 {
 	return encodeURI(str).split(/%..|./).length-1;
 }
 
-function sendTapi2pCommand(ws, cmd, data)
+function sendTapi2pCommand(ws, cmd, data, ip, port)
 {
 	ws.send(JSON.stringify({
 		cmd: cmd,
 		data: data,
-		data_len: data ? stringByteCount(data) : 0
+		data_len: data ? stringByteCount(data) : 0,
+		ip: ip ? ip : null,
+		port: port ? port : null
 	}));
 }

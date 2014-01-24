@@ -140,6 +140,7 @@ void handlelistpeers(pipeevt_t* e, void* data)
 			json_object_set_new(peerobj, "nick", json_string(ci->val));
 		}
 		json_object_set_new(peerobj, "addr", json_string(p->addr));
+		json_object_set_new(peerobj, "port", json_integer(p->port));
 		if(!p->m_key_ok)
 		{
 			json_object_set_new(peerobj, "conn_status", json_string("invalid"));
@@ -156,7 +157,7 @@ void handlelistpeers(pipeevt_t* e, void* data)
 	}
 	json_object_set_new(root, "peers", peers);
 	char *jsonstr=json_dumps(root, 0);
-	printf("%s\n", jsonstr);
+	printf("Sending to pipe %s\n", jsonstr);
 	pipe_event_send_back_to_caller(e, (const unsigned char*)jsonstr, strlen(jsonstr));
 	free(jsonstr);
 	json_decref(root);
