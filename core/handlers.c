@@ -170,7 +170,7 @@ void handlefiletransferlocal(evt_t* e, void* data)
 	{
 		e->type=RequestFileTransfer;
 		send_event_to_peer(p,e);
-		printf("Sent HandleFileTransfer to: %s:%u\n", e->addr, e->port);
+		printf("Sent HandleFileTransfer(%s) to: %s:%u\n", e->data, e->addr, e->port);
 	}
 	else
 	{
@@ -191,6 +191,7 @@ static FILE* check_peer_and_open_file_for_sha(struct peer* p, const char* sha_st
 		if(!ret)
 		{
 			printf("Could not open file for hash %s\n", sha_str);
+			return NULL;
 		}
 		if(filesize)
 		{
@@ -225,6 +226,7 @@ static FILE* check_peer_and_open_metadata(struct peer* p, const char* sha_str)
 
 void handlefiletransfer(evt_t* e, void* data)
 {
+	e->data[e->data_len]=0;
 	const char* filehash=(const char*)e->data;
 	printf("File transfer requested for hash %s\n", filehash);
 	struct peer* p=peer_from_event(e);

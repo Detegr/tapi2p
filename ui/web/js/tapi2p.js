@@ -1,14 +1,23 @@
+function removeActiveButtonClass()
+{
+	$(".divpage").hide();
+	$(".tapi2pbtn").each(function()
+	{
+		$(this).parent().removeClass("active");
+	});
+}
+
 $(function()
 {
 	$chatdiv=$("#chatdiv");
 	$peerdiv=$("#peerdiv");
+	$filelistdiv=$("#filelistdiv");
 	$chatbutton=$("#chatbtn");
 	$peerbutton=$("#peerbtn");
 	
 	$peerbutton.on("click", function()
 	{
-		$chatdiv.hide();
-		$chatbutton.parent().removeClass("active");
+		removeActiveButtonClass();
 		$peerdiv.show();
 		$peerbutton.parent().addClass("active");
 		$peerbutton.removeClass("dirty");
@@ -17,8 +26,7 @@ $(function()
 	});
 	$chatbutton.on("click", function()
 	{
-		$peerdiv.hide();
-		$peerbutton.parent().removeClass("active");
+		removeActiveButtonClass();
 		$chatdiv.show();
 		$chatbutton.parent().addClass("active");
 		return false;
@@ -59,6 +67,9 @@ var handleMessage=function(ws, $chat, e)
 		case ListPeers:
 			parsePeers(ws, d.data);
 			break;
+		case FileList:
+			filelistactions(ws, d);
+			break;
 		case Message:
 			console.log(peermap);
 			console.log(d);
@@ -82,6 +93,39 @@ var handleMessage=function(ws, $chat, e)
 			break;
 	}
 };
+
+function downloadFile(ws, ip, port, hash)
+{
+	sendTapi2pCommand(ws, RequestFileTransferLocal, hash, ip, port);
+}
+
+function filelistactions(ws, data)
+{
+	var $elem=$("<li><a class='tapi2pbtn filelistbtn' href=''>Files on " + (data.nick ? data.nick : data.addr) + "</a></li>");
+	$elem.click(function(e)
+	{
+		e.preventDefault();
+		removeActiveButtonClass();
+		var $filetable=$("#filetable");
+		$filetable.children().each(function() {$(this).remove();});
+		for(var i=0, len=data.data.files.length; i<len; ++i)
+		{
+			var $tr=$("<tr><td>" + data.data.files[i].filename + "</td><td>" + data.data.files[i].hash + "</td></tr>");
+			(function(hash)
+			{
+				$tr.click(function()
+				{
+					downloadFile(ws, data.addr, data.port, hash);
+				});
+			})(data.data.files[i].hash);
+			$filetable.append($tr);
+		}
+		$filelistdiv.show();
+		$elem.addClass("active");
+		return false;
+	});
+	$("#tabs-left").append($elem);
+}
 
 function parsePeers(ws, data)
 {
