@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <jansson.h>
+#include <stdbool.h>
 
 struct file_part_thread_data
 {
@@ -426,5 +427,57 @@ void handlerequestfilelist(evt_t* e, void* data)
 		fprintf(stderr, "Failed to send EventList to peer. No such peer.\n");
 	}
 	free(str);
+	json_decref(root);
+}
+
+void handleaddfile(evt_t* e, void* data)
+{
+	struct config *conf=getconfig();
+
+	json_error_t error;
+	json_t *root=json_loads(e->data, 0, &error);
+	if(!root)
+	{
+#ifndef NDEBUG
+		fprintf(stderr, "%s\n", error.text);
+#endif
+		return;
+	}
+	if(!json_is_object(root))
+	{
+#ifndef NDEBUG
+		printf("JSON not valid object\n");
+#endif
+		goto err;
+	}
+	json_t *files_array=json_object_get(root, "files");
+	if(!files_array || !json_is_array(files_array))
+	{
+#ifndef NDEBUG
+		printf("JSON not valid array\n");
+#endif
+		goto err;
+	}
+	size_t arrlen=json_array_size(files_array);
+	bool config_modified=false;
+	for(size_t i=0; i<arrlen; ++i)
+	{
+		json_t *filename=json_array_get(files_array, i);
+		if(!filename || !json_is_string(filename))
+		{
+#ifndef NDEBUG
+			printf("JSON not valid string\n");
+#endif
+			break;
+		}
+#ifndef NDEBUG
+		printf("Adding file %s\n", json_string_value(filename));
+#endif
+		config_add(conf, "Metadata", json_string_value(filename), NULL);
+		config_modified=true;
+	}
+	if(config_modified) config_save(conf, configpath());
+
+err:
 	json_decref(root);
 }

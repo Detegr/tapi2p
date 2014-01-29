@@ -739,6 +739,7 @@ int core_start(void)
 	event_addlistener(FilePart, &handlefilepart, NULL);
 	event_addlistener(RequestFileList, &handlerequestfilelist, NULL);
 	event_addlistener(RequestFileListLocal, &handlerequestfilelistlocal, NULL);
+	event_addlistener(AddFile, &handleaddfile, NULL);
 
 	while(run_threads)
 	{

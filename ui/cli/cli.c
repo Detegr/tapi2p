@@ -17,6 +17,7 @@
 #include <getopt.h>
 #include <ctype.h>
 #include <errno.h>
+#include <jansson.h>
 
 typedef enum usages
 {
@@ -179,6 +180,7 @@ int main(int argc, char** argv)
 	{
 		{"setup",		required_argument, 0, 's'},
 		{"add-peer",	required_argument, 0, 'a'},
+		{"add-files",	required_argument, 0, 'F'},
 		{"port",		required_argument, 0, 'p'},
 		{"help",		required_argument, 0, 'h'},
 		{"message",		required_argument, 0, 'm'},
@@ -199,7 +201,7 @@ int main(int argc, char** argv)
 	opterr=0;
 	for(;;)
 	{
-		int c=getopt_long(argc, argv, "s:a:p:h:m:ldi:f:Ln:", options, &optind);
+		int c=getopt_long(argc, argv, "s:a:p:h:m:ldi:f:Ln:F:", options, &optind);
 		if(c==-1) break;
 		switch(c)
 		{
@@ -431,6 +433,23 @@ int main(int argc, char** argv)
 					}
 					fclose(pubf);
 				}
+				return 0;
+			}
+			case 'F':
+			{
+				int fd=core_socket();
+
+				json_t *root=json_object();
+				json_t *files=json_array();
+				for(int i=2; i<argc; ++i)
+				{
+					json_array_append_new(files, json_string(argv[i]));
+				}
+				json_object_set_new(root, "files", files);
+				char *jsonstr=json_dumps(root, 0);
+				event_send_simple(AddFile, (const unsigned char*)jsonstr, strlen(jsonstr), fd);
+				free(jsonstr);
+				json_decref(root);
 				return 0;
 			}
 			case '?':

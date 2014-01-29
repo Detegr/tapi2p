@@ -17,6 +17,7 @@ typedef enum {
 	RequestFileListLocal,
 	RequestFileList,
 	FileList,
+	AddFile,
 	EventCount // For iterating through eventtypes
 } EventType;
 
