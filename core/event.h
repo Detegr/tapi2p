@@ -18,6 +18,7 @@ typedef enum {
 	RequestFileList,
 	FileList,
 	AddFile,
+	Setup,
 	EventCount // For iterating through eventtypes
 } EventType;
 
@@ -56,7 +57,9 @@ typedef void (*EventCallback)(evt_t* e, void* data);
 typedef void (*PipeEventCallback)(pipeevt_t* e, void* data);
 void event_run_callbacks(evt_t* e);
 void event_addlistener(EventType t, EventCallback cb, void* data);
+void event_removelistener(EventType t, EventCallback cb);
 void pipe_event_addlistener(EventType t, PipeEventCallback cb, void* data);
+void pipe_event_removelistener(EventType t, PipeEventCallback cb);
 
 const char* eventtype_str(evt_t* evt);
 

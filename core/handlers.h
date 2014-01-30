@@ -14,5 +14,6 @@ void handlefilepart(evt_t* e, void* data);
 void handlerequestfilelistlocal(evt_t* e, void* data);
 void handlerequestfilelist(evt_t* e, void* data);
 void handleaddfile(evt_t* e, void* data);
+void handlesetup(pipeevt_t *e, void *data);
 
 #endif

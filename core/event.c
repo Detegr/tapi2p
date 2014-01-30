@@ -125,7 +125,7 @@ pipeevt_t* event_recv(int fd, int* status)
 
 void event_addlistener(EventType t, EventCallback cb, void* data)
 {
-	EventCallback* cbs=callbacks[t];
+	EventCallback *cbs=callbacks[t];
 	if(!cbs)
 	{
 		cbs=malloc(CBMAX*sizeof(EventCallback*));
@@ -140,9 +140,28 @@ void event_addlistener(EventType t, EventCallback cb, void* data)
 	return;
 }
 
-void pipe_event_addlistener(EventType t, PipeEventCallback cb, void* data)
+void event_removelistener(EventType t, EventCallback cb)
+{
+	EventCallback *cbs=callbacks[t];
+	if(!cbs) return;
+	for(int i=0; i<CBMAX; ++i)
+	{
+		if(cbs[i] == cb)
+		{
+			cbs[i]=NULL;
+			callbackdatas[t][i]=NULL;
+			return;
+		}
+	}
+}
+
+inline void pipe_event_addlistener(EventType t, PipeEventCallback cb, void* data)
 {
 	event_addlistener(t, (EventCallback)cb, data);
+}
+inline void pipe_event_removelistener(EventType t, PipeEventCallback cb)
+{
+	event_removelistener(t, (EventCallback)cb);
 }
 
 static int run_event_thread=1;

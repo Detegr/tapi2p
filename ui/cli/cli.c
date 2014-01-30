@@ -68,38 +68,6 @@ void usage(int usage_page)
 	}
 }
 
-int check_port(char* portstr)
-{
-	char* endptr;
-	errno=0;
-	int port=strtol(portstr, &endptr, 10);
-	if(port<0 || port>65535 || (errno != 0) || (endptr == portstr))
-	{
-		fprintf(stderr, "Port argument is not a valid port.\n");
-		return -1;
-	}
-	return port;
-}
-
-void setup(char** args)
-{
-	int port=check_port(args[1]);
-	if(port==-1) return;
-
-	struct config* c = getconfig();
-	config_add(c, "Account", "Nick", args[0]);
-	config_add(c, "Account", "Port", args[1]);
-	FILE* conffile=fopen(configpath(), "w");
-	if(!conffile)
-	{
-		fprintf(stderr, "Couldn't open config file: %s. Have you run tapi2p_core first?\n", configpath());
-		return;
-	}
-	config_flush(c, conffile);
-	fclose(conffile);
-	printf("Account setup done!\nCurrent settings:\nNick: %s\nPort: %d\n", args[0], port);
-}
-
 int core_socket()
 {
 	struct sockaddr_un u;
@@ -119,6 +87,19 @@ int core_socket()
 	}
 
 	return fd;
+}
+
+int check_port(char* portstr)
+{
+	char* endptr;
+	errno=0;
+	int port=strtol(portstr, &endptr, 10);
+	if(port<0 || port>65535 || (errno != 0) || (endptr == portstr))
+	{
+		fprintf(stderr, "Port argument is not a valid port.\n");
+		return -1;
+	}
+	return port;
 }
 
 int check_ip(char* ip)
@@ -226,7 +207,14 @@ int main(int argc, char** argv)
 				}
 				if(setup_args[0])
 				{
-					setup(setup_args);
+					int fd=core_socket();
+					json_t *root=json_object();
+					json_object_set_new(root, "nick", json_string(setup_args[0]));
+					json_object_set_new(root, "port", json_integer(atoll(setup_args[1])));
+					char *jsonstr=json_dumps(root, 0);
+					event_send_simple(Setup, (const unsigned char*)jsonstr, strlen(jsonstr), fd);
+					free(jsonstr);
+					json_decref(root);
 					return 0;
 				}
 				break;

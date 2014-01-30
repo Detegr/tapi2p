@@ -27,8 +27,9 @@
 #include <stdlib.h>
 #include <semaphore.h>
 #include <fcntl.h>
+#include <stdbool.h>
 
-static volatile sig_atomic_t run_threads=1;
+volatile sig_atomic_t run_threads=1;
 
 static int sock_in;
 static int sock_out;
@@ -192,46 +193,46 @@ static int core_init(void)
 	if(!conf->size)
 	{
 		printf("tapi2p needs to be configured before use.\n"
-				"Please set your username and port and restart tapi2p.\n");
-		return 1;
+				"Waiting for Setup event...\n");
 	}
-
-	const char* md="Metadata";
-	struct configsection* files=config_find_section(conf, md);
-	if(files)
+	else
 	{
-		char sha_str[SHA_DIGEST_LENGTH*2+1];
-		memset(sha_str, 0, SHA_DIGEST_LENGTH*2+1);
-		for(int i=0; i<files->itemcount; ++i)
+		const char* md="Metadata";
+		struct configsection* files=config_find_section(conf, md);
+		if(files)
 		{
-			struct configitem* ci=files->items[i];
-			struct stat buf;
-			char* mdpath=NULL;
-			if(ci->val)
+			char sha_str[SHA_DIGEST_LENGTH*2+1];
+			memset(sha_str, 0, SHA_DIGEST_LENGTH*2+1);
+			for(int i=0; i<files->itemcount; ++i)
 			{
-				getpath(metadatapath(), ci->val, &mdpath);
+				struct configitem* ci=files->items[i];
+				struct stat buf;
+				char* mdpath=NULL;
+				if(ci->val)
+				{
+					getpath(metadatapath(), ci->val, &mdpath);
+				}
+				if(!ci->val || stat(mdpath, &buf) == -1)
+				{
+					printf("Generating metadata for %s\n", ci->key);
+					create_metadata_file(ci->key, sha_str);
+					config_add(conf, md, ci->key, sha_str);
+				}
+				if(mdpath) free(mdpath);
+				struct configsection* mdci;
+				if(!(mdci=config_find_section(conf, ci->val)))
+				{
+					config_add(conf, ci->val, "Filename", ci->key);
+				}
 			}
-			if(!ci->val || stat(mdpath, &buf) == -1)
-			{
-				printf("Generating metadata for %s\n", ci->key);
-				create_metadata_file(ci->key, sha_str);
-				config_add(conf, md, ci->key, sha_str);
-			}
-			if(mdpath) free(mdpath);
-			struct configsection* mdci;
-			if(!(mdci=config_find_section(conf, ci->val)))
-			{
-				config_add(conf, ci->val, "Filename", ci->key);
-			}
+			config_save(conf, configpath());
 		}
-		config_save(conf, configpath());
 	}
 
 	if(create_core_socket() == -1) return -1;
 
 	pipe_init();
-
-	return 0;
+	return conf->size ? 0 : 1;
 }
 
 static int check_peer_key(struct peer* p, char* addr, int newconn, struct config* conf)
@@ -703,7 +704,15 @@ int core_start(void)
 	}
 	else if(ci>0)
 	{// Config file created
-		return 0;
+		pipe_event_addlistener(Setup, &handlesetup, NULL);
+		while(run_threads)
+		{
+			pipe_accept();
+			pipeevt_t* e=poll_event_from_pipes();
+			if(e) free(e);
+		}
+		pipe_event_removelistener(Setup, &handlesetup);
+		run_threads=1;
 	}
 
 	if(privkey_load(&deckey, selfkeypath()))

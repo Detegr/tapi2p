@@ -13,6 +13,9 @@
 #include <assert.h>
 #include <jansson.h>
 #include <stdbool.h>
+#include <signal.h>
+
+extern volatile sig_atomic_t run_threads;
 
 struct file_part_thread_data
 {
@@ -478,6 +481,66 @@ void handleaddfile(evt_t* e, void* data)
 	}
 	if(config_modified) config_save(conf, configpath());
 
+err:
+	json_decref(root);
+}
+
+static bool setup(const char *nick, int port)
+{
+	if(port<=0 || port > 65535)
+	{
+		fprintf(stderr, "Invalid port\n");
+		return false;
+	}
+	uint16_t port16=(uint16_t)port;
+
+	struct config* c = getconfig();
+	char portstr[5];
+	if(!sprintf(portstr, "%hu", port16))
+	{
+		fprintf(stderr, "sprintf failed\n");
+		return false;
+	}
+	config_add(c, "Account", "Nick", nick);
+	config_add(c, "Account", "Port", portstr);
+	FILE* conffile=fopen(configpath(), "w");
+	if(!conffile)
+	{
+		fprintf(stderr, "Couldn't open config file: %s.\n", configpath());
+		return false;
+	}
+	config_flush(c, conffile);
+	fclose(conffile);
+	printf("Account setup done!\nCurrent settings:\nNick: %s\nPort: %d\n", nick, port);
+
+	return true;
+}
+
+void handlesetup(pipeevt_t *e, void *data)
+{
+	struct config *conf=getconfig();
+	json_error_t error;
+	json_t *root=json_loads(e->data, 0, &error);
+	if(!root)
+	{
+#ifndef NDEBUG
+		fprintf(stderr, "%s\n", error.text);
+#endif
+	}
+	if(!json_is_object(root))
+	{
+		printf("JSON not valid object\n");
+		goto err;
+	}
+	json_t *nick, *port;
+	nick=json_object_get(root, "nick");
+	port=json_object_get(root, "port");
+	if(!nick || !port || !json_is_string(nick) || !json_is_integer(port))
+	{
+		printf("Invalid JSON\n");
+		goto err;
+	}
+	if(setup(json_string_value(nick), json_integer_value(port))) run_threads=0;
 err:
 	json_decref(root);
 }
