@@ -705,13 +705,17 @@ int core_start(void)
 	else if(ci>0)
 	{// Config file created
 		pipe_event_addlistener(Setup, &handlesetup, NULL);
-		while(run_threads)
+		while(run_threads==1)
 		{
 			pipe_accept();
 			pipeevt_t* e=poll_event_from_pipes();
 			if(e) free(e);
 		}
 		pipe_event_removelistener(Setup, &handlesetup);
+		if(!run_threads)
+		{// If core was exited during setup phase
+			return 0;
+		}
 		run_threads=1;
 	}
 

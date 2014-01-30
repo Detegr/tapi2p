@@ -540,7 +540,10 @@ void handlesetup(pipeevt_t *e, void *data)
 		printf("Invalid JSON\n");
 		goto err;
 	}
-	if(setup(json_string_value(nick), json_integer_value(port))) run_threads=0;
+	if(setup(json_string_value(nick), json_integer_value(port)))
+	{// Special value for indicating that the setup is ready
+		run_threads=2;
+	}
 err:
 	json_decref(root);
 }
