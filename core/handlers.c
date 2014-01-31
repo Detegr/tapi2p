@@ -518,7 +518,6 @@ static bool setup(const char *nick, int port)
 
 void handlesetup(pipeevt_t *e, void *data)
 {
-	struct config *conf=getconfig();
 	json_error_t error;
 	json_t *root=json_loads(e->data, 0, &error);
 	if(!root)
@@ -545,5 +544,16 @@ void handlesetup(pipeevt_t *e, void *data)
 		run_threads=2;
 	}
 err:
+	json_decref(root);
+}
+
+void handlestatus(pipeevt_t *e, void *data)
+{
+	bool *status=data;
+	json_t *root=json_object();
+	json_object_set_new(root, "status", json_boolean(*status));
+	char *jsonstr=json_dumps(root, 0);
+	pipe_event_send_back_to_caller(e, jsonstr, strlen(jsonstr));
+	free(jsonstr);
 	json_decref(root);
 }

@@ -13,7 +13,7 @@ static EventCallback* callbacks[EventCount]={0};
 static void* callbackdatas[EventCount][CBMAX]={{0}};
 static pthread_t event_thread;
 
-evt_t* event_new(EventType t, const unsigned char* data, unsigned int data_len)
+evt_t* event_new(EventType t, const void *data, unsigned int data_len)
 {
 	evt_t* ret=malloc(sizeof(evt_t)+data_len);
 	ret->type=t;
@@ -36,7 +36,7 @@ int event_send(pipeevt_t* evt, int fd)
 	else return b;
 }
 
-int event_send_simple(EventType t, const unsigned char* data, unsigned int data_len, int fd)
+int event_send_simple(EventType t, const void *data, unsigned int data_len, int fd)
 {
 	evt_t* evt=event_new(t, data, data_len);
 	int ret=event_send((pipeevt_t*)evt, fd);
@@ -44,12 +44,12 @@ int event_send_simple(EventType t, const unsigned char* data, unsigned int data_
 	return ret;
 }
 
-int event_send_simple_to_peer(EventType t, const unsigned char* data, unsigned int data_len, struct peer* p, int fd)
+int event_send_simple_to_peer(EventType t, const void *data, unsigned int data_len, struct peer* p, int fd)
 {
 	return event_send_simple_to_addr(t, data, data_len, p->addr, p->port, fd);
 }
 
-int event_send_simple_to_addr(EventType t, const unsigned char* data, unsigned int data_len, const char* addr, unsigned short port, int fd)
+int event_send_simple_to_addr(EventType t, const void *data, unsigned int data_len, const char* addr, unsigned short port, int fd)
 {
 	evt_t* evt=event_new(t, data, data_len);
 	memcpy(evt->addr, addr, IPV4_MAX);
@@ -59,7 +59,7 @@ int event_send_simple_to_addr(EventType t, const unsigned char* data, unsigned i
 	return ret;
 }
 
-int pipe_event_send_back_to_caller(pipeevt_t* e, const unsigned char* data, unsigned int data_len)
+int pipe_event_send_back_to_caller(pipeevt_t* e, const void *data, unsigned int data_len)
 {
 	return event_send_simple(e->type, data, data_len, e->fd_from);
 }
@@ -123,7 +123,7 @@ pipeevt_t* event_recv(int fd, int* status)
 	return evt;
 }
 
-void event_addlistener(EventType t, EventCallback cb, void* data)
+void event_addlistener(EventType t, EventCallback cb, void *data)
 {
 	EventCallback *cbs=callbacks[t];
 	if(!cbs)
@@ -155,7 +155,7 @@ void event_removelistener(EventType t, EventCallback cb)
 	}
 }
 
-inline void pipe_event_addlistener(EventType t, PipeEventCallback cb, void* data)
+inline void pipe_event_addlistener(EventType t, PipeEventCallback cb, void *data)
 {
 	event_addlistener(t, (EventCallback)cb, data);
 }
@@ -165,7 +165,7 @@ inline void pipe_event_removelistener(EventType t, PipeEventCallback cb)
 }
 
 static int run_event_thread=1;
-static void* event_threadfunc(void* args)
+static void *event_threadfunc(void *args)
 {
 	int fd=*(int*)args;
 	struct pollfd fds[1];

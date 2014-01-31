@@ -19,6 +19,7 @@ typedef enum {
 	FileList,
 	AddFile,
 	Setup,
+	Status,
 	EventCount // For iterating through eventtypes
 } EventType;
 
@@ -45,12 +46,12 @@ typedef struct event
 void eventsystem_start(int corefd);
 void eventsystem_stop(void);
 
-evt_t* event_new(EventType t, const unsigned char* data, unsigned int data_len);
+evt_t* event_new(EventType t, const void *data, unsigned int data_len);
 int event_send(pipeevt_t* evt, int fd);
-int event_send_simple(EventType t, const unsigned char* data, unsigned int data_len, int fd);
-int event_send_simple_to_peer(EventType t, const unsigned char* data, unsigned int data_len, struct peer* p, int fd);
-int event_send_simple_to_addr(EventType t, const unsigned char* data, unsigned int data_len, const char* addr, unsigned short port, int fd);
-int pipe_event_send_back_to_caller(pipeevt_t* e, const unsigned char* data, unsigned int data_len);
+int event_send_simple(EventType t, const void *data, unsigned int data_len, int fd);
+int event_send_simple_to_peer(EventType t, const void *data, unsigned int data_len, struct peer* p, int fd);
+int event_send_simple_to_addr(EventType t, const void *data, unsigned int data_len, const char* addr, unsigned short port, int fd);
+int pipe_event_send_back_to_caller(pipeevt_t* e, const void *data, unsigned int data_len);
 pipeevt_t* event_recv(int fd, int* status);
 
 typedef void (*EventCallback)(evt_t* e, void* data);

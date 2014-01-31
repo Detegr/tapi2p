@@ -697,6 +697,7 @@ int core_start(void)
 		fprintf(stderr, "Cannot set UTF-8 encoding. Please make sure that en_US.UTF-8 encoding is installed.\n");
 	}
 	int ci=core_init();
+	bool setupstatus=false;
 	if(ci<0)
 	{
 		fprintf(stderr, "Tapi2p core failed to initialize!\n");
@@ -705,6 +706,7 @@ int core_start(void)
 	else if(ci>0)
 	{// Config file created
 		pipe_event_addlistener(Setup, &handlesetup, NULL);
+		pipe_event_addlistener(Status, &handlestatus, &setupstatus);
 		while(run_threads==1)
 		{
 			pipe_accept();
@@ -717,7 +719,12 @@ int core_start(void)
 			return 0;
 		}
 		run_threads=1;
+
+		// Remove listener during setupstatus change
+		pipe_event_removelistener(Status, &handlestatus);
+		setupstatus=true;
 	}
+	else setupstatus=true;
 
 	if(privkey_load(&deckey, selfkeypath()))
 	{
@@ -745,6 +752,7 @@ int core_start(void)
 	printf("Tapi2p core started.\n");
 	event_addlistener(Message, &handlemessage, NULL);
 	pipe_event_addlistener(ListPeers, &handlelistpeers, getconfig());
+	pipe_event_addlistener(Status, &handlestatus, &setupstatus);
 	event_addlistener(RequestFileTransfer, &handlefiletransfer, NULL);
 	event_addlistener(RequestFileTransferLocal, &handlefiletransferlocal, NULL);
 	event_addlistener(RequestFilePart, &handlefilepartrequest, NULL);

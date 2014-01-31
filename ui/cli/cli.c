@@ -160,6 +160,7 @@ int main(int argc, char** argv)
 	static struct option options[] =
 	{
 		{"setup",		required_argument, 0, 's'},
+		{"status",		no_argument      , 0, 'S'},
 		{"add-peer",	required_argument, 0, 'a'},
 		{"add-files",	required_argument, 0, 'F'},
 		{"port",		required_argument, 0, 'p'},
@@ -182,7 +183,7 @@ int main(int argc, char** argv)
 	opterr=0;
 	for(;;)
 	{
-		int c=getopt_long(argc, argv, "s:a:p:h:m:ldi:f:Ln:F:", options, &optind);
+		int c=getopt_long(argc, argv, "s:a:p:h:m:ldi:f:Ln:F:S", options, &optind);
 		if(c==-1) break;
 		switch(c)
 		{
@@ -212,12 +213,24 @@ int main(int argc, char** argv)
 					json_object_set_new(root, "nick", json_string(setup_args[0]));
 					json_object_set_new(root, "port", json_integer(atoll(setup_args[1])));
 					char *jsonstr=json_dumps(root, 0);
-					event_send_simple(Setup, (const unsigned char*)jsonstr, strlen(jsonstr), fd);
+					event_send_simple(Setup, jsonstr, strlen(jsonstr), fd);
 					free(jsonstr);
 					json_decref(root);
 					return 0;
 				}
 				break;
+			}
+			case 'S':
+			{
+				int fd=core_socket();
+				event_send_simple(Status, NULL, 0, fd);
+				pipeevt_t* e=event_recv(fd, NULL);
+				if(e)
+				{
+					printf("%s\n", e->data);
+					free(e);
+				}
+				return 0;
 			}
 			case 'n':
 			{
@@ -293,7 +306,7 @@ int main(int argc, char** argv)
 			case 'm':
 			{
 				int fd=core_socket();
-				evt_t* e=event_new(Message, (const unsigned char*)optarg, strlen(optarg)+1);
+				evt_t* e=event_new(Message, optarg, strlen(optarg)+1);
 				if(event_send((pipeevt_t*)e, fd) == -1)
 				{
 					fprintf(stderr, "Error sending an event!\n");
@@ -435,7 +448,7 @@ int main(int argc, char** argv)
 				}
 				json_object_set_new(root, "files", files);
 				char *jsonstr=json_dumps(root, 0);
-				event_send_simple(AddFile, (const unsigned char*)jsonstr, strlen(jsonstr), fd);
+				event_send_simple(AddFile, jsonstr, strlen(jsonstr), fd);
 				free(jsonstr);
 				json_decref(root);
 				return 0;
