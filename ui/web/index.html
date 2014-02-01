@@ -27,43 +27,65 @@
 		.dirty {
 			background-color: #EEF;
 		}
+		#tapi2p_running {
+			display: none;
+		}
 	</style>
 	<script src="js/tapi2p.js"></script>
 </head>
 <body>
 	<div class="container-narrow">
-		<div class="masthead">
-			<h3 class="muted">tapi2p</h3>
+		<div id="tapi2p_running">
+			<div class="masthead">
+				<h3 class="muted">tapi2p</h3>
+			</div>
+			<div style="padding-top: 10px; padding-bottom: 50px;">
+				<ul class="nav nav-pills pull-right">
+					<li class="active"><a class="tapi2pbtn" id="chatbtn" href="">Chat</a></li>
+					<li><a class="tapi2pbtn" id="peerbtn" href="">Peers</a></li>
+				</ul>
+				<ul id="tabs-left" class="nav nav-pills pull-left">
+				</ul>
+			</div>
+			<div id="chatdiv" class="divpage">
+				<pre id="chat"></pre>
+				<input id="chat_input" class="input-block-level form-control" type="text" placeholder="Chat">
+			</div>
+			<div id="peerdiv" class="divpage">
+				<table class="table table-bordered">
+					<thead>
+						<tr><th>Ip</th><th>Nick</th><th>Status</th></tr>
+					</thead>
+					<tbody id="peertable">
+					</tbody>
+				</table>
+			</div>
+			<div id="filelistdiv" class="divpage">
+				<table class="table table-bordered">
+					<thead>
+						<tr><th>Filename</th><th>Hash</th></tr>
+					</thead>
+					<tbody id="filetable">
+					</tbody>
+				</table>
+			</div>
 		</div>
-		<div style="padding-top: 10px; padding-bottom: 50px;">
-			<ul class="nav nav-pills pull-right">
-				<li class="active"><a class="tapi2pbtn" id="chatbtn" href="">Chat</a></li>
-				<li><a class="tapi2pbtn" id="peerbtn" href="">Peers</a></li>
-			</ul>
-			<ul id="tabs-left" class="nav nav-pills pull-left">
-			</ul>
-		</div>
-		<div id="chatdiv" class="divpage">
-			<pre id="chat"></pre>
-			<input id="chat_input" class="input-block-level form-control" type="text" placeholder="Chat">
-		</div>
-		<div id="peerdiv" class="divpage">
-			<table class="table table-bordered">
-				<thead>
-					<tr><th>Ip</th><th>Nick</th><th>Status</th></tr>
-				</thead>
-				<tbody id="peertable">
-				</tbody>
-			</table>
-		</div>
-		<div id="filelistdiv" class="divpage">
-			<table class="table table-bordered">
-				<thead>
-					<tr><th>Filename</th><th>Hash</th></tr>
-				</thead>
-				<tbody id="filetable">
-				</tbody>
-			</table>
+		<div id="tapi2p_setup">
+			<div class="row">
+				<span class="span1"><h1 class="span2">tapi2p</h1></span>
+				<span class="span9"></span>
+				<span class="span1"><img src="img/tapi2plogo.png" width="48" /></span>
+			</div>
+			<div class="well">
+				<h2>Initial setup</h2>
+				<h3 class="text-muted">Please fill in following information to continue.</h3>
+				<hr/>
+				<input id="username" class="input-block-level form-control" type="text" placeholder="Username">
+				<br/>
+				<input id="port" class="input-block-level form-control" type="number" placeholder="Port" min="1024" max="65535">
+				<br/>
+				<button id="setupbtn" class="btn btn-primary btn-block">Continue</button>
+			</div>
 		</div>
 	</div>
 </body>

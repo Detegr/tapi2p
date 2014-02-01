@@ -284,6 +284,7 @@ int main()
 	event_addlistener(Message, &coreeventhandler, NULL);
 	event_addlistener(PeerConnected, &coreeventhandler, NULL);
 	event_addlistener(PeerDisconnected, &coreeventhandler, NULL);
+	event_addlistener(Status, &coreeventhandler, NULL);
 	eventsystem_start(corefd);
 
 	struct libwebsocket_context* ctx;

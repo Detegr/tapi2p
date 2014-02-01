@@ -21,7 +21,7 @@ $(function()
 		$peerdiv.show();
 		$peerbutton.parent().addClass("active");
 		$peerbutton.removeClass("dirty");
-		sendTapi2pCommand(ws, ListPeers, null);
+		sendTapi2pCommand(ws, ListPeers);
 		return false;
 	});
 	$chatbutton.on("click", function()
@@ -62,7 +62,7 @@ var handleMessage=function(ws, $chat, e)
 	{
 		case PeerConnected:
 		case PeerDisconnected:
-			sendTapi2pCommand(ws, ListPeers, null);
+			sendTapi2pCommand(ws, ListPeers);
 			break;
 		case ListPeers:
 			parsePeers(ws, d.data);
@@ -90,6 +90,38 @@ var handleMessage=function(ws, $chat, e)
 				}
 			}
 			$chat.append(d.data + "\n");
+			break;
+		case Status:
+			if(d.data.status)
+			{
+				$("#tapi2p_setup").hide();
+				$("#tapi2p_running").show();
+				sendTapi2pCommand(ws, Hello);
+				$(window).on("keypress", function(e)
+				{
+					if(e.keyCode==13)
+					{
+						var $chatinput=$("#chat_input");
+						$chat.append("[" + peermap.localhost.nick + "] " + $chatinput.val() + "\n");
+						sendTapi2pCommand(ws, Message, $chatinput.val());
+						$chatinput.val("");
+					}
+				});
+
+				sendTapi2pCommand(ws, ListPeers);
+			}
+			else
+			{
+				$("#setupbtn").click(function()
+				{
+					var data={
+						nick: $("#username").val(),
+						port: parseInt($("#port").val(), 10)
+					};
+					sendTapi2pCommand(ws, Setup, JSON.stringify(data));
+					sendTapi2pCommand(ws, Status);
+				});
+			}
 			break;
 	}
 };
@@ -170,21 +202,7 @@ function parsePeers(ws, data)
 
 var onConnectionOpen=function(ws,e)
 {
-	sendTapi2pCommand(ws, Hello, null);
-
-	var $chat=$("#chat");
-	$(window).on("keypress", function(e)
-	{
-		if(e.keyCode==13)
-		{
-			var $chatinput=$("#chat_input");
-			$chat.append("[" + peermap.localhost.nick + "] " + $chatinput.val() + "\n");
-			sendTapi2pCommand(ws, Message, $chatinput.val());
-			$chatinput.val("");
-		}
-	});
-
-	sendTapi2pCommand(ws, ListPeers, null);
+	sendTapi2pCommand(ws, Status);
 };
 
 // Ugly redefine of EventType enum in core/event.h
@@ -201,6 +219,9 @@ var Metadata                 = ENUM_BASE++;
 var RequestFileListLocal     = ENUM_BASE++;
 var RequestFileList          = ENUM_BASE++;
 var FileList                 = ENUM_BASE++;
+var AddFile                  = ENUM_BASE++;
+var Setup                    = ENUM_BASE++;
+var Status                   = ENUM_BASE++;
 
 var Hello = -1; // Special for web ui only
 
@@ -213,7 +234,7 @@ function sendTapi2pCommand(ws, cmd, data, ip, port)
 {
 	ws.send(JSON.stringify({
 		cmd: cmd,
-		data: data,
+		data: data ? data : null,
 		data_len: data ? stringByteCount(data) : 0,
 		ip: ip ? ip : null,
 		port: port ? port : null
