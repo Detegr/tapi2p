@@ -30,10 +30,7 @@ void peer_free(struct peer* p)
 		pthread_join(p->thread, NULL);
 		p->thread=0;
 	}
-	if(p->key.m_keydata.m_ctx)
-	{
-		pubkey_free(&p->key);
-	}
+	pubkey_free(&p->key);
 }
 
 void clear_file_transfer(file_t* transfer)
