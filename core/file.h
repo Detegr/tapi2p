@@ -2,6 +2,7 @@
 #define TAPI2P_FILE_H
 
 #define FILE_PART_BYTES 524288 // 512kB file part size
+#define SHA_DIGEST_STR_MAX_LENGTH (SHA_DIGEST_LENGTH*2)+1
 
 #include <stdlib.h>
 #include <openssl/sha.h>
@@ -19,7 +20,7 @@ typedef struct metadatareply
 
 typedef struct file_transfer
 {
-	char sha_str[SHA_DIGEST_LENGTH*2+1];
+	char sha_str[SHA_DIGEST_STR_MAX_LENGTH];
 	FILE* file;
 	pthread_mutex_t file_lock;
 	metadata_t metadata;
@@ -28,12 +29,12 @@ typedef struct file_transfer
 typedef struct filepartrequest
 {
 	uint32_t part;
-	int8_t sha_str[SHA_DIGEST_LENGTH*2+1];
+	int8_t sha_str[SHA_DIGEST_STR_MAX_LENGTH];
 } fprequest_t;
 
 typedef struct filepart
 {
-	int8_t sha_str[SHA_DIGEST_LENGTH*2+1];
+	int8_t sha_str[SHA_DIGEST_STR_MAX_LENGTH];
 	uint32_t partnum;
 	uint8_t* data;
 } fp_t;

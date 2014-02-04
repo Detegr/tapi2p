@@ -39,7 +39,7 @@ void clear_file_transfer(file_t* transfer)
 	transfer->metadata.file_size=0;
 	transfer->metadata.part_count=0;
 	transfer->metadata.data=NULL;
-	memset(transfer->sha_str, 0, SHA_DIGEST_LENGTH*2+1);
+	memset(transfer->sha_str, 0, SHA_DIGEST_STR_MAX_LENGTH);
 	transfer->file=NULL;
 }
 
@@ -70,7 +70,7 @@ int create_file_transfer(struct peer* p, const char* sha_str, metadata_t* metada
 	struct configitem* ci;
 	if((ci=config_find_item(conf, "Filename", sha_str)) && ci->val)
 	{
-		strncpy(ft->sha_str, sha_str, SHA_DIGEST_LENGTH*2+1);
+		strncpy(ft->sha_str, sha_str, SHA_DIGEST_STR_MAX_LENGTH);
 		memcpy(&ft->metadata, metadata, sizeof(metadata_t));
 		printf("Creating file of size %lu\n", ft->metadata.file_size);
 		create_file(ci->val, ft->metadata.file_size);
@@ -104,7 +104,7 @@ file_t* get_and_lock_existing_filetransfer_for_sha(struct peer* p, const char* s
 {
 	for(int i=0; i<MAX_TRANSFERS; ++i)
 	{
-		if(strncmp(p->file_transfers[i].sha_str, sha_str, SHA_DIGEST_LENGTH*2+1) == 0)
+		if(strncmp(p->file_transfers[i].sha_str, sha_str, SHA_DIGEST_STR_MAX_LENGTH) == 0)
 		{
 			if(pthread_mutex_trylock(&p->file_transfers[i].file_lock) == 0)
 			{

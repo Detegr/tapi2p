@@ -201,8 +201,8 @@ static int core_init(void)
 		struct configsection* files=config_find_section(conf, md);
 		if(files)
 		{
-			char sha_str[SHA_DIGEST_LENGTH*2+1];
-			memset(sha_str, 0, SHA_DIGEST_LENGTH*2+1);
+			char sha_str[SHA_DIGEST_STR_MAX_LENGTH];
+			memset(sha_str, 0, SHA_DIGEST_STR_MAX_LENGTH);
 			for(int i=0; i<files->itemcount; ++i)
 			{
 				struct configitem* ci=files->items[i];

@@ -88,7 +88,7 @@ void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size)
 {
 	struct config* conf=getconfig();
 	struct stat buf;
-	char sha_str[SHA_DIGEST_LENGTH*2+1];
+	char sha_str[SHA_DIGEST_STR_MAX_LENGTH];
 	sha_to_str(sha_data, sha_str);
 	char* mdpath=NULL;
 	getpath(metadatapath(), sha_str, &mdpath);
@@ -119,7 +119,7 @@ void request_file_part_from_peer(int partnum, const char* sha_str, struct peer* 
 	printf("Requesting file part for %s for peer %s:%u\n", sha_str, p->addr, p->port);
 	fprequest_t* req=malloc(sizeof(fprequest_t));
 	req->part=partnum;
-	strncpy((char*)req->sha_str, sha_str, SHA_DIGEST_LENGTH*2+1);
+	strncpy((char*)req->sha_str, sha_str, SHA_DIGEST_STR_MAX_LENGTH);
 	evt_t* e=event_new(RequestFilePart, (const unsigned char*)req, sizeof(*req));
 	send_event_to_peer_nonblocking(p, e);
 	free(e);

@@ -52,7 +52,7 @@ static ssize_t send_file_part(struct file_part_thread_data* td)
 	{
 		printf("Constructing filepart with data size of %lu\n", size);
 		fp_t* part=alloca(sizeof(fp_t) + size);
-		memcpy(part->sha_str, td->transfer->sha_str, SHA_DIGEST_LENGTH*2+1);
+		memcpy(part->sha_str, td->transfer->sha_str, SHA_DIGEST_STR_MAX_LENGTH);
 		part->partnum=td->partnum;
 		part->data=(uint8_t*)part + sizeof(fp_t);
 		memcpy(part->data, buf, size);
@@ -290,7 +290,7 @@ void handlefilepartrequest(evt_t* e, void* data)
 			td->partnum=req->part;
 			td->peer=p;
 			td->transfer=t;
-			memset(t->sha_str, 0, SHA_DIGEST_LENGTH*2+1);
+			memset(t->sha_str, 0, SHA_DIGEST_STR_MAX_LENGTH);
 			strcpy((char*)t->sha_str, (const char*)req->sha_str);
 
 			pthread_t sendthread;
@@ -316,7 +316,7 @@ void handlemetadata(evt_t* e, void* data)
 	struct peer* p=peer_from_event(e);
 	if(p)
 	{
-		char sha_str[2*SHA_DIGEST_LENGTH+1];
+		char sha_str[SHA_DIGEST_STR_MAX_LENGTH];
 		metadata_t* md=(metadata_t*)e->data;
 		md->data = (uint8_t*)e->data + sizeof(metadata_t);
 		sha_to_str(md->data, sha_str);
