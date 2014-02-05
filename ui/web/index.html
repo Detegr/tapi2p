@@ -1,92 +1,115 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<title></title>
-	<script src="js/jquery-1.10.2.min.js"></script>
-	<script src="js/bootstrap.min.js"></script>
-	<link rel="stylesheet" href="css/bootstrap.min.css"/>
-	<link rel="stylesheet" href="css/bootstrap-responsive.min.css"/>
-	<style>
-		html,body {
-			height: 100%;
-		}
-		.container-narrow {
-			height: 100%;
-			margin: 0 auto;
-			max-width: 700px;
-		}
-		.divpage {
-		}
-		#chat {
-			height: 35%;
-		}
-		#peerdiv,#filelistdiv {
-			display: none;
-		}
-		.dirty {
-			background-color: #EEF;
-		}
-		#tapi2p_running {
-			display: none;
-		}
-	</style>
-	<script src="js/tapi2p.js"></script>
-</head>
-<body>
-	<div class="container-narrow">
-		<div id="tapi2p_running">
-			<div class="masthead">
-				<h3 class="muted">tapi2p</h3>
+<html>
+	<head>
+		<meta charset="UTF-8"/>
+		<title>tapi2p</title>
+		<script src="js/jquery-1.10.2.min.js"></script>
+		<script src="js/underscore-min.js"></script>
+		<script src="js/backbone-min.js"></script>
+		<link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.3.0/base-min.css">
+		<link rel="stylesheet" href="css/pure-min.css" />
+		<link rel="stylesheet" href="css/side-menu.css" />
+		<script src="js/tapi2p-backend.js"></script>
+	</head>
+	<body>
+		<script type="text/template" id="tapi2p-main-template">
+			<div class="header">
+				<h1><%= welcome_message %></h1>
+				<h2>Please use the navigation menu to get started</h2>
 			</div>
-			<div style="padding-top: 10px; padding-bottom: 50px;">
-				<ul class="nav nav-pills pull-right">
-					<li class="active"><a class="tapi2pbtn" id="chatbtn" href="">Chat</a></li>
-					<li><a class="tapi2pbtn" id="peerbtn" href="">Peers</a></li>
-				</ul>
-				<ul id="tabs-left" class="nav nav-pills pull-left">
-				</ul>
+		</script>
+		<script type="text/template" id="tapi2p-peers-template">
+			<div class="header">
+				<h1>Peers</h1>
+				<h2>Following peers are online in tapi2p</h2>
 			</div>
-			<div id="chatdiv" class="divpage">
-				<pre id="chat"></pre>
-				<input id="chat_input" class="input-block-level form-control" type="text" placeholder="Chat">
+			<table class="pure-table pure-table-horizontal peertable">
+				<thead>
+					<th>Nick</th>
+					<th>Ip address</th>
+					<th>Port</th>
+					<th>Additional info</th>
+				</thead>
+				<tbody>
+					<% for(var i=0; i<peerList.length; ++i) { %>
+						<tr>
+							<td><%= peerList[i].nick %></td>
+							<td><%= peerList[i].addr %></td>
+							<td><%= peerList[i].port %></td>
+							<% if(peerList[i].conn_status === "ok") %>
+								<td></td>
+							<% else if(peerList[i].conn_status === "oneway") %>
+								<td>Peer's port is not opened correctly. Only one way connection exists.</td>
+							<% else %>
+								<td>Could not connect to peer.</td>
+							<td><%= peerList[i].conn_status %></td>
+						</tr>
+					<% } %>
+				</tbody>
+			</table>
+		</script>
+		<script type="text/template" id="tapi2p-files-template">
+			<div class="header">
+				<h1>Files</h1>
+				<h2>Search and download files from peers</h2>
 			</div>
-			<div id="peerdiv" class="divpage">
-				<table class="table table-bordered">
-					<thead>
-						<tr><th>Ip</th><th>Nick</th><th>Status</th></tr>
-					</thead>
-					<tbody id="peertable">
-					</tbody>
-				</table>
+			<table class="pure-table pure-table-horizontal peertable">
+				<thead>
+					<th>Filename</th>
+					<th>Hash</th>
+					<th>Ip address</th>
+				</thead>
+				<tbody>
+					<% for(var ip in fileList) { %>
+						<% for(var i=0; i<fileList[ip].length; ++i) { %>
+							<tr>
+								<td><%= fileList[ip][i].filename %></td>
+								<td><%= fileList[ip][i].hash %></td>
+								<td><%= ip %></td>
+							</tr>
+						<% } %>
+					<% } %>
+				</tbody>
+			</table>
+		</script>
+		<script type="text/template" id="tapi2p-downloads-template">
+			<div class="header">
+				<h1>Downloads</h1>
+				<h2>Monitor ongoing and finished downloads</h2>
 			</div>
-			<div id="filelistdiv" class="divpage">
-				<table class="table table-bordered">
-					<thead>
-						<tr><th>Filename</th><th>Hash</th></tr>
-					</thead>
-					<tbody id="filetable">
-					</tbody>
-				</table>
+		</script>
+		<script type="text/template" id="tapi2p-error-template">
+			<div class="header">
+				<h1>Error</h1>
+				<h2>An error occurred when initializing tapi2p.</h2>
+			</div>
+			<h2 class="content-subhead">Error details</h2>
+			<p>Could not connect to websocket. Is tapi2p running?</p>
+		</script>
+		<div id="layout">
+			<a href="#menu" id="menuLink" class="menu-link">
+				<span></span>
+			</a>
+			<div id="menu">
+				<div class="pure-menu pure-menu-open">
+					<ul>
+						<li><a class="pure-menu-heading" href="#">tapi2p</a></li>
+						<li><a href="#peers">Peers</a></li>
+						<li><a href="#files">Files</a></li>
+						<li><a href="#downloads">Downloads</a></li>
+						<li><a class="pure-menu-heading" href="#settings">Settings</a></li>
+						<li><a href="#account-settings">Account settings</a></li>
+						<li><a href="#sharedfiles-settings">Shared files</a></li>
+						<li><a href="#network-settings">Network settings</a></li>
+					</ul>
+				</div>
+			</div>
+			<div id="main">
+				<div id="tapi2p-main" class="content"></div>
 			</div>
 		</div>
-		<div id="tapi2p_setup">
-			<div class="row">
-				<span class="span1"><h1 class="span2">tapi2p</h1></span>
-				<span class="span9"></span>
-				<span class="span1"><img src="img/tapi2plogo.png" width="48" /></span>
-			</div>
-			<div class="well">
-				<h2>Initial setup</h2>
-				<h3 class="text-muted">Please fill in following information to continue.</h3>
-				<hr/>
-				<input id="username" class="input-block-level form-control" type="text" placeholder="Username">
-				<br/>
-				<input id="port" class="input-block-level form-control" type="number" placeholder="Port" min="1024" max="65535">
-				<br/>
-				<button id="setupbtn" class="btn btn-primary btn-block">Continue</button>
-			</div>
-		</div>
-	</div>
-</body>
+		<script src="js/ui.js"></script>
+	</body>
 </html>
+
+<script src="js/tapi2p-backbone.js"></script>
