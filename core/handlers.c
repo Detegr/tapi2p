@@ -91,6 +91,7 @@ static void* send_file_part_thread(void* args)
 	struct file_part_thread_data* td=args;
 	send_file_part(td);
 	pthread_mutex_unlock(&td->transfer->file_lock);
+	clear_file_transfer(td->transfer);
 	free(td);
 	return 0;
 }
@@ -322,6 +323,7 @@ void handlemetadata(evt_t* e, void* data)
 		sha_to_str(md->data, sha_str);
 		check_or_create_metadata(md->data, e->data_len-sizeof(metadata_t));
 		create_file_transfer(p, sha_str, md);
+		//request_file_part_listing_from_peers(sha_str, p);
 		request_file_part_from_peer(0, sha_str, p);
 	}
 	else
@@ -556,4 +558,11 @@ void handlestatus(pipeevt_t *e, void *data)
 	pipe_event_send_back_to_caller(e, jsonstr, strlen(jsonstr));
 	free(jsonstr);
 	json_decref(root);
+}
+
+void handlefilepartlistrequest(evt_t *e, void *data)
+{
+	const char *hash_str=(const char*)e->data;
+	printf("File part list requested for hash %s\n", hash_str);
+
 }

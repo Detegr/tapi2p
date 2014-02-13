@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "peer.h"
+#include "peermanager.h"
 #include "event.h"
 #include "core.h"
 
@@ -122,5 +123,19 @@ void request_file_part_from_peer(int partnum, const char* sha_str, struct peer* 
 	strncpy((char*)req->sha_str, sha_str, SHA_DIGEST_STR_MAX_LENGTH);
 	evt_t* e=event_new(RequestFilePart, (const unsigned char*)req, sizeof(*req));
 	send_event_to_peer_nonblocking(p, e);
+	free(e);
+}
+
+void request_file_part_listing_from_peers(const char *sha_str, struct peer *exclude_current)
+{
+	printf("Requesting file part listing from all peers\n");
+	evt_t* e=event_new(RequestFilePartList, sha_str, strnlen(sha_str, SHA_DIGEST_STR_MAX_LENGTH-1)+1);
+	printf("Hash: %s, len: %lu\n", sha_str, strnlen(sha_str, SHA_DIGEST_STR_MAX_LENGTH-1)+1);
+	struct peer* p;
+	while((p=peer_next()))
+	{
+		if(p != exclude_current) send_event_to_peer(p, e);
+	}
+	send_to_all(e);
 	free(e);
 }
