@@ -106,11 +106,8 @@ file_t* get_and_lock_existing_filetransfer_for_sha(struct peer* p, const char* s
 	{
 		if(strncmp(p->file_transfers[i].sha_str, sha_str, SHA_DIGEST_STR_MAX_LENGTH) == 0)
 		{
-			if(pthread_mutex_trylock(&p->file_transfers[i].file_lock) == 0)
-			{
-				return &p->file_transfers[i];
-			}
-			else return NULL;
+			pthread_mutex_lock(&p->file_transfers[i].file_lock);
+			return &p->file_transfers[i];
 		}
 	}
 	return NULL;

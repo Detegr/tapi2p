@@ -161,7 +161,7 @@ struct peer* peer_exists(struct peer* p)
 	return NULL;
 }
 
-struct peer* peer_exists_simple(char* addr, unsigned short port)
+struct peer* peer_exists_simple(const char* addr, unsigned short port)
 {
 	if(!addr || !port) return NULL;
 

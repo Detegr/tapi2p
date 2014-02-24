@@ -10,7 +10,7 @@
 #include "event.h"
 #include "core.h"
 
-unsigned char* SHA1_for_part(unsigned part, unsigned char* data, size_t datasize)
+unsigned char *SHA1_for_part(unsigned part, unsigned char *data, size_t datasize)
 {
 	unsigned char* ret=malloc(SHA_DIGEST_LENGTH);
 	size_t bytes;
@@ -87,7 +87,6 @@ void create_metadata_file(const char* from, char* file_sha_as_str)
 
 void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size)
 {
-	struct config* conf=getconfig();
 	struct stat buf;
 	char sha_str[SHA_DIGEST_STR_MAX_LENGTH];
 	sha_to_str(sha_data, sha_str);
@@ -98,8 +97,6 @@ void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size)
 		FILE* f=fopen(mdpath, "w");
 		if(f)
 		{
-			unsigned char type=Metadata;
-			fwrite(&type, 1, 1, f);
 			fwrite(sha_data, sha_size, 1, f);
 			fclose(f);
 		}

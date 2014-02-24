@@ -114,7 +114,7 @@ static void* sendmetadata(void* args)
 	do
 	{
 		sent += send_file_part(td);
-		printf("Sent %lu bytes of %lu\n", sent, td->transfer->metadata.file_size); 
+		printf("Sent %lu bytes of %lu\n", sent, td->transfer->metadata.file_size);
 	} while(sent < td->transfer->metadata.file_size);
 
 	clear_file_transfer(td->transfer);
@@ -183,10 +183,8 @@ void handlefiletransferlocal(evt_t* e, void* data)
 	}
 }
 
-static FILE* check_peer_and_open_file_for_sha(struct peer* p, const char* sha_str, uint64_t* filesize)
+static FILE *open_file_for_sha(const char* sha_str, uint64_t* filesize)
 {
-	if(!p) return NULL;
-
 	FILE* ret=NULL;
 	struct config* conf=getconfig();
 	struct configitem* ci;
@@ -208,10 +206,14 @@ static FILE* check_peer_and_open_file_for_sha(struct peer* p, const char* sha_st
 	return ret;
 }
 
-static FILE* check_peer_and_open_metadata(struct peer* p, const char* sha_str)
+static FILE *check_peer_and_open_file_for_sha(struct peer* p, const char* sha_str, uint64_t* filesize)
 {
 	if(!p) return NULL;
+	return open_file_for_sha(sha_str, filesize);
+}
 
+static FILE *open_metadata(const char *sha_str)
+{
 	FILE* ret=NULL;
 	struct config* conf=getconfig();
 	struct configitem* ci;
@@ -229,6 +231,12 @@ static FILE* check_peer_and_open_metadata(struct peer* p, const char* sha_str)
 	return ret;
 }
 
+static FILE *check_peer_and_open_metadata(struct peer* p, const char* sha_str)
+{
+	if(!p) return NULL;
+	return open_metadata(sha_str);
+}
+
 void handlefiletransfer(evt_t* e, void* data)
 {
 	e->data[e->data_len]=0;
@@ -241,7 +249,6 @@ void handlefiletransfer(evt_t* e, void* data)
 		file_t* t=get_and_lock_new_filetransfer(p);
 		if(t)
 		{
-			pthread_t sendthread;
 			struct file_part_thread_data* td=malloc(sizeof(struct file_part_thread_data));
 			td->type=Metadata;
 			td->partnum=0;
@@ -257,6 +264,7 @@ void handlefiletransfer(evt_t* e, void* data)
 			td->part_count=(filesize/FILE_PART_BYTES)+1;
 			td->file_size=filesize;
 
+			pthread_t sendthread;
 			pthread_create(&sendthread, NULL, &sendmetadata, td);
 			pthread_mutex_unlock(&t->file_lock);
 		}
@@ -561,8 +569,10 @@ void handlestatus(pipeevt_t *e, void *data)
 }
 
 void handlefilepartlistrequest(evt_t *e, void *data)
-{
-	const char *hash_str=(const char*)e->data;
-	printf("File part list requested for hash %s\n", hash_str);
+{// TODO: Modify this to indicate parts with bits instead of full bytes
+	const char *sha_str=(const char*)e->data;
+	struct peer *p=peer_exists_simple(e->addr, e->port);
+	if(!p) assert(false);
 
+	printf("File part list requested for hash %s\n", sha_str);
 }

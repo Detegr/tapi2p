@@ -10,6 +10,7 @@ void core_stop(void);
 int core_socket(void);
 void send_to_all(evt_t* e);
 void send_event_to_peer(struct peer* p, evt_t* e);
+void send_event_to_peer_simple(EventType t, void *data, uint32_t data_len, struct peer *p);
 void send_event_to_peer_nonblocking(struct peer* p, evt_t* e);
 
 #endif

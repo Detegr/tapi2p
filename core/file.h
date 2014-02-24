@@ -44,6 +44,7 @@ void create_metadata_file(const char* from, char* file_sha_as_str);
 void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size);
 void request_file_part_from_peer(int partnum, const char* sha_str, struct peer* p);
 void request_file_part_listing_from_peers(const char *sha_str, struct peer *exclude_current);
-const metadata_t *get_metadata(const char *sha_str);
+
+unsigned char *SHA1_for_part(unsigned part, unsigned char *data, size_t datasize);
 
 #endif

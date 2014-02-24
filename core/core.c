@@ -666,6 +666,13 @@ void send_event_to_peer(struct peer* p, evt_t* e)
 	send_event_to_peer_internal(p, e, 0);
 }
 
+void send_event_to_peer_simple(EventType t, void *data, uint32_t data_len, struct peer *p)
+{
+	evt_t *e=event_new(t, data, data_len);
+	send_event_to_peer_internal(p, e, 0);
+	free(e);
+}
+
 void send_event_to_peer_nonblocking(struct peer* p, evt_t* e)
 {
 	send_event_to_peer_internal(p, e, 1);
