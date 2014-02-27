@@ -1,7 +1,7 @@
 var FileModel = Backbone.Model.extend({
-	updateFiles: function(peer_ip, files) {
+	updateFiles: function(peer_ip, peer_port, files) {
 		var obj={};
-		obj[peer_ip]=files;
+		obj[peer_ip + ":" + peer_port]=files;
 		this.set(obj);
 	}
 });
@@ -11,6 +11,16 @@ var PeerModel = Backbone.Model.extend({
 		this.set({peers: peers});
 	}
 });
+
+var ChatModel = Backbone.Model.extend({
+	newMessage: function(msg) {
+		this.get("chatHistory").push(msg);
+		this.trigger("newMessage");
+	}
+});
+
+var chatModel = new ChatModel();
+chatModel.set({chatHistory: []});
 
 var peerModel = new PeerModel();
 peerModel.set({peers: []});
@@ -42,6 +52,38 @@ var MainView = Backbone.View.extend({
 	},
 	render: function() {
 		var template=_.template($("#" + this.className + "-template").html(), {welcome_message: this.welcome});
+		this.$el.html(template);
+	}
+});
+
+$(window).on("keypress", function(e)
+{
+	if(e.keyCode==13)
+	{
+		var $chatinput=$("#chatinput");
+		if(!$chatinput.val()) return;
+		chatModel.newMessage("[" + peermap.localhost.nick + "] " + $chatinput.val());
+		backend.sendCommand(backend.Commands.Message, $chatinput.val());
+		$chatinput.val("");
+	}
+});
+
+var ChatView = Backbone.View.extend({
+	el: $("#tapi2p-main"),
+	model: chatModel,
+	tagName: "div",
+	className: "tapi2p-chat",
+	initialize: function() {
+		this.model.on("newMessage", function(p)
+		{// Not exactly sure why this is needed here as well.
+			if(this.$el.is(":visible")) this.render(p);
+		}, this);
+		this.render();
+	},
+	render: function() {
+		if(!this.$el.is(":visible")) return this;
+
+		var template=_.template($("#" + this.className + "-template").html(), {welcome_message: this.welcome, chatHistory: this.model.get("chatHistory")});
 		this.$el.html(template);
 	}
 });
@@ -92,6 +134,7 @@ var DownloadsView = new RenderableTemplate("tapi2p-downloads");
 var Router = Backbone.Router.extend({
 	routes: {
 		"": "root",
+		"chat" : "chat",
 		"peers": "peers",
 		"error": "error",
 		"files": "files",
@@ -101,6 +144,7 @@ var Router = Backbone.Router.extend({
 
 var r=new Router();
 r
+.on("route:chat", render(ChatView))
 .on("route:peers", render(PeerView))
 .on("route:error", render(ErrorView))
 .on("route:downloads", render(DownloadsView))
@@ -130,6 +174,9 @@ function tapi2p_handle_message(e)
 	switch(d.cmd)
 	{
 		case backend.Commands.PeerConnected:
+		{
+			peermap[d.peers.addr] = d.peers.nick;
+		}
 		case backend.Commands.PeerDisconnected:
 		{
 			backend.sendCommand(backend.Commands.ListPeers);
@@ -137,7 +184,7 @@ function tapi2p_handle_message(e)
 		}
 		case backend.Commands.FileList:
 		{
-			fileModel.updateFiles(d.addr, d.data.files);
+			fileModel.updateFiles(d.addr, d.port, d.data.files);
 			break;
 		}
 		case backend.Commands.Message:
@@ -152,7 +199,11 @@ function tapi2p_handle_message(e)
 				});
 				r.navigate("", {trigger: true, replace: true});
 				Backbone.history.loadUrl();
+				break;
 			}
+			var nick=peermap[d.addr];
+			if(!nick) nick=d.addr;
+			chatModel.newMessage("[" + nick + "] " + d.data);
 			break;
 		}
 		case backend.Commands.ListPeers:
@@ -160,6 +211,7 @@ function tapi2p_handle_message(e)
 			peerModel.updatePeers(d.data.peers);
 			for(var i=0; i<d.data.peers.length; ++i)
 			{
+				if(!peermap[d.data.peers[i].addr]) peermap[d.data.peers[i].addr]= d.data.peers[i].nick;
 				backend.sendCommand(backend.Commands.RequestFileListLocal, null, d.data.peers[i].addr, d.data.peers[i].port);
 			}
 			break;

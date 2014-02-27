@@ -10,12 +10,57 @@
 		<link rel="stylesheet" href="css/pure-min.css" />
 		<link rel="stylesheet" href="css/side-menu.css" />
 		<script src="js/tapi2p-backend.js"></script>
+		<style>
+			html,body,#layout,#main,.content {
+				height: 100%;
+			}
+			.flex {
+				height: 70%;
+
+				display: -webkit-flex;
+				-webkit-flex-direction: row;
+
+				display: flex;
+				flex-direction: column;
+			}
+			.flex > form {
+				-webkit-flex: 1 1 20%;
+				flex: 1 1 5%;
+			}
+			#chatwindow {
+				width: 100%;
+				height: 200px;
+				background-color: #eee;
+				border: 1px solid #aaa;
+
+				-webkit-flex: 10 10 80%;
+				flex: 1 1 95%;
+
+				overflow-y: auto;
+			}
+		</style>
 	</head>
 	<body>
 		<script type="text/template" id="tapi2p-main-template">
 			<div class="header">
 				<h1><%= welcome_message %></h1>
 				<h2>Please use the navigation menu to get started</h2>
+			</div>
+		</script>
+		<script type="text/template" id="tapi2p-chat-template">
+			<div class="header">
+				<h1>Chat</h1>
+				<h2>Chat securely with your peers</h2>
+			</div>
+			<div style="margin-top: 1em;" class="flex">
+				<code id="chatwindow">
+					<% for(var i=0; i<chatHistory.length; ++i) { %>
+					<%= chatHistory[i] %><br/>
+					<% } %>
+				</code>
+				<form class="pure-form">
+					<input id="chatinput" type="text" style="width: 100%;" autofocus></input>
+				</form>
 			</div>
 		</script>
 		<script type="text/template" id="tapi2p-peers-template">
@@ -25,10 +70,12 @@
 			</div>
 			<table class="pure-table pure-table-horizontal peertable">
 				<thead>
-					<th>Nick</th>
-					<th>Ip address</th>
-					<th>Port</th>
-					<th>Additional info</th>
+					<% if(peerList.length > 0) { %>
+						<th>Nick</th>
+						<th>Ip address</th>
+						<th>Port</th>
+						<th>Additional info</th>
+					<% } %>
 				</thead>
 				<tbody>
 					<% for(var i=0; i<peerList.length; ++i) { %>
@@ -55,9 +102,11 @@
 			</div>
 			<table class="pure-table pure-table-horizontal peertable">
 				<thead>
-					<th>Filename</th>
-					<th>Hash</th>
-					<th>Ip address</th>
+					<% if(fileList.length > 0) { %>
+						<th>Filename</th>
+						<th>Hash</th>
+						<th>Ip address</th>
+					<% } %>
 				</thead>
 				<tbody>
 					<% for(var ip in fileList) { %>
@@ -94,6 +143,7 @@
 				<div class="pure-menu pure-menu-open">
 					<ul>
 						<li><a class="pure-menu-heading" href="#">tapi2p</a></li>
+						<li><a href="#chat">Chat</a></li>
 						<li><a href="#peers">Peers</a></li>
 						<li><a href="#files">Files</a></li>
 						<li><a href="#downloads">Downloads</a></li>
