@@ -5,6 +5,7 @@
 #include "peermanager.h"
 #include "pathmanager.h"
 #include "pipemanager.h"
+#include "filetransfermanager.h"
 #include "../dtgconf/src/config.h"
 #include "event.h"
 #include "ptrlist.h"
@@ -513,6 +514,7 @@ void* read_thread(void* args)
 							case RequestFileTransferLocal:
 							case RequestFileList:
 							case RequestFileListLocal:
+							case FileTransferStatus:
 							{
 								event_run_callbacks(e);
 							} // Fall through to send event to pipe listeners as well
@@ -742,6 +744,7 @@ int core_start(void)
 	}
 
 	peermanager_init();
+	filetransfermanager_init();
 
 	sem_t init_semaphore;
 	sem_init(&init_semaphore, 0, 0);
@@ -762,6 +765,7 @@ int core_start(void)
 	event_addlistener(Message, &handlemessage, NULL);
 	pipe_event_addlistener(ListPeers, &handlelistpeers, getconfig());
 	pipe_event_addlistener(Status, &handlestatus, &setupstatus);
+	pipe_event_addlistener(FileTransferStatus, &handlefiletransferstatus, NULL);
 	event_addlistener(RequestFileTransfer, &handlefiletransfer, NULL);
 	event_addlistener(RequestFileTransferLocal, &handlefiletransferlocal, NULL);
 	event_addlistener(RequestFilePart, &handlefilepartrequest, NULL);
@@ -770,7 +774,6 @@ int core_start(void)
 	event_addlistener(RequestFileList, &handlerequestfilelist, NULL);
 	event_addlistener(RequestFileListLocal, &handlerequestfilelistlocal, NULL);
 	event_addlistener(AddFile, &handleaddfile, NULL);
-	event_addlistener(RequestFilePartList, &handlefilepartlistrequest, NULL);
 
 	while(run_threads)
 	{

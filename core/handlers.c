@@ -2,6 +2,7 @@
 #include "core.h"
 #include "peermanager.h"
 #include "pathmanager.h"
+#include "filetransfermanager.h"
 #include "../dtgconf/src/config.h"
 #include "util.h"
 #include "event.h"
@@ -329,6 +330,7 @@ void handlemetadata(evt_t* e, void* data)
 		metadata_t* md=(metadata_t*)e->data;
 		md->data = (uint8_t*)e->data + sizeof(metadata_t);
 		sha_to_str(md->data, sha_str);
+		filetransfer_add(p, sha_str, md);
 		check_or_create_metadata(md->data, e->data_len-sizeof(metadata_t));
 		create_file_transfer(p, sha_str, md);
 		//request_file_part_listing_from_peers(sha_str, p);
@@ -355,6 +357,7 @@ void handlefilepart(evt_t* e, void* data)
 		{
 			fflush(ft->file);
 			printf("Wrote %lu bytes (part %d)\n", e->data_len-sizeof(fp_t), fp->partnum);
+			filetransfer_part_ready(fp->sha_str, fp->partnum);
 			if(fp->partnum==0 && e->data_len-sizeof(fp_t) != FILE_PART_BYTES)
 			{
 				printf("File transfer done, clearing...\n");
@@ -415,7 +418,7 @@ void handlerequestfilelistlocal(evt_t* e, void* data)
 		json_t *root=get_file_list_as_json();
 		char *str=json_dumps(root, 0);
 		printf("%s - %d\n", str, strlen(str));
-		pipe_event_send_back_to_caller((pipeevt_t*)e, (const unsigned char*)str, strlen(str));
+		pipe_event_send_back_to_caller((pipeevt_t*)e, str, strlen(str));
 		free(str);
 		json_decref(root);
 	}
@@ -575,4 +578,27 @@ void handlefilepartlistrequest(evt_t *e, void *data)
 	if(!p) assert(false);
 
 	printf("File part list requested for hash %s\n", sha_str);
+}
+
+void handlefiletransferstatus(pipeevt_t *e, void *data)
+{
+	int statuscount;
+	ftstatus *statuses=filetransfer_get_statuses(&statuscount);
+	json_t *root=json_object();
+	json_t *arr=json_array();
+	for(int i=0; i<statuscount; ++i)
+	{
+		json_t *obj=json_object();
+		json_object_set_new(obj, "sha", json_string(statuses[i].sha_str));
+		json_object_set_new(obj, "partCount", json_integer(statuses[i].part_count));
+		json_object_set_new(obj, "partsReady", json_integer(statuses[i].parts_ready));
+		json_object_set_new(obj, "fileSize", json_integer(statuses[i].file_size));
+		json_array_append_new(arr, obj);
+	}
+	json_object_set_new(root, "statuses", arr);
+	char *jsonstr=json_dumps(root, 0);
+	pipe_event_send_back_to_caller(e, jsonstr, strlen(jsonstr));
+	free(jsonstr);
+	json_decref(root);
+	free(statuses);
 }

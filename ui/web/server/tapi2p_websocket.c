@@ -296,10 +296,11 @@ int main()
 	info.uid=-1;
 
 	ctx = libwebsocket_create_context(&info);
-	if(!ctx)
+	while(!ctx)
 	{
 		lwsl_err("libwebsocket init failed.");
-		return -1;
+		sleep(1);
+		ctx = libwebsocket_create_context(&info);
 	}
 	lwsl_notice("tapi2p websocket server started.\n");
 

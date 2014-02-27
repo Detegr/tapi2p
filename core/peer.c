@@ -31,6 +31,13 @@ void peer_free(struct peer* p)
 		p->thread=0;
 	}
 	pubkey_free(&p->key);
+	for(int i=0; i<MAX_TRANSFERS; ++i)
+	{
+		if(p->file_transfers[i].file)
+		{
+			clear_file_transfer(&p->file_transfers[i]);
+		}
+	}
 }
 
 void clear_file_transfer(file_t* transfer)
@@ -88,6 +95,23 @@ int create_file_transfer(struct peer* p, const char* sha_str, metadata_t* metada
 	return 0;
 }
 
+static file_t *get_file_transfer_internal(struct peer *p, const char *sha_str)
+{// Returned struct should NOT be modified if file_lock is not locked.
+	for(int i=0; i<MAX_TRANSFERS; ++i)
+	{
+		if(strncmp(p->file_transfers[i].sha_str, sha_str, SHA_DIGEST_STR_MAX_LENGTH) == 0)
+		{
+			return &p->file_transfers[i];
+		}
+	}
+	return NULL;
+}
+
+const file_t *get_file_transfer(struct peer *p, const char *sha_str)
+{
+	return (const file_t*)get_file_transfer_internal(p, sha_str);
+}
+
 file_t* get_and_lock_new_filetransfer(struct peer* p)
 {
 	for(int i=0; i<MAX_TRANSFERS; ++i)
@@ -102,13 +126,9 @@ file_t* get_and_lock_new_filetransfer(struct peer* p)
 
 file_t* get_and_lock_existing_filetransfer_for_sha(struct peer* p, const char* sha_str)
 {
-	for(int i=0; i<MAX_TRANSFERS; ++i)
-	{
-		if(strncmp(p->file_transfers[i].sha_str, sha_str, SHA_DIGEST_STR_MAX_LENGTH) == 0)
-		{
-			pthread_mutex_lock(&p->file_transfers[i].file_lock);
-			return &p->file_transfers[i];
-		}
-	}
-	return NULL;
+	file_t *ft=get_file_transfer_internal(p, sha_str);
+	if(!ft) return NULL;
+
+	pthread_mutex_lock(&ft->file_lock);
+	return ft;
 }

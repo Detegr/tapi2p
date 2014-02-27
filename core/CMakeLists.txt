@@ -13,6 +13,7 @@ add_library(tapi2p_corelib SHARED \\
 			event.c \\
 			peermanager.c \\
 			pipemanager.c \\
+			filetransfermanager.c \\
 			ptrlist.c \\
 			handlers.c \\
 			util.c \\

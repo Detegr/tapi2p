@@ -223,8 +223,17 @@ int main(int argc, char** argv)
 			case 'S':
 			{
 				int fd=core_socket();
+				printf("tapi2p_core status:\n");
 				event_send_simple(Status, NULL, 0, fd);
 				pipeevt_t* e=event_recv(fd, NULL);
+				if(e)
+				{
+					printf("%s\n", e->data);
+					free(e);
+				}
+				printf("File transfer status:\n");
+				event_send_simple(FileTransferStatus, NULL, 0, fd);
+				e=event_recv(fd, NULL);
 				if(e)
 				{
 					printf("%s\n", e->data);
