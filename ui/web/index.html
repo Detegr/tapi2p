@@ -68,6 +68,9 @@
 				<h1>Peers</h1>
 				<h2>Following peers are online in tapi2p</h2>
 			</div>
+			<p style="text-align: center;">
+				<a href="#newpeer" class="pure-button pure-button-primary">Add a new peer</a>
+			</p>
 			<table class="pure-table pure-table-horizontal peertable">
 				<thead>
 					<% if(peerList.length > 0) { %>
@@ -94,6 +97,28 @@
 					<% } %>
 				</tbody>
 			</table>
+		</script>
+		<script type="text/template" id="tapi2p-newpeer-template">
+			<div class="header">
+				<h1>Add a new peer</h1>
+				<h2>Fill in following fields to add a new peer</h2>
+			</div>
+			<form class="pure-form pure-form-stacked" style="margin-top: 1em;">
+				<fieldset>
+					<legend>Connection information</legend>
+					<label for="nick">Nickname (optional)</label>
+					<input class="pure-input-1" type="text" id="nick" placeholder="Nickname (optional)"></input>
+					<label for="ip">Ip address</label>
+					<input class="pure-input-1" type="text" id="ip" placeholder="Ip address" required></input>
+					<label for="port">Port number</label>
+					<input class="pure-input-1" type="number" id="port" placeholder="Port number" min="1" max="65535" required></input>
+					
+					<legend style="margin-top: 1em;">Encryption key</legend>
+					<textarea style="width: 100%;" rows="18" id="publickey" required></textarea>
+	
+					<button class="pure-button pure-button-primary pure-input-1" style="margin-top: 1em;">Add peer</button>
+				</fieldset>
+			</form>
 		</script>
 		<script type="text/template" id="tapi2p-files-template">
 			<div class="header">

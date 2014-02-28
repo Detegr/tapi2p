@@ -105,6 +105,21 @@ var PeerView = Backbone.View.extend({
 	}
 });
 
+var NewPeerView = Backbone.View.extend({
+	el: $("#tapi2p-main"),
+	tagName: "div",
+	className: "tapi2p-newpeer",
+	initialize: function() {
+		this.render();
+	},
+	render: function() {
+		if(!this.$el.is(":visible")) return this;
+
+		var template=_.template($("#" + this.className + "-template").html(), {});
+		this.$el.html(template);
+	}
+});
+
 var FileView = Backbone.View.extend({
 	el: $("#tapi2p-main"),
 	model: fileModel,
@@ -136,6 +151,7 @@ var Router = Backbone.Router.extend({
 		"": "root",
 		"chat" : "chat",
 		"peers": "peers",
+		"newpeer": "newpeer",
 		"error": "error",
 		"files": "files",
 		"downloads": "downloads"
@@ -146,6 +162,7 @@ var r=new Router();
 r
 .on("route:chat", render(ChatView))
 .on("route:peers", render(PeerView))
+.on("route:newpeer", render(NewPeerView))
 .on("route:error", render(ErrorView))
 .on("route:downloads", render(DownloadsView))
 .on("route:files", render(FileView));
