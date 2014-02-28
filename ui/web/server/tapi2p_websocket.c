@@ -60,7 +60,7 @@ static void send_json(char* str, size_t len)
 		json_decref(root);
 		return;
 	}
-	
+
 	ip = json_object_get(root, "ip");
 	if(!ip || !json_is_string(ip))
 	{

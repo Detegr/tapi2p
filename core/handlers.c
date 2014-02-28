@@ -538,6 +538,7 @@ void handlesetup(pipeevt_t *e, void *data)
 #ifndef NDEBUG
 		fprintf(stderr, "%s\n", error.text);
 #endif
+		return;
 	}
 	if(!json_is_object(root))
 	{

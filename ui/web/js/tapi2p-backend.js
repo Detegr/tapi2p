@@ -48,6 +48,7 @@ function Tapi2pBackend(onopen, onerror, onmessage) {
 			ip: ip ? ip : null,
 			port: port ? port : null
 		}));
+		if(data && typeof data !== "string") data=JSON.stringify(data);
 		ws.send(JSON.stringify({
 			cmd: cmd,
 			data: data ? data : null,

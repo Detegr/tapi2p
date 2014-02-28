@@ -137,6 +137,30 @@ var FileView = Backbone.View.extend({
 	}
 });
 
+var SetupView = Backbone.View.extend({
+	el: $("#tapi2p-main"),
+	tagName: "div",
+	className: "tapi2p-setup",
+	initialize: function() {
+		this.render();
+	},
+	render: function() {
+		if(!this.$el.is(":visible")) return this;
+
+		var template=_.template($("#" + this.className + "-template").html(), {});
+		this.$el.html(template);
+		$("#menu").children().remove();
+		$("#setup").click(function()
+		{
+			backend.sendCommand(backend.Commands.Setup, {
+				nick: $("#nick").val(),
+				port: parseInt($("#port").val(), 10)
+			});
+			r.navigate("", {trigger: true, replace: true});
+		});
+	}
+});
+
 function render(view) {
 	return function() {
 		new view();
@@ -154,6 +178,7 @@ var Router = Backbone.Router.extend({
 		"newpeer": "newpeer",
 		"error": "error",
 		"files": "files",
+		"setup": "setup",
 		"downloads": "downloads"
 	}
 });
@@ -165,6 +190,7 @@ r
 .on("route:newpeer", render(NewPeerView))
 .on("route:error", render(ErrorView))
 .on("route:downloads", render(DownloadsView))
+.on("route:setup", render(SetupView))
 .on("route:files", render(FileView));
 
 Backbone.history.start();
@@ -240,7 +266,10 @@ function tapi2p_handle_message(e)
 				backend.sendCommand(backend.Commands.Hello);
 				backend.sendCommand(backend.Commands.ListPeers);
 			}
-			else alert("NYI");
+			else
+			{
+				r.navigate("setup", {trigger: true, replace: true});
+			}
 			break;
 		}
 	}

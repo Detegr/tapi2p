@@ -38,6 +38,9 @@
 
 				overflow-y: auto;
 			}
+			textarea {
+				resize: none;
+			}
 		</style>
 	</head>
 	<body>
@@ -46,6 +49,26 @@
 				<h1><%= welcome_message %></h1>
 				<h2>Please use the navigation menu to get started</h2>
 			</div>
+		</script>
+		<script type="text/template" id="tapi2p-setup-template">
+			<div class="header">
+				<h1>Setup</h1>
+				<h2>Fill in following fields to set up tapi2p for use</h2>
+			</div>
+			<form class="pure-form pure-form-stacked" style="margin-top: 1em;">
+				<fieldset>
+					<legend>Connection information</legend>
+					<label for="nick">Nickname</label>
+					<input class="pure-input-1" type="text" id="nick" placeholder="Nickname" required></input>
+					<label for="port">Port number</label>
+					<input class="pure-input-1" type="number" id="port" placeholder="Port number" min="1" max="65535" required></input>
+
+					<legend style="margin-top: 1em;">Share this public key with your peers to allow them to communicate with you</legend>
+					<textarea readonly style="width: 100%;" rows="18" id="publickey"></textarea>
+
+					<button id="setup" class="pure-button pure-button-primary pure-input-1" style="margin-top: 1em;">Continue</button>
+				</fieldset>
+			</form>
 		</script>
 		<script type="text/template" id="tapi2p-chat-template">
 			<div class="header">
@@ -112,10 +135,10 @@
 					<input class="pure-input-1" type="text" id="ip" placeholder="Ip address" required></input>
 					<label for="port">Port number</label>
 					<input class="pure-input-1" type="number" id="port" placeholder="Port number" min="1" max="65535" required></input>
-					
+
 					<legend style="margin-top: 1em;">Encryption key</legend>
 					<textarea style="width: 100%;" rows="18" id="publickey" required></textarea>
-	
+
 					<button class="pure-button pure-button-primary pure-input-1" style="margin-top: 1em;">Add peer</button>
 				</fieldset>
 			</form>
