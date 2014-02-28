@@ -719,6 +719,7 @@ int core_start(void)
 	{// Config file created
 		pipe_event_addlistener(Setup, &handlesetup, NULL);
 		pipe_event_addlistener(Status, &handlestatus, &setupstatus);
+		pipe_event_addlistener(GetPublicKey, &handlegetpublickey, NULL);
 		while(run_threads==1)
 		{
 			pipe_accept();
@@ -767,7 +768,6 @@ int core_start(void)
 	pipe_event_addlistener(ListPeers, &handlelistpeers, getconfig());
 	pipe_event_addlistener(Status, &handlestatus, &setupstatus);
 	pipe_event_addlistener(FileTransferStatus, &handlefiletransferstatus, NULL);
-	pipe_event_addlistener(GetPublicKey, &handlegetpublickey, NULL);
 	event_addlistener(RequestFileTransfer, &handlefiletransfer, NULL);
 	event_addlistener(RequestFileTransferLocal, &handlefiletransferlocal, NULL);
 	event_addlistener(RequestFilePart, &handlefilepartrequest, NULL);

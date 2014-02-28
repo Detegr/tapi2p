@@ -612,5 +612,5 @@ void handlegetpublickey(pipeevt_t *e, void *data)
 		fprintf(stderr, "Failed to load private key. Have you set up tapi2p correctly?\n");
 		return;
 	}
-	pipe_event_send_back_to_caller(e, selfkey.keyastext, strlen(selfkey.keyastext));
+	pipe_event_send_back_to_caller(e, selfkey.keyastext, strnlen(selfkey.keyastext, 800));
 }

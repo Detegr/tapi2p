@@ -19,6 +19,9 @@ var ChatModel = Backbone.Model.extend({
 	}
 });
 
+var KeyModel = Backbone.Model.extend({});
+var keyModel = new KeyModel();
+
 var chatModel = new ChatModel();
 chatModel.set({chatHistory: []});
 
@@ -45,13 +48,22 @@ function RenderableTemplate(name) {
 var MainView = Backbone.View.extend({
 	el: $("#tapi2p-main"),
 	tagName: "div",
-	className: null,
-	initialize: function(params) {
-		this.welcome=params.welcome;
+	model: keyModel,
+	className: "tapi2p-main",
+	initialize: function() {
+		this.model.on("change:welcome", function()
+		{
+			$("#welcome").text(this.model.get("welcome"));
+		}, this);
+		this.model.on("change:publicKey", function()
+		{
+			$("#publickey").text(this.model.get("publicKey"));
+		}, this);
 		this.render();
 	},
 	render: function() {
-		var template=_.template($("#" + this.className + "-template").html(), {welcome_message: this.welcome});
+		var template=_.template($("#" + this.className + "-template").html(), {welcome_message: this.model.get("welcome"), publicKey: this.model.get("publicKey")});
+		console.log(template);
 		this.$el.html(template);
 	}
 });
@@ -83,7 +95,7 @@ var ChatView = Backbone.View.extend({
 	render: function() {
 		if(!this.$el.is(":visible")) return this;
 
-		var template=_.template($("#" + this.className + "-template").html(), {welcome_message: this.welcome, chatHistory: this.model.get("chatHistory")});
+		var template=_.template($("#" + this.className + "-template").html(), {welcome_message: keyModel.get("welcome"), chatHistory: this.model.get("chatHistory")});
 		this.$el.html(template);
 	}
 });
@@ -141,7 +153,12 @@ var SetupView = Backbone.View.extend({
 	el: $("#tapi2p-main"),
 	tagName: "div",
 	className: "tapi2p-setup",
+	model: keyModel,
 	initialize: function() {
+		this.model.on("change:publicKey", function()
+		{
+			$("#publickey").text(this.model.get("publicKey"));
+		}, this);
 		this.render();
 	},
 	render: function() {
@@ -185,6 +202,7 @@ var Router = Backbone.Router.extend({
 
 var r=new Router();
 r
+.on("route:root", render(MainView))
 .on("route:chat", render(ChatView))
 .on("route:peers", render(PeerView))
 .on("route:newpeer", render(NewPeerView))
@@ -216,9 +234,16 @@ function tapi2p_handle_message(e)
 	var d=JSON.parse(e.data);
 	switch(d.cmd)
 	{
+		case backend.Commands.GetPublicKey:
+		{
+			console.log("PUBKEY");
+			keyModel.set({publicKey: d.data});
+			break;
+		}
 		case backend.Commands.PeerConnected:
 		{
 			peermap[d.peers.addr] = d.peers.nick;
+			break;
 		}
 		case backend.Commands.PeerDisconnected:
 		{
@@ -237,11 +262,7 @@ function tapi2p_handle_message(e)
 				peermap.localhost={};
 				peermap.localhost.nick = d.own_nick;
 				d.data += d.own_nick;
-				r.on("route:root", function() {
-					new MainView({className: "tapi2p-main", welcome: d.data});
-				});
-				r.navigate("", {trigger: true, replace: true});
-				Backbone.history.loadUrl();
+				keyModel.set({welcome: d.data});
 				break;
 			}
 			var nick=peermap[d.addr];
@@ -261,6 +282,7 @@ function tapi2p_handle_message(e)
 		}
 		case backend.Commands.Status:
 		{
+			backend.sendCommand(backend.Commands.GetPublicKey);
 			if(d.data.status)
 			{
 				backend.sendCommand(backend.Commands.Hello);

@@ -46,9 +46,15 @@
 	<body>
 		<script type="text/template" id="tapi2p-main-template">
 			<div class="header">
-				<h1><%= welcome_message %></h1>
+				<h1 id="welcome"><%= welcome_message %></h1>
 				<h2>Please use the navigation menu to get started</h2>
 			</div>
+			<form class="pure-form pure-form-stacked" style="margin-top: 1em;">
+				<legend style="margin-top: 1em;">Share this public key with your peers to allow them to communicate with you</legend>
+				<textarea readonly style="width: 100%;" rows="18" id="publickey">
+<%= publicKey %>
+				</textarea>
+			</form>
 		</script>
 		<script type="text/template" id="tapi2p-setup-template">
 			<div class="header">
