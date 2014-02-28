@@ -603,3 +603,14 @@ void handlefiletransferstatus(pipeevt_t *e, void *data)
 	json_decref(root);
 	free(statuses);
 }
+
+void handlegetpublickey(pipeevt_t *e, void *data)
+{
+	static struct pubkey selfkey;
+	if(pubkey_load(&selfkey, selfkeypath_pub()))
+	{
+		fprintf(stderr, "Failed to load private key. Have you set up tapi2p correctly?\n");
+		return;
+	}
+	pipe_event_send_back_to_caller(e, selfkey.keyastext, strlen(selfkey.keyastext));
+}

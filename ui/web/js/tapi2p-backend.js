@@ -30,6 +30,10 @@ function Tapi2pBackend(onopen, onerror, onmessage) {
 		"AddFile":                  ENUM_BASE++,
 		"Setup":                    ENUM_BASE++,
 		"Status":                   ENUM_BASE++,
+		"RequestFilePartList":      ENUM_BASE++,
+		"FilePartList":             ENUM_BASE++,
+		"FileTransferStatus":       ENUM_BASE++,
+		"GetPublicKey":             ENUM_BASE++,
 		"Hello":					-1 // Special for web ui only
 	};
 

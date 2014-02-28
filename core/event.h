@@ -23,6 +23,7 @@ typedef enum {
 	RequestFilePartList,
 	FilePartList,
 	FileTransferStatus,
+	GetPublicKey,
 	EventCount // For iterating through eventtypes
 } EventType;
 

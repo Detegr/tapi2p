@@ -534,6 +534,7 @@ void* read_thread(void* args)
 							case FilePartList:
 							case Metadata:
 							case FilePart:
+							case GetPublicKey:
 								event_run_callbacks(e);
 								break;
 						}
@@ -766,6 +767,7 @@ int core_start(void)
 	pipe_event_addlistener(ListPeers, &handlelistpeers, getconfig());
 	pipe_event_addlistener(Status, &handlestatus, &setupstatus);
 	pipe_event_addlistener(FileTransferStatus, &handlefiletransferstatus, NULL);
+	pipe_event_addlistener(GetPublicKey, &handlegetpublickey, NULL);
 	event_addlistener(RequestFileTransfer, &handlefiletransfer, NULL);
 	event_addlistener(RequestFileTransferLocal, &handlefiletransferlocal, NULL);
 	event_addlistener(RequestFilePart, &handlefilepartrequest, NULL);
