@@ -737,7 +737,11 @@ int core_start(void)
 		pipe_event_removelistener(Status, &handlestatus);
 		setupstatus=true;
 	}
-	else setupstatus=true;
+	else
+	{
+		setupstatus=true;
+		pipe_event_addlistener(GetPublicKey, &handlegetpublickey, NULL);
+	}
 
 	if(privkey_load(&deckey, selfkeypath()))
 	{

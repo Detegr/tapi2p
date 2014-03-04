@@ -134,14 +134,16 @@ static int tapi2p_callback(struct libwebsocket_context *ctx,
 					struct configitem* ci=config_find_item(conf, "Nick", "Account");
 					if(ci && ci->val)
 					{
-						char* conn_base="{\"cmd\": 0, \"data\":\"Welcome to tapi2p, \", \"own_nick\": \"";
-						size_t conn_len=strlen(conn_base) + ITEM_MAXLEN;
-						char conn_reply[conn_len];
-						memset(conn_reply, 0, conn_len);
-						stpcpy(stpcpy(stpcpy(conn_reply, conn_base), ci->val), "\"}");
+						json_t *root=json_object();
+						json_object_set_new(root, "cmd", json_integer(Message));
+						json_object_set_new(root, "data", json_string("Welcome to tapi2p, "));
+						json_object_set_new(root, "own_nick", json_string(ci->val));
+						char *jsonstr=json_dumps(root, 0);
 						welcome_message_sent=1;
+						websocket_send(wsi, jsonstr, strlen(jsonstr));
+						free(jsonstr);
+						json_decref(root);
 						lwsl_notice("Sent welcome message.\n");
-						websocket_send(wsi, conn_reply, strlen(conn_reply));
 					}
 				}
 			}

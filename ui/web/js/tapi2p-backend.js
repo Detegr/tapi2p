@@ -15,25 +15,7 @@ function Tapi2pBackend(onopen, onerror, onmessage) {
 	// Ugly redefine of EventType enum in core/event.h
 	var ENUM_BASE=0;
 	this.Commands={
-		"Message":                  ENUM_BASE++,
-		"ListPeers":                ENUM_BASE++,
-		"PeerConnected":            ENUM_BASE++,
-		"PeerDisconnected":         ENUM_BASE++,
-		"RequestFileTransfer":      ENUM_BASE++,
-		"RequestFileTransferLocal": ENUM_BASE++,
-		"RequestFilePart":          ENUM_BASE++,
-		"FilePart":                 ENUM_BASE++,
-		"Metadata":                 ENUM_BASE++,
-		"RequestFileListLocal":     ENUM_BASE++,
-		"RequestFileList":          ENUM_BASE++,
-		"FileList":                 ENUM_BASE++,
-		"AddFile":                  ENUM_BASE++,
-		"Setup":                    ENUM_BASE++,
-		"Status":                   ENUM_BASE++,
-		"RequestFilePartList":      ENUM_BASE++,
-		"FilePartList":             ENUM_BASE++,
-		"FileTransferStatus":       ENUM_BASE++,
-		"GetPublicKey":             ENUM_BASE++,
+		TAPI2P_REPLACE_COMMANDS_FROM_EVENT_H
 		"Hello":					-1 // Special for web ui only
 	};
 

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(tapi2pws)
+project(tapi2p-web-ui)
 include_directories($OpenSSL_INCLUDE_DIRS)
 find_package(Jansson REQUIRED)
 find_package(Websockets REQUIRED)
