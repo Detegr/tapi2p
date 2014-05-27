@@ -29,7 +29,7 @@ int new_socket(const char* addr, const char* port)
 	{
 		struct addrinfo hints;
 		memset(&hints, 0, sizeof(struct addrinfo));
-		hints.ai_family=AF_UNSPEC;
+		hints.ai_family=AF_INET;
 		hints.ai_socktype=SOCK_STREAM;
 		if(getaddrinfo(addr, port, &hints, &ai))
 		{

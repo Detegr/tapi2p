@@ -535,6 +535,7 @@ void* read_thread(void* args)
 							case Metadata:
 							case FilePart:
 							case GetPublicKey:
+							case AddPeer:
 								event_run_callbacks(e);
 								break;
 						}
@@ -780,6 +781,7 @@ int core_start(void)
 	event_addlistener(RequestFileList, &handlerequestfilelist, NULL);
 	event_addlistener(RequestFileListLocal, &handlerequestfilelistlocal, NULL);
 	event_addlistener(AddFile, &handleaddfile, NULL);
+	event_addlistener(AddPeer, &handleaddpeer, NULL);
 
 	while(run_threads)
 	{

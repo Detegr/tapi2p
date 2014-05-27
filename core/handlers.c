@@ -15,6 +15,8 @@
 #include <jansson.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <limits.h>
+#include <netdb.h>
 
 extern volatile sig_atomic_t run_threads;
 
@@ -613,4 +615,145 @@ void handlegetpublickey(pipeevt_t *e, void *data)
 		return;
 	}
 	pipe_event_send_back_to_caller(e, selfkey.keyastext, strnlen(selfkey.keyastext, 800));
+}
+
+static bool check_ip(const char *ip)
+{
+	struct addrinfo* ai=NULL;
+
+	struct addrinfo hints;
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family=AF_INET;
+	hints.ai_socktype=SOCK_STREAM;
+
+	if(getaddrinfo(ip, NULL, &hints, &ai))
+	{
+		return false;
+	}
+	if(ai) freeaddrinfo(ai);
+	return true;
+}
+
+static bool check_key(const char *key)
+{
+	if(strnlen(key, 800) != 800) return false;
+	if(strncmp(key, "-----BEGIN PUBLIC KEY-----\n", 27))
+	{
+		fprintf(stderr, "Error, not a valid public key\n");
+		return false;
+	}
+	else if(strncmp(key+775, "-----END PUBLIC KEY-----\n", 25))
+	{
+		fprintf(stderr, "Error, not a valid public key\n");
+		return false;
+	}
+	return true;
+}
+
+void handleaddpeer(pipeevt_t *e, void *data)
+{
+	const char *errstr=NULL;
+	json_error_t error;
+	json_t *root=json_loads(e->data, 0, &error);
+	if(!root)
+	{
+#ifndef NDEBUG
+		fprintf(stderr, "%s\n", error.text);
+#endif
+		return;
+	}
+	if(!json_is_object(root))
+	{
+		errstr="JSON not valid object";
+		goto err;
+	}
+	json_t *peer_ip=json_object_get(root, "peer_ip");
+	if(!peer_ip || !json_is_string(peer_ip))
+	{
+		errstr="peer_ip is not a valid object";
+		goto err;
+	}
+	json_t *peer_port=json_object_get(root, "peer_port");
+	if(!peer_port || !json_is_integer(peer_port))
+	{
+		errstr="peer_port is not a valid object";
+		goto err;
+	}
+	json_t *peer_nick=json_object_get(root, "peer_nick"); // Nick is optional, no need to check for errors
+	json_t *peer_key=json_object_get(root, "peer_key");
+	if(!peer_key || !json_is_string(peer_key))
+	{
+		errstr="peer_key is not a valid object";
+		goto err;
+	}
+
+	const char *ip=json_string_value(peer_ip);
+	if(!check_ip(ip))
+	{
+		errstr="Invalid ip address";
+		goto err;
+	}
+	int port=json_integer_value(peer_port);
+	if(port < 0 || port > 65535)
+	{
+		errstr="peer_port has an invalid value";
+		goto err;
+	}
+	const char *nick=NULL;
+	if(peer_nick) nick=json_string_value(peer_nick);
+
+	const char *key=json_string_value(peer_key);
+	if(!check_key(key))
+	{
+		errstr="Invalid public key";
+		goto err;
+	}
+
+	char peer_key_str[PATH_MAX];
+	memset(peer_key_str, 0, PATH_MAX);
+	stpcpy(stpcpy(peer_key_str, "public_key_"), ip);
+
+	char port_str[6];
+	if(snprintf(port_str, 6, "%d", port) < 0)
+	{
+		errstr="snprintf error. Should not have happened";
+		goto err;
+	}
+
+	struct config* c = getconfig();
+	config_add(c, "Peers", ip, NULL);
+	config_add(c, ip, "Port", port_str);
+	config_add(c, ip, "Key", peer_key_str);
+	if(nick) config_add(c, ip, "Nick", nick);
+	FILE* conffile=fopen(configpath(), "w");
+	if(!conffile)
+	{
+		fprintf(stderr, "Couldn't open config file: %s. Have you run tapi2p_core first?\n", configpath());
+		return;
+	}
+	config_flush(c, conffile);
+	fclose(conffile);
+	printf("Peer %s:%s added successfully!\n", ip, port_str);
+
+	json_t *reply=json_object();
+	json_object_set_new(reply, "success", json_true());
+	char *jsonstr=json_dumps(reply, 0);
+	pipe_event_send_back_to_caller(e, jsonstr, strlen(jsonstr));
+	free(jsonstr);
+	json_decref(reply);
+err:
+	if(errstr)
+	{
+#ifndef NDEBUG
+		printf("%s\n", errstr);
+#endif
+		json_t *reply=json_object();
+		json_object_set_new(reply, "success", json_false());
+		json_object_set_new(reply, "error", json_string(errstr));
+		char *jsonstr=json_dumps(reply, 0);
+		pipe_event_send_back_to_caller(e, jsonstr, strlen(jsonstr));
+		free(jsonstr);
+		json_decref(reply);
+	}
+	json_decref(root);
 }

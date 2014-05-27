@@ -129,6 +129,21 @@ var NewPeerView = Backbone.View.extend({
 
 		var template=_.template($("#" + this.className + "-template").html(), {});
 		this.$el.html(template);
+
+		$("#addpeer").click(function()
+		{
+			if($("#ip,#port,#publickey").filter(function() { return this.checkValidity() === true; }).length == 3)
+			{
+				$("#spinner").show();
+				backend.sendCommand(backend.Commands.AddPeer, {
+					peer_ip: $("#ip").val(),
+					peer_port: parseInt($("#port").val(), 10),
+					peer_key: $("#publickey").val(),
+					peer_nick: $("#nick").val() ? $("#nick").val() : null
+				});
+				return false;
+			}
+		});
 	}
 });
 
@@ -268,6 +283,11 @@ function tapi2p_handle_message(e)
 			var nick=peermap[d.addr];
 			if(!nick) nick=d.addr;
 			chatModel.newMessage("[" + nick + "] " + d.data);
+			break;
+		}
+		case backend.Commands.AddPeer:
+		{
+			r.navigate("peers", {trigger: true, replace: true});
 			break;
 		}
 		case backend.Commands.ListPeers:

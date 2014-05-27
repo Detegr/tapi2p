@@ -7,7 +7,7 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/dist/lib)
 set(WEB_OUTPUT_PATH ${PROJECT_BINARY_DIR}/dist/web)
 
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
-set(CMAKE_C_FLAGS "-g3 -std=c99 -D_GNU_SOURCE")
+set(CMAKE_C_FLAGS "-pipe -g3 -std=c99 -D_GNU_SOURCE -fstack-protector -Wl,-z,relro -Wl,-z,now -Wformat-security -Wpointer-arith -Wformat -Wformat-nonliteral -Winit-self")
 add_subdirectory(core)
 add_subdirectory(test)
 

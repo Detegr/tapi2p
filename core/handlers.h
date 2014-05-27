@@ -18,5 +18,6 @@ void handlesetup(pipeevt_t *e, void *data);
 void handlestatus(pipeevt_t *e, void *data);
 void handlefiletransferstatus(pipeevt_t *e, void *data);
 void handlegetpublickey(pipeevt_t *e, void *data);
+void handleaddpeer(pipeevt_t *e, void *data);
 
 #endif

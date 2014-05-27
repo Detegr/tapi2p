@@ -68,6 +68,10 @@ void usage(int usage_page)
 	}
 }
 
+void add_peer()
+{
+}
+
 int core_socket()
 {
 	struct sockaddr_un u;
@@ -87,62 +91,6 @@ int core_socket()
 	}
 
 	return fd;
-}
-
-int check_port(char* portstr)
-{
-	char* endptr;
-	errno=0;
-	int port=strtol(portstr, &endptr, 10);
-	if(port<0 || port>65535 || (errno != 0) || (endptr == portstr))
-	{
-		fprintf(stderr, "Port argument is not a valid port.\n");
-		return -1;
-	}
-	return port;
-}
-
-int check_ip(char* ip)
-{
-	struct in_addr dummy;
-	if(inet_aton(ip, &dummy) == 0) return -1;
-	else return 0;
-}
-
-void add_peer(char** args)
-{
-	char* peer_ip_str=args[0];
-	char* peer_port_str=args[1];
-	char* peer_nick=args[2];
-	char peer_key_str[PATH_MAX];
-	memset(peer_key_str, 0, PATH_MAX);
-
-	int port=check_port(peer_port_str);
-	if(port==-1) return;
-
-	if(check_ip(peer_ip_str))
-	{
-		fprintf(stderr, "Ip is not a valid ipv4 ip address.\n");
-		usage(usage_add_peer);
-		return;
-	}
-
-	stpcpy(stpcpy(peer_key_str, "public_key_"), peer_ip_str);
-
-	struct config* c = getconfig();
-	config_add(c, "Peers", peer_ip_str, NULL);
-	config_add(c, peer_ip_str, "Port", peer_port_str);
-	config_add(c, peer_ip_str, "Key", peer_key_str);
-	if(peer_nick) config_add(c, peer_ip_str, "Nick", peer_nick);
-	FILE* conffile=fopen(configpath(), "w");
-	if(!conffile)
-	{
-		fprintf(stderr, "Couldn't open config file: %s. Have you run tapi2p_core first?\n", configpath());
-		return;
-	}
-	config_flush(c, conffile);
-	fclose(conffile);
-	printf("Peer %s:%s added successfully!\n", peer_ip_str, peer_port_str);
 }
 
 void handlelistpeers(pipeevt_t* e, void* data)
@@ -483,7 +431,19 @@ int main(int argc, char** argv)
 		}
 	}
 	if(add_peer_args[0] && !(add_peer_args[1])) usage(usage_add_peer);
-	else if(add_peer_args[0] && add_peer_args[1]) add_peer(add_peer_args);
+	else if(add_peer_args[0] && add_peer_args[1])
+	{
+		int fd=core_socket();
+		json_t *root=json_object();
+		json_object_set_new(root, "peer_ip", json_integer(atoll(add_peer_args[0])));
+		json_object_set_new(root, "peer_port", json_integer(atoll(add_peer_args[1])));
+		if(add_peer_args[2]) json_object_set_new(root, "peer_nick", json_string(add_peer_args[2]));
+		char *jsonstr=json_dumps(root, 0);
+		event_send_simple(Setup, jsonstr, strlen(jsonstr), fd);
+		free(jsonstr);
+		json_decref(root);
+		return 0;
+	}
 	else if(setup_args[0] && !setup_args[1]) usage(usage_setup);
 	else usage(usage_help);
 	return 0;
