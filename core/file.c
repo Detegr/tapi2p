@@ -53,6 +53,7 @@ void create_metadata_file(const char* from, char* file_sha_as_str)
 		int part_count=(filesize/FILE_PART_BYTES)+1;
 
 #ifndef NDEBUG
+		printf("File name: %s\n", from);
 		printf("File size: %u\n", filesize);
 		printf("FilePart count: %d\n", part_count);
 		printf("Part count * part size: %d\n", part_count*FILE_PART_BYTES);
@@ -67,6 +68,9 @@ void create_metadata_file(const char* from, char* file_sha_as_str)
 		{
 			FILE* mdbin=fopen(mdpath, "w");
 			free(mdpath);
+
+			int filename_len=strlen(from)+1;
+			fwrite(from, filename_len, 1, mdbin);
 
 			fwrite(fullsha, SHA_DIGEST_LENGTH, 1, mdbin);
 			for(int i=0; i<part_count; ++i)

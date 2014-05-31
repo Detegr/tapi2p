@@ -13,6 +13,7 @@ struct peer;
 
 typedef struct metadatareply
 {
+	char *filename;
 	uint32_t part_count;
 	uint64_t file_size;
 	uint8_t* data;

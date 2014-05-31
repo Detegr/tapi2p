@@ -42,6 +42,7 @@ int filetransfer_add(struct peer *p, const char *sha_str, metadata_t *md)
 			file_transfers[i].parts=calloc(1, md->part_count*sizeof(uint8_t));
 			file_transfers[i].status.parts_ready=0;
 			file_transfers[i].status.part_count=md->part_count;
+			file_transfers[i].sha_str=calloc(1, SHA_DIGEST_STR_MAX_LENGTH);
 			strncpy(file_transfers[i].sha_str, sha_str, SHA_DIGEST_STR_MAX_LENGTH);
 			file_transfers[i].status.sha_str=file_transfers[i].sha_str;
 			return 0;
