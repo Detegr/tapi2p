@@ -720,6 +720,22 @@ void handleaddpeer(pipeevt_t *e, void *data)
 		goto err;
 	}
 
+	char peer_key_location[PATH_MAX];
+	stpcpy(stpcpy(peer_key_location, keypath()), peer_key_str);
+	FILE *keyfile=fopen(peer_key_location, "w");
+	if(!keyfile)
+	{
+		errstr="Could not open key file";
+		goto err;
+	}
+	if(fwrite(key, strlen(key), 1, keyfile) != 1)
+	{
+		errstr="Could not write key file";
+		fclose(keyfile);
+		goto err;
+	}
+	fclose(keyfile);
+
 	struct config* c = getconfig();
 	config_add(c, "Peers", ip, NULL);
 	config_add(c, ip, "Port", port_str);
