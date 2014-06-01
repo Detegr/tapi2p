@@ -328,15 +328,29 @@ void handlemetadata(evt_t* e, void* data)
 	struct peer* p=peer_from_event(e);
 	if(p)
 	{
+		/* Metadata message in memory looks like this
+		 * [filename as plaintext][sha of all parts in binary][sha of part 1 in binary]...[sha of part n in binary]
+		 */
 		char sha_str[SHA_DIGEST_STR_MAX_LENGTH];
 		metadata_t* md=(metadata_t*)e->data;
 		md->data = (uint8_t*)e->data + sizeof(metadata_t);
-		sha_to_str(md->data, sha_str);
+		char *filename=md->data;
+		size_t filename_len=strlen(filename)+1;
+		sha_to_str(md->data+filename_len, sha_str);
 		filetransfer_add(p, sha_str, md);
-		check_or_create_metadata(md->data, e->data_len-sizeof(metadata_t));
-		create_file_transfer(p, sha_str, md);
-		//request_file_part_listing_from_peers(sha_str, p);
-		request_file_part_from_peer(0, sha_str, p);
+		check_or_create_metadata(md->data+filename_len, e->data_len-sizeof(metadata_t)-filename_len, filename, filename_len);
+
+		// Save metadata information to config file
+		struct config *conf=getconfig();
+		config_add(conf, "Metadata", filename, sha_str);
+		config_add(conf, sha_str, "Filename", filename);
+		config_save(conf, configpath());
+
+		// Finally create the filetransfer information to filetransfermanager
+		if(create_file_transfer(p, sha_str, md) == 0)
+		{
+			request_file_part_from_peer(0, sha_str, p);
+		}
 	}
 	else
 	{

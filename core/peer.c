@@ -85,11 +85,15 @@ int create_file_transfer(struct peer* p, const char* sha_str, metadata_t* metada
 		if(!ft->file)
 		{
 			perror("Could not open created file");
+			pthread_mutex_unlock(&ft->file_lock);
+			return -1;
 		}
 	}
 	else
 	{
 		printf("Failed to create file for %s. No corresponding entry in config.\n", sha_str);
+		pthread_mutex_unlock(&ft->file_lock);
+		return -1;
 	}
 	pthread_mutex_unlock(&ft->file_lock);
 	return 0;

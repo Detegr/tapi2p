@@ -53,6 +53,7 @@ void create_metadata_file(const char* from, char* file_sha_as_str)
 		int part_count=(filesize/FILE_PART_BYTES)+1;
 
 #ifndef NDEBUG
+		printf("File name: %s\n", from);
 		printf("File size: %u\n", filesize);
 		printf("FilePart count: %d\n", part_count);
 		printf("Part count * part size: %d\n", part_count*FILE_PART_BYTES);
@@ -67,6 +68,9 @@ void create_metadata_file(const char* from, char* file_sha_as_str)
 		{
 			FILE* mdbin=fopen(mdpath, "w");
 			free(mdpath);
+
+			int filename_len=strlen(from)+1;
+			fwrite(from, filename_len, 1, mdbin);
 
 			fwrite(fullsha, SHA_DIGEST_LENGTH, 1, mdbin);
 			for(int i=0; i<part_count; ++i)
@@ -85,7 +89,7 @@ void create_metadata_file(const char* from, char* file_sha_as_str)
 	}
 }
 
-void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size)
+void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size, const char *filename, size_t filename_len)
 {
 	struct stat buf;
 	char sha_str[SHA_DIGEST_STR_MAX_LENGTH];
@@ -97,6 +101,7 @@ void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size)
 		FILE* f=fopen(mdpath, "w");
 		if(f)
 		{
+			fwrite(filename, filename_len, 1, f);
 			fwrite(sha_data, sha_size, 1, f);
 			fclose(f);
 		}

@@ -13,6 +13,7 @@ struct peer;
 
 typedef struct metadatareply
 {
+	char *filename;
 	uint32_t part_count;
 	uint64_t file_size;
 	uint8_t* data;
@@ -41,7 +42,7 @@ typedef struct filepart
 
 void sha_to_str(const unsigned char* sha, char* out);
 void create_metadata_file(const char* from, char* file_sha_as_str);
-void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size);
+void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size, const char *filename, size_t filename_len);
 void request_file_part_from_peer(int partnum, const char* sha_str, struct peer* p);
 void request_file_part_listing_from_peers(const char *sha_str, struct peer *exclude_current);
 
