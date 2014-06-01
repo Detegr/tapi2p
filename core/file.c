@@ -89,7 +89,7 @@ void create_metadata_file(const char* from, char* file_sha_as_str)
 	}
 }
 
-void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size)
+void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size, const char *filename, size_t filename_len)
 {
 	struct stat buf;
 	char sha_str[SHA_DIGEST_STR_MAX_LENGTH];
@@ -101,6 +101,7 @@ void check_or_create_metadata(const unsigned char* sha_data, size_t sha_size)
 		FILE* f=fopen(mdpath, "w");
 		if(f)
 		{
+			fwrite(filename, filename_len, 1, f);
 			fwrite(sha_data, sha_size, 1, f);
 			fclose(f);
 		}
