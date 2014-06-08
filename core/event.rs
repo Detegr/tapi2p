@@ -3,7 +3,11 @@
 
 pub mod event
 {
+	use std::fmt;
+	use std::path::BytesContainer;
+
 	#[deriving(FromPrimitive)]
+	#[deriving(Show)]
 	pub enum EventType
 	{
 		AddFile,
@@ -37,7 +41,14 @@ pub mod event
 		pub fn from_slice(data: &[u8]) -> Event
 		{
 			let t : EventType = FromPrimitive::from_u8(data[0]).unwrap();
-			//Event { mEventType: t, mData: vec!(data.slice_from(1)) }
+			Event { mEventType: t, mData: Vec::from_slice(data.init())}
+		}
+	}
+	impl fmt::Show for Event
+	{
+		fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+		{
+			write!(f, "{} : {}", self.mEventType.to_str(), self.mData.len())
 		}
 	}
 }

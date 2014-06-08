@@ -2,10 +2,13 @@
 #[phase(syntax, link)] extern crate log;
 
 extern crate coreutils;
+extern crate coreevent;
 pub mod core
 {
 
 	use coreutils::manager::PathManager;
+	use coreevent::event::EventType;
+	use coreevent::event::Event;
 	use std::io::Listener;
 	use std::io::Acceptor;
 	use std::io::net::unix::UnixListener;
@@ -34,7 +37,10 @@ pub mod core
 						acceptor.set_timeout(Some(1000));
 						for mut client in acceptor.incoming() {
 							match client.read_to_end() {
-								Ok(data) => println!("Data: {}", data),
+								Ok(data) => {
+									let event=Event::from_slice(data.as_slice());
+									println!("Data: {}", event)
+								}
 								Err(e) => {
 									println!("{}", e.desc);
 									break;
