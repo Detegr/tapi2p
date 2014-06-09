@@ -35,8 +35,11 @@ typedef struct pipe_event
 	int8_t   addr[IPV4_MAX];
 	uint16_t port;
 	uint32_t data_len;
-	uint8_t* data;
-} pipeevt_t;
+	union {
+		uint8_t* data;
+		uint64_t data_alloc; // data ptr (uint64_t to hold both 32 and 64 bit pointers)
+	};
+} __attribute__((packed)) pipeevt_t;
 
 typedef struct event
 {
@@ -45,8 +48,11 @@ typedef struct event
 	int8_t   addr[IPV4_MAX];
 	uint16_t port;
 	uint32_t data_len;
-	uint8_t* data;
-} evt_t;
+	union {
+		uint8_t* data;
+		uint64_t data_alloc; // data ptr (uint64_t to hold both 32 and 64 bit pointers)
+	};
+} __attribute__((packed)) evt_t;
 
 void eventsystem_start(int corefd);
 void eventsystem_stop(void);
