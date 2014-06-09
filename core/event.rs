@@ -1,6 +1,7 @@
 #![crate_type = "lib"]
 #![crate_id = "coreevent#0.2"]
 
+#![feature(struct_variant)]
 #![feature(phase)]
 #[phase(syntax, link)] extern crate log;
 
@@ -9,6 +10,10 @@ pub mod event
 	use std::fmt;
 	use std::path::BytesContainer;
 	use std::mem::size_of;
+	use std::io::net::ip::IpAddr;
+	use std::io::net::unix::UnixStream;
+
+	pub static UIEventSize : uint = 30;
 
 	#[deriving(FromPrimitive)]
 	#[deriving(Show)]
@@ -35,35 +40,51 @@ pub mod event
 		Setup,
 		Status
 	}
-	pub struct Event
+	pub trait FromSlice
 	{
-		mEventType : EventType,
-		mData : Vec<u8>
+		fn from_slice(stream: UnixStream, data: &[u8]) -> Self;
 	}
-	impl Event
+	pub struct UIEvent
+	{
+		mEventType: EventType,
+		mFdFrom: Box<UnixStream>,
+		mData: Vec<u8>
+	}
+	pub struct RemoteEvent
+	{
+		mEventType: EventType,
+		mAddr: IpAddr,
+		mPort: u16,
+		mData: Vec<u8>
+	}
+	impl FromSlice for UIEvent
 	{
 		/* UI Events as a binary look like following:
-		 * type {dummy}  {addr}  {port} data_len      data    {ptr for c struct}
-		 * [u8]  [i32] [i8 * 16] [u16]  [u32]   [u8 * data_len]     [u64]
+		 * type fd_from {addr}  {port} data_len  {ptr for c struct}        data
+		 * [u8]  [i32] [i8 * 16] [u16]  [u32]           [u64]         [u8 * data_len]
 		 *
 		 * Values in {} are not used with this event type
 		 */
-		pub fn from_slice(data: &[u8]) -> Event
+		fn from_slice(stream: UnixStream, data: &[u8]) -> UIEvent
 		{
 			let t : EventType = FromPrimitive::from_u8(data[0]).unwrap();
 			let offset_to_data_len = size_of::<u8>() + size_of::<i32>() + (16 * size_of::<i8>()) + size_of::<u16>();
-			let mut data_len : u32 = data[offset_to_data_len] as u32;
+			let data_len : u32 = data[offset_to_data_len] as u32;
 			let offset_to_data_start = offset_to_data_len + size_of::<u32>() + size_of::<u64>();
-			Event { mEventType: t, mData: Vec::from_slice(data.slice(offset_to_data_start, offset_to_data_start + data_len as uint)) }
+			UIEvent {
+				mEventType: t,
+				mFdFrom: box stream,
+				mData: Vec::from_slice(data.slice(offset_to_data_start, offset_to_data_start + data_len as uint))
+			}
 		}
 	}
-	impl fmt::Show for Event
+	impl fmt::Show for UIEvent
 	{
 		fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
 		{
 			match self.mData.container_as_str() {
-				Some(s) => write!(f, "{} : {}", self.mEventType.to_str(), s),
-				None => write!(f, "{} : {}", self.mEventType.to_str(), self.mData.len())
+				Some(s) => write!(f, "{}\nData: {}", self.mEventType.to_str(), s),
+				None => write!(f, "{}\nData_len: {}", self.mEventType.to_str(), self.mData.len())
 			}
 		}
 	}
