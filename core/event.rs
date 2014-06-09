@@ -12,6 +12,7 @@ pub mod event
 	use std::mem::size_of;
 	use std::io::net::ip::IpAddr;
 	use std::io::net::unix::UnixStream;
+	use std::collections::HashMap;
 
 	pub static UIEventSize : uint = 30;
 
@@ -43,6 +44,21 @@ pub mod event
 	pub trait FromSlice
 	{
 		fn from_slice(stream: UnixStream, data: &[u8]) -> Self;
+	}
+	pub struct EventDispatcher<T>
+	{
+		mEventCallbacks : HashMap<EventType, |T| -> ()>
+	}
+	impl<T: Dispatchable> EventDispatcher<T>
+	{
+		fn register_callback<T : Dispatchable>(&self, etype: EventType, cb: |T| -> ()) -> ()
+		{
+			self.mEventCallbacks.insert(etype, cb);
+		}
+	}
+	pub trait Dispatchable
+	{
+		fn dispatch(&self) -> ();
 	}
 	pub struct UIEvent
 	{
