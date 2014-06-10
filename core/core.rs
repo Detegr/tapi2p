@@ -10,8 +10,8 @@ pub mod core
 {
 	use coreutils::manager::PathManager;
 	use coreevent::event::EventType;
-	use coreevent::event::UIEvent;
-	use coreevent::event::UIEventSize;
+	use coreevent::event::Event;
+	use coreevent::event::UI;
 	use coreevent::event::FromSlice;
 	use std::io::Listener;
 	use std::io::Acceptor;
@@ -53,7 +53,7 @@ pub mod core
 							{
 								Ok(data) =>
 								{
-									let event : UIEvent=FromSlice::from_slice(client.unwrap(), data.as_slice());
+									let event : Event<UI> = FromSlice::from_slice(data.as_slice()).unwrap();
 									debug!("Data: {}", event)
 								}
 								Err(_) => break
