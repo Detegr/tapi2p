@@ -11,10 +11,11 @@ pub mod core
 	use coreutils::manager::PathManager;
 	use coreevent::event::EventType;
 	use coreevent::event::Event;
-	use coreevent::event::UI;
-	use coreevent::event::FromSlice;
+	use coreevent::event::UIEvent;
+	use coreevent::event::FromStream;
 	use std::io::Listener;
 	use std::io::Acceptor;
+	use std::io::Stream;
 	use std::io::net::unix::UnixListener;
 	use std::io::net::unix::UnixStream;
 	use std::io::fs;
@@ -46,15 +47,17 @@ pub mod core
 					while self.threads_running()
 					{
 						acceptor.set_timeout(Some(1000));
-						for mut client in acceptor.incoming()
+						for client in acceptor.incoming()
 						{
-							//match client.read_exact(UIEventSize)
-							match client.read_to_end()
-							{
-								Ok(data) =>
+							match client {
+								Ok(stream) =>
 								{
-									let event : Event<UI> = FromSlice::from_slice(data.as_slice()).unwrap();
-									debug!("Data: {}", event)
+									let mbe: Option<UIEvent> = FromStream::from_stream(box stream);
+									match mbe
+									{
+										Some(event) => debug!("Data: {}", event),
+										None => break
+									}
 								}
 								Err(_) => break
 							}
