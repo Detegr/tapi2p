@@ -50,50 +50,53 @@ pub mod event
 		Setup,
 		Status
 	}
-	/*
-	pub struct EventDispatcher<'a, T>
+	pub struct EventDispatcher<T>
 	{
-		mUICallbacks : HashMap<EventType, fn()>,
-		//mRemoteCallbacks : HashMap<EventType, fn()>
+		mCallbacks : HashMap<EventType, fn(&mut T) -> ()>
 	}
-	impl<'a, T: EventClass> EventDispatcher<'a, T>
+	impl<T: Event> EventDispatcher<T>
 	{
-		fn register_callback<'a, T: EventClass>(&'a self, etype: EventType, cb: fn()) -> ()
+		pub fn new() -> EventDispatcher<T>
 		{
-			self.mUICallbacks.insert(etype, cb);
+			EventDispatcher { mCallbacks: HashMap::new() }
 		}
-		fn dispatch<T: EventClass>(&self, e: &T)
+		pub fn register_callback(&mut self, t: EventType, cb: fn(&mut T)) -> ()
 		{
-			match e.mEventClass {
-				UI => self.mUICallbacks[e.get_class()],
-				Remote => fail!("Remote events not implemented yet")
+			self.mCallbacks.insert(t, cb);
+		}
+		pub fn dispatch(&self, evt: &mut T) -> ()
+		{
+			match self.mCallbacks.find(&evt.get_type())
+			{
+				Some(cb) => { (*cb)(evt); }
+				None => {}
 			}
 		}
 	}
-	*/
-	pub trait FromStream
+	pub trait Sendable
 	{
-		fn from_stream(mut stream: Box<Stream>) -> Option<Self>;
+		fn send(&mut self) -> IoResult<()>;
 	}
-	pub trait Event : FromStream
+	pub trait Event : Sendable
 	{
-		fn send() -> IoResult<()>;
+		fn get_type(&self) -> EventType;
 	}
 	pub struct UIEvent
 	{
 		mEventType : EventType,
-		mStream : Box<Stream>,
+		mStream : UnixStream,
 		mData: Vec<u8>
 	}
-	pub struct RemoteEvent
+	impl Event for UIEvent
 	{
-		mEventData: UIEvent,
-		mAddr: IpAddr,
-		mPort: u16
+		fn get_type(&self) -> EventType
+		{
+			self.mEventType
+		}
 	}
-	impl FromStream for UIEvent
+	impl UIEvent
 	{
-		fn from_stream(mut stream: Box<Stream>) -> Option<UIEvent>
+		pub fn from_stream(stream: &mut UnixStream) -> Option<UIEvent>
 		{
 			match stream.read_exact(UISize)
 			{
@@ -106,7 +109,7 @@ pub mod event
 					let eventdata = stream.read_exact(data_len as uint).unwrap();
 					Some(UIEvent {
 						mEventType: t,
-						mStream: stream,
+						mStream: stream.clone(),
 						mData: eventdata
 					})
 				}
@@ -114,11 +117,17 @@ pub mod event
 			}
 		}
 	}
-	impl Event for UIEvent
+	pub struct RemoteEvent
 	{
-		fn send() -> IoResult<()>
+		mEventData: UIEvent,
+		mAddr: IpAddr,
+		mPort: u16
+	}
+	impl Sendable for UIEvent
+	{
+		fn send(&mut self) -> IoResult<()>
 		{
-			Ok(())
+			self.mStream.write_str("Event!")
 		}
 	}
 	impl fmt::Show for UIEvent
