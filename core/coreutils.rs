@@ -1,5 +1,3 @@
-#![crate_type = "lib"]
-#![crate_id = "coreutils#0.2"]
 pub mod manager
 {
 	use std::os::getenv;

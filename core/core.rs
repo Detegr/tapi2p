@@ -2,25 +2,22 @@
 #[phase(syntax, link)] extern crate log;
 #[phase(syntax)] extern crate green;
 extern crate sync;
-extern crate coreutils;
-extern crate coreevent;
 use std::sync::atomics::{SeqCst};
+mod coreutils;
+mod event;
 
 pub mod core
 {
 	use coreutils::manager::PathManager;
-	use coreevent::event::EventType;
-	use coreevent::event::EventDispatcher;
-	use coreevent::event::UIEvent;
-	use coreevent::event::Sendable;
-	use std::io::Listener;
-	use std::io::Acceptor;
-	use std::io::Stream;
-	use std::io::net::unix::UnixListener;
-	use std::io::net::unix::UnixStream;
-	use std::io::fs;
+	use event::EventDispatcher;
+	use event::Sendable;
+	use event::UIEvent;
+	use event;
 	use std::comm::channel;
-	use sync::Arc;
+	use std::io::Acceptor;
+	use std::io::Listener;
+	use std::io::fs;
+	use std::io::net::unix::UnixListener;
 
 	use std::sync::atomics::{AtomicBool,SeqCst,INIT_ATOMIC_BOOL};
 	pub static mut RUNNING : AtomicBool = INIT_ATOMIC_BOOL;
@@ -66,8 +63,7 @@ pub mod core
 		fn run_ui_event_callbacks(rx: &Receiver<UIEvent>) -> ()
 		{
 			let mut dispatcher = EventDispatcher::<UIEvent>::new();
-			let t : EventType = FromPrimitive::from_u8(0).unwrap();
-			dispatcher.register_callback(t, Core::test);
+			dispatcher.register_callback(event::FileList, Core::test);
 			match rx.recv_opt()
 			{
 				Ok(mut evt) => {dispatcher.dispatch(&mut evt)},
