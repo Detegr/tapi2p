@@ -1,3 +1,5 @@
+use core;
+
 use std::collections::HashMap;
 use std::fmt;
 use std::io::IoResult;
@@ -37,17 +39,21 @@ pub enum EventType
 	Setup,
 	Status
 }
-pub struct EventDispatcher<T>
+pub struct EventDispatcher<'a, T>
 {
-	mCallbacks : HashMap<EventType, fn(&mut T) -> ()>
+	mPeers : &'a core::PeerList,
+	mCallbacks : HashMap<EventType, fn(&EventDispatcher<T>, &mut T) -> ()>
 }
-impl<T: Event> EventDispatcher<T>
+impl<'a, T: Event> EventDispatcher<'a, T>
 {
-	pub fn new() -> EventDispatcher<T>
+	pub fn new(peers: &'a core::PeerList) -> EventDispatcher<'a, T>
 	{
-		EventDispatcher { mCallbacks: HashMap::new() }
+		EventDispatcher {
+			mPeers : peers,
+			mCallbacks: HashMap::new()
+		}
 	}
-	pub fn register_callback(&mut self, t: EventType, cb: fn(&mut T)) -> ()
+	pub fn register_callback(&mut self, t: EventType, cb: fn(&EventDispatcher<T>, &mut T)) -> ()
 	{
 		self.mCallbacks.insert(t, cb);
 	}
@@ -55,7 +61,7 @@ impl<T: Event> EventDispatcher<T>
 	{
 		match self.mCallbacks.find(&evt.get_type())
 		{
-			Some(cb) => { (*cb)(evt); }
+			Some(cb) => { (*cb)(self, evt); }
 			None => {}
 		}
 	}
