@@ -1,13 +1,13 @@
 #![feature(phase)]
-#[phase(syntax, link)] extern crate log;
-#[phase(syntax)] extern crate green;
+#[phase(plugin, link)] extern crate log;
+#[phase(plugin)] extern crate green;
 extern crate sync;
-use std::sync::atomics::{SeqCst};
 mod coreutils;
 mod event;
 
 pub mod core
 {
+	// Imports
 	use coreutils::manager::PathManager;
 	use event::EventDispatcher;
 	use event::Sendable;
@@ -20,26 +20,15 @@ pub mod core
 	use std::io::net::unix::UnixListener;
 	use std::io::net::tcp::TcpStream;
 	use sync::{Arc,Mutex};
-
+	use std::io::signal::Interrupt;
 	use std::sync::atomics::{AtomicBool,SeqCst,INIT_ATOMIC_BOOL};
-	pub static mut RUNNING : AtomicBool = INIT_ATOMIC_BOOL;
 
+	pub static mut RUNNING : AtomicBool = INIT_ATOMIC_BOOL;
 	pub type PeerList = Arc<Mutex<Vec<TcpStream>>>;
 
-	pub struct Core
-	{
-		mConnections : PeerList
-	}
+	pub struct Core;
 	impl Core
 	{
-		fn new() -> Core
-		{
-			Core { mConnections: Arc::new(Mutex::new(vec![])) }
-		}
-		fn get_peers(&self) -> PeerList
-		{
-			self.mConnections.clone()
-		}
 		fn accept_incoming_ui_connections(tx: &Sender<UIEvent>) -> ()
 		{
 			let socket_path=PathManager::get_socket_path();
@@ -79,22 +68,49 @@ pub mod core
 		{
 			let mut dispatcher = EventDispatcher::<UIEvent>::new(peers);
 			dispatcher.register_callback(event::FileList, Core::test);
-			match rx.recv_opt()
+			while Core::threads_running()
 			{
-				Ok(mut evt) => {dispatcher.dispatch(&mut evt)},
-				Err(_) => ()
+				match rx.recv_opt()
+				{
+					Ok(mut evt) =>
+					{
+						debug!("Dispatching UI event");
+						dispatcher.dispatch(&mut evt)
+					},
+					Err(_) => ()
+				}
 			}
 		}
-		pub fn threads_running() -> bool
+		fn threads_running() -> bool
 		{
 			unsafe {
 				RUNNING.load(SeqCst)
 			}
 		}
+		fn setup_signal_handler()
+		{
+			let mut listener = ::std::io::signal::Listener::new();
+			listener.register(Interrupt).unwrap();
+			spawn(proc() {
+				unsafe {
+					RUNNING.store(true, SeqCst);
+					loop {
+						match listener.rx.recv() {
+							Interrupt => {
+								RUNNING.store(false, SeqCst);
+								println!("tapi2p core shutting down...");
+								break;
+							}
+							_ => ()
+						};
+					}
+				}
+			});
+		}
 		pub fn run() -> ()
 		{
-			let core = Core::new();
-			let peers = core.get_peers();
+			Core::setup_signal_handler();
+			let peers=Arc::new(Mutex::new(vec![]));
 			let (tx, rx): (Sender<UIEvent>, Receiver<UIEvent>) = channel();
 			spawn(proc() {
 				Core::accept_incoming_ui_connections(&tx);
@@ -114,22 +130,5 @@ pub mod core
 green_start!(main)
 fn main()
 {
-	let mut listener = std::io::signal::Listener::new();
-	listener.register(std::io::signal::Interrupt).unwrap();
-	spawn(proc() {
-		unsafe {
-			core::RUNNING.store(true, SeqCst);
-			loop {
-				match listener.rx.recv() {
-					std::io::signal::Interrupt => {
-						core::RUNNING.store(false, SeqCst);
-						println!("tapi2p core shutting down...");
-						break;
-					}
-					_ => ()
-				};
-			}
-		}
-	});
 	core::Core::run();
 }
