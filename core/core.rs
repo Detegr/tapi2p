@@ -26,9 +26,22 @@ pub mod core
 	pub static mut RUNNING : AtomicBool = INIT_ATOMIC_BOOL;
 	pub type PeerList = Arc<Mutex<Vec<TcpStream>>>;
 
-	pub struct Core;
+	pub struct Core
+	{
+		mPeers : PeerList
+	}
 	impl Core
 	{
+		fn new() -> Core
+		{
+			Core {
+				mPeers: Arc::new(Mutex::new(vec![]))
+			}
+		}
+		fn get_peers<'a>(&'a self) -> &'a PeerList
+		{
+			&self.mPeers
+		}
 		fn accept_incoming_ui_connections(tx: &Sender<UIEvent>) -> ()
 		{
 			let socket_path=PathManager::get_socket_path();
@@ -64,10 +77,10 @@ pub mod core
 				}
 			}
 		}
-		fn run_ui_event_callbacks(peers: &PeerList, rx: &Receiver<UIEvent>) -> ()
+		fn run_ui_event_callbacks(core: &Arc<Core>, rx: &Receiver<UIEvent>) -> ()
 		{
-			let mut dispatcher = EventDispatcher::<UIEvent>::new(peers);
-			dispatcher.register_callback(event::FileList, Core::test);
+			let mut dispatcher = EventDispatcher::<UIEvent>::new(core);
+			dispatcher.register_callback(event::ListPeers, Core::test);
 			while Core::threads_running()
 			{
 				match rx.recv_opt()
@@ -109,19 +122,19 @@ pub mod core
 		}
 		pub fn run() -> ()
 		{
+			let core = Arc::new(Core::new());
 			Core::setup_signal_handler();
-			let peers=Arc::new(Mutex::new(vec![]));
 			let (tx, rx): (Sender<UIEvent>, Receiver<UIEvent>) = channel();
 			spawn(proc() {
 				Core::accept_incoming_ui_connections(&tx);
 			});
 			spawn(proc() {
-				Core::run_ui_event_callbacks(&peers, &rx);
+				Core::run_ui_event_callbacks(&core, &rx);
 			});
 		}
-		fn test(dispatcher: &EventDispatcher<UIEvent>, evt: &mut UIEvent) -> ()
+		fn test(core: &Arc<Core>, evt: &mut UIEvent) -> ()
 		{
-			println!("woho");
+			debug!("woho");
 			evt.send().unwrap();
 		}
 	}

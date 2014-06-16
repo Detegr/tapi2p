@@ -2,14 +2,16 @@ use core;
 
 use std::collections::HashMap;
 use std::fmt;
+use std::io::BufWriter;
 use std::io::IoResult;
 use std::io::net::ip::IpAddr;
 use std::io::net::unix::UnixStream;
 use std::mem::size_of;
 use std::path::BytesContainer;
+use sync::Arc;
 
 // UIEvent size in bytes
-static UISize : uint = 30;
+static UISize : uint = 35;
 
 #[deriving(FromPrimitive)]
 #[deriving(Show)]
@@ -41,28 +43,28 @@ pub enum EventType
 }
 pub struct EventDispatcher<'a, T>
 {
-	mPeers : &'a core::PeerList,
-	mCallbacks : HashMap<EventType, fn(&EventDispatcher<T>, &mut T) -> ()>
+	mCore : &'a Arc<core::Core>,
+	mCallbacks : HashMap<EventType, fn(&'a Arc<core::Core>, &mut T) -> ()>
 }
 impl<'a, T: Event> EventDispatcher<'a, T>
 {
-	pub fn new(peers: &'a core::PeerList) -> EventDispatcher<'a, T>
+	pub fn new(core: &'a Arc<core::Core>) -> EventDispatcher<'a, T>
 	{
 		EventDispatcher {
-			mPeers : peers,
+			mCore: core,
 			mCallbacks: HashMap::new()
 		}
 	}
-	pub fn register_callback(&mut self, t: EventType, cb: fn(&EventDispatcher<T>, &mut T)) -> ()
+	pub fn register_callback(&mut self, t: EventType, cb: fn(&'a Arc<core::Core>, &mut T)) -> ()
 	{
 		self.mCallbacks.insert(t, cb);
 	}
-	pub fn dispatch(&self, evt: &mut T) -> ()
+	pub fn dispatch<'a> (&'a self, evt: &mut T) -> ()
 	{
 		match self.mCallbacks.find(&evt.get_type())
 		{
-			Some(cb) => { (*cb)(self, evt); }
-			None => {}
+			Some(cb) => { (*cb)(self.mCore, evt); }
+			None => {debug!("No handler for event type: {}", evt.get_type());}
 		}
 	}
 }
@@ -116,11 +118,31 @@ pub struct RemoteEvent
 	mAddr: IpAddr,
 	mPort: u16
 }
+#[packed]
+struct C_UIEvent
+{
+	mEventType : u8
+}
 impl Sendable for UIEvent
 {
 	fn send(&mut self) -> IoResult<()>
 	{
-		self.mStream.write_str("Event!")
+		let data = "Event data";
+		let data_u8: &mut [u8] = [0, ..UISize];
+		{
+			let mut writer: BufWriter = BufWriter::new(data_u8);
+			writer.write_u8(self.mEventType as u8);
+			for i in range (0, 15) {
+				writer.write_i8(0 as i8);
+			}
+			writer.write_le_u16(0 as u16);
+			writer.write_le_u32(data.len() as u32);
+			writer.write_le_u64(0 as u64);
+		}
+		debug!("{}", data_u8);
+		debug!("{}", data.len() as u32);
+		try!(self.mStream.write(data_u8));
+		self.mStream.write_str(data.as_slice())
 	}
 }
 impl fmt::Show for UIEvent
