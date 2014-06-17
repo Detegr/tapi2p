@@ -47,15 +47,5 @@ pub fn handle_listpeers(core: &Arc<Core>, evt: &mut UIEvent) -> ()
 			}
 		}
 	}
-	/*
-	let mut m = io::MemWriter::new();
-	{
-		let mut encoder = json::Encoder::new(&mut m as &mut std::io::Writer);
-		match ret.encode(&mut encoder)
-		{
-			Ok => (),
-			Err(e) => debug!("Json encoding error: {}", e)
-		}
-	}*/
 	evt.send_str(json::Encoder::str_encode(&ret));
 }
