@@ -5,6 +5,7 @@ use std::fmt;
 use std::io::BufWriter;
 use std::io::IoResult;
 use std::io::net::ip::IpAddr;
+use std::io::net::tcp::TcpStream;
 use std::io::net::unix::UnixStream;
 use std::mem::size_of;
 use std::path::BytesContainer;
@@ -70,7 +71,11 @@ impl<'a, T: Event> EventDispatcher<'a, T>
 }
 pub trait Sendable
 {
-	fn send(&mut self) -> IoResult<()>;
+	fn send_str(&mut self, data: String) -> IoResult<()>
+	{
+		self.send(data.into_bytes())
+	}
+	fn send(&mut self, data: Vec<u8>) -> IoResult<()>;
 }
 pub trait Event : Sendable
 {
@@ -114,9 +119,9 @@ impl UIEvent
 }
 pub struct RemoteEvent
 {
-	mEventData: UIEvent,
-	mAddr: IpAddr,
-	mPort: u16
+	mEventType : EventType,
+	mStream : TcpStream,
+	mData: Vec<u8>
 }
 #[packed]
 struct C_UIEvent
@@ -125,24 +130,22 @@ struct C_UIEvent
 }
 impl Sendable for UIEvent
 {
-	fn send(&mut self) -> IoResult<()>
+	fn send(&mut self, data: Vec<u8>) -> IoResult<()>
 	{
-		let data = "Event data";
 		let data_u8: &mut [u8] = [0, ..UISize];
 		{
 			let mut writer: BufWriter = BufWriter::new(data_u8);
-			writer.write_u8(self.mEventType as u8);
-			for i in range (0, 15) {
-				writer.write_i8(0 as i8);
+			try!(writer.write_u8(self.mEventType as u8));
+			try!(writer.write_le_u32(0 as u32));
+			for _ in range (0, 16) {
+				try!(writer.write_i8(0 as i8));
 			}
-			writer.write_le_u16(0 as u16);
-			writer.write_le_u32(data.len() as u32);
-			writer.write_le_u64(0 as u64);
+			try!(writer.write_le_u16(0 as u16));
+			try!(writer.write_le_u32(data.len() as u32));
+			try!(writer.write_le_u64(0 as u64));
 		}
-		debug!("{}", data_u8);
-		debug!("{}", data.len() as u32);
 		try!(self.mStream.write(data_u8));
-		self.mStream.write_str(data.as_slice())
+		self.mStream.write(data.as_slice())
 	}
 }
 impl fmt::Show for UIEvent

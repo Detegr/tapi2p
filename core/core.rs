@@ -2,13 +2,16 @@
 #[phase(plugin, link)] extern crate log;
 #[phase(plugin)] extern crate green;
 extern crate sync;
+extern crate serialize;
 mod coreutils;
 mod event;
+mod handlers;
 
 pub mod core
 {
 	// Imports
 	use coreutils::manager::PathManager;
+	use handlers;
 	use event::EventDispatcher;
 	use event::Sendable;
 	use event::UIEvent;
@@ -38,7 +41,7 @@ pub mod core
 				mPeers: Arc::new(Mutex::new(vec![]))
 			}
 		}
-		fn get_peers<'a>(&'a self) -> &'a PeerList
+		pub fn get_peers<'a>(&'a self) -> &'a PeerList
 		{
 			&self.mPeers
 		}
@@ -80,7 +83,7 @@ pub mod core
 		fn run_ui_event_callbacks(core: &Arc<Core>, rx: &Receiver<UIEvent>) -> ()
 		{
 			let mut dispatcher = EventDispatcher::<UIEvent>::new(core);
-			dispatcher.register_callback(event::ListPeers, Core::test);
+			dispatcher.register_callback(event::ListPeers, handlers::handle_listpeers);
 			while Core::threads_running()
 			{
 				match rx.recv_opt()
@@ -131,11 +134,6 @@ pub mod core
 			spawn(proc() {
 				Core::run_ui_event_callbacks(&core, &rx);
 			});
-		}
-		fn test(core: &Arc<Core>, evt: &mut UIEvent) -> ()
-		{
-			debug!("woho");
-			evt.send().unwrap();
 		}
 	}
 }
