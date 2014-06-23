@@ -1,4 +1,4 @@
-use core;
+use core::core::Core;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -42,21 +42,22 @@ pub enum EventType
 	Setup,
 	Status
 }
+type EventCallback<'a, T> = fn(&'a Arc<Core>, &mut T) -> IoResult<()>;
 pub struct EventDispatcher<'a, T>
 {
-	mCore : &'a Arc<core::Core>,
-	mCallbacks : HashMap<EventType, fn(&'a Arc<core::Core>, &mut T) -> ()>
+	mCore : &'a Arc<Core>,
+	mCallbacks : HashMap<EventType, EventCallback<'a, T>>
 }
 impl<'a, T: Event> EventDispatcher<'a, T>
 {
-	pub fn new(core: &'a Arc<core::Core>) -> EventDispatcher<'a, T>
+	pub fn new(core: &'a Arc<Core>) -> EventDispatcher<'a, T>
 	{
 		EventDispatcher {
 			mCore: core,
 			mCallbacks: HashMap::new()
 		}
 	}
-	pub fn register_callback(&mut self, t: EventType, cb: fn(&'a Arc<core::Core>, &mut T)) -> ()
+	pub fn register_callback(&mut self, t: EventType, cb: EventCallback<'a, T>) -> ()
 	{
 		self.mCallbacks.insert(t, cb);
 	}
@@ -64,7 +65,14 @@ impl<'a, T: Event> EventDispatcher<'a, T>
 	{
 		match self.mCallbacks.find(&evt.get_type())
 		{
-			Some(cb) => { (*cb)(self.mCore, evt); }
+			Some(cb) =>
+			{
+				match (*cb)(self.mCore, evt)
+				{
+					Ok(_) => (),
+					Err(e) => debug!("Failed to run event callback for '{}': {}", evt.get_type(), e)
+				}
+			}
 			None => {debug!("No handler for event type: {}", evt.get_type());}
 		}
 	}

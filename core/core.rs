@@ -1,145 +1,149 @@
-#![feature(phase)]
-#[phase(plugin, link)] extern crate log;
-#[phase(plugin)] extern crate green;
-extern crate sync;
-extern crate serialize;
-mod coreutils;
-mod event;
-mod handlers;
+// Imports
+use core::coreutils::manager::PathManager;
+use core::handlers;
+use core::event::EventDispatcher;
+use core::event::Sendable;
+use core::event::UIEvent;
+use core::event;
+use std::comm::channel;
+use std::io::Acceptor;
+use std::io::Listener;
+use std::io::fs;
+use std::io::FilePermission;
+use std::io::net::unix::UnixListener;
+use std::io::net::tcp::TcpStream;
+use sync::{Arc,Mutex};
+use std::io::signal::Interrupt;
+use std::sync::atomics::{AtomicBool,SeqCst,INIT_ATOMIC_BOOL};
 
-pub mod core
+pub static mut RUNNING : AtomicBool = INIT_ATOMIC_BOOL;
+pub type PeerList = Arc<Mutex<Vec<TcpStream>>>;
+
+pub struct Core
 {
-	// Imports
-	use coreutils::manager::PathManager;
-	use handlers;
-	use event::EventDispatcher;
-	use event::Sendable;
-	use event::UIEvent;
-	use event;
-	use std::comm::channel;
-	use std::io::Acceptor;
-	use std::io::Listener;
-	use std::io::fs;
-	use std::io::net::unix::UnixListener;
-	use std::io::net::tcp::TcpStream;
-	use sync::{Arc,Mutex};
-	use std::io::signal::Interrupt;
-	use std::sync::atomics::{AtomicBool,SeqCst,INIT_ATOMIC_BOOL};
-
-	pub static mut RUNNING : AtomicBool = INIT_ATOMIC_BOOL;
-	pub type PeerList = Arc<Mutex<Vec<TcpStream>>>;
-
-	pub struct Core
+	mPeers : PeerList
+}
+impl Core
+{
+	fn new() -> Core
 	{
-		mPeers : PeerList
+		Core {
+			mPeers: Arc::new(Mutex::new(vec![]))
+		}
 	}
-	impl Core
+	pub fn get_peers<'a>(&'a self) -> &'a PeerList
 	{
-		fn new() -> Core
+		&self.mPeers
+	}
+	fn init(&self) -> Result<(), &str>
+	{
+		match fs::mkdir_recursive(&PathManager::get_root_path(), FilePermission::all())
+			.and(fs::mkdir_recursive(&PathManager::get_key_path(), FilePermission::all()))
+			.and(fs::mkdir_recursive(&PathManager::get_metadata_path(), FilePermission::all()))
 		{
-			Core {
-				mPeers: Arc::new(Mutex::new(vec![]))
+			Err(_) => return Err("Failed to create tapi2p directories"),
+			_ => ()
+		};
+		match fs::File::open(&PathManager::get_self_key_path()).and(fs::File::open(&PathManager::get_self_key_path()))
+		{
+			Err(_) => {
+				Err("Need to create keys")
 			}
+			_ => Ok({})
 		}
-		pub fn get_peers<'a>(&'a self) -> &'a PeerList
+	}
+	fn accept_incoming_ui_connections(tx: &Sender<UIEvent>) -> ()
+	{
+		let socket_path=PathManager::get_socket_path();
+		debug!("create_core_socket({})", socket_path.as_str());
+		if socket_path.exists() { fs::unlink(&socket_path).unwrap(); }
+		let listener = match UnixListener::bind(&socket_path) {
+			Err(_) => fail!("Failed to bind socket"),
+			Ok(listener) => listener
+		};
+		match listener.listen()
 		{
-			&self.mPeers
-		}
-		fn accept_incoming_ui_connections(tx: &Sender<UIEvent>) -> ()
-		{
-			let socket_path=PathManager::get_socket_path();
-			debug!("create_core_socket({})", socket_path.as_str());
-			if socket_path.exists() { fs::unlink(&socket_path).unwrap(); }
-			let listener = match UnixListener::bind(&socket_path) {
-				Err(_) => fail!("Failed to bind socket"),
-				Ok(listener) => listener
-			};
-			match listener.listen()
+			Err(e) => fail!(e),
+			Ok(mut acceptor) =>
 			{
-				Err(e) => fail!(e),
-				Ok(mut acceptor) =>
+				while Core::threads_running()
 				{
-					while Core::threads_running()
+					acceptor.set_timeout(Some(1000));
+					for client in acceptor.incoming()
 					{
-						acceptor.set_timeout(Some(1000));
-						for client in acceptor.incoming()
-						{
-							match client {
-								Ok(mut stream) =>
+						match client {
+							Ok(mut stream) =>
+							{
+								match UIEvent::from_stream(&mut stream)
 								{
-									match UIEvent::from_stream(&mut stream)
-									{
-										Some(event) => tx.send(event),
-										None => break
-									}
+									Some(event) => tx.send(event),
+									None => break
 								}
-								Err(_) => break
 							}
+							Err(_) => break
 						}
 					}
 				}
 			}
 		}
-		fn run_ui_event_callbacks(core: &Arc<Core>, rx: &Receiver<UIEvent>) -> ()
+	}
+	fn run_ui_event_callbacks(core: &Arc<Core>, rx: &Receiver<UIEvent>) -> ()
+	{
+		let mut dispatcher = EventDispatcher::<UIEvent>::new(core);
+		dispatcher.register_callback(event::ListPeers, handlers::handle_listpeers);
+		while Core::threads_running()
 		{
-			let mut dispatcher = EventDispatcher::<UIEvent>::new(core);
-			dispatcher.register_callback(event::ListPeers, handlers::handle_listpeers);
-			while Core::threads_running()
+			match rx.recv_opt()
 			{
-				match rx.recv_opt()
+				Ok(mut evt) =>
 				{
-					Ok(mut evt) =>
-					{
-						debug!("Dispatching UI event");
-						dispatcher.dispatch(&mut evt)
-					},
-					Err(_) => ()
-				}
+					debug!("Dispatching UI event");
+					dispatcher.dispatch(&mut evt)
+				},
+				Err(_) => ()
 			}
-		}
-		fn threads_running() -> bool
-		{
-			unsafe {
-				RUNNING.load(SeqCst)
-			}
-		}
-		fn setup_signal_handler()
-		{
-			let mut listener = ::std::io::signal::Listener::new();
-			listener.register(Interrupt).unwrap();
-			spawn(proc() {
-				unsafe {
-					RUNNING.store(true, SeqCst);
-					loop {
-						match listener.rx.recv() {
-							Interrupt => {
-								RUNNING.store(false, SeqCst);
-								println!("tapi2p core shutting down...");
-								break;
-							}
-							_ => ()
-						};
-					}
-				}
-			});
-		}
-		pub fn run() -> ()
-		{
-			let core = Arc::new(Core::new());
-			Core::setup_signal_handler();
-			let (tx, rx): (Sender<UIEvent>, Receiver<UIEvent>) = channel();
-			spawn(proc() {
-				Core::accept_incoming_ui_connections(&tx);
-			});
-			spawn(proc() {
-				Core::run_ui_event_callbacks(&core, &rx);
-			});
 		}
 	}
-}
-
-green_start!(main)
-fn main()
-{
-	core::Core::run();
+	fn threads_running() -> bool
+	{
+		unsafe {
+			RUNNING.load(SeqCst)
+		}
+	}
+	fn setup_signal_handler()
+	{
+		let mut listener = ::std::io::signal::Listener::new();
+		listener.register(Interrupt).unwrap();
+		spawn(proc() {
+			unsafe {
+				RUNNING.store(true, SeqCst);
+				loop {
+					match listener.rx.recv() {
+						Interrupt => {
+							RUNNING.store(false, SeqCst);
+							println!("tapi2p core shutting down...");
+							break;
+						}
+						_ => ()
+					};
+				}
+			}
+		});
+	}
+	pub fn run() -> ()
+	{
+		let core = Arc::new(Core::new());
+		Core::setup_signal_handler();
+		match core.init() {
+			Err(errstr) => println!("tapi2p failed to start: {}", errstr),
+			_ => ()
+		}
+		let (tx, rx): (Sender<UIEvent>, Receiver<UIEvent>) = channel();
+		spawn(proc() {
+			Core::accept_incoming_ui_connections(&tx);
+		});
+		spawn(proc() {
+			Core::run_ui_event_callbacks(&core, &rx);
+		});
+	}
 }

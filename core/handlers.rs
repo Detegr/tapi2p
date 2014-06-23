@@ -1,10 +1,10 @@
 use serialize::{json, Encodable};
-use core;
-use core::Core;
+use core::core::Core;
 use std::io::net::ip::SocketAddr;
 use sync::Arc;
-use event::UIEvent;
-use event::Sendable;
+use core::event::UIEvent;
+use core::event::Sendable;
+use std::io::IoResult;
 
 #[deriving(Encodable)]
 pub struct Peer
@@ -34,7 +34,7 @@ impl Peer
 	}
 }
 
-pub fn handle_listpeers(core: &Arc<Core>, evt: &mut UIEvent) -> ()
+pub fn handle_listpeers(core: &Arc<Core>, evt: &mut UIEvent) -> IoResult<()>
 {
 	let mut ret = ListPeers { peers: vec![] };
 	{
@@ -47,5 +47,5 @@ pub fn handle_listpeers(core: &Arc<Core>, evt: &mut UIEvent) -> ()
 			}
 		}
 	}
-	evt.send_str(json::Encoder::str_encode(&ret));
+	evt.send_str(json::Encoder::str_encode(&ret))
 }
