@@ -47,7 +47,7 @@ impl Core
 						&PathManager::get_metadata_path().as_str());
 				Ok(())
 			})
-			.or_else(|_| return Err("Failed to create tapi2p directories"));
+			.or_else(|_| return Err("Failed to create tapi2p directories")).unwrap();
 		fs::stat(&PathManager::get_self_key_path())
 			.and_then(|_| fs::stat(&PathManager::get_self_key_path()))
 			.and_then(|_| Ok(()))
