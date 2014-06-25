@@ -11,6 +11,9 @@ mod core {
 	mod event;
 	mod handlers;
 }
+mod crypto {
+	pub mod keygen;
+}
 
 green_start!(main)
 fn main()

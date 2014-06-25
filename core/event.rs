@@ -131,11 +131,6 @@ pub struct RemoteEvent
 	mStream : TcpStream,
 	mData: Vec<u8>
 }
-#[packed]
-struct C_UIEvent
-{
-	mEventType : u8
-}
 impl Sendable for UIEvent
 {
 	fn send(&mut self, data: Vec<u8>) -> IoResult<()>

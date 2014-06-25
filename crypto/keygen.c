@@ -110,6 +110,7 @@ int generate(const char* path, unsigned int keys)
 	if(pathlen>PATH_MAX+4)
 	{
 		fprintf(stderr, "Path: %s is too long\n", path);
+		return ENAMETOOLONG;
 	}
 
 	keygen_init();
@@ -119,13 +120,13 @@ int generate(const char* path, unsigned int keys)
 	if(keys & T2PPUBLICKEY)
 	{
 		memcpy(path2+pathlen, ".pub", 4);
-		if(keygen_bio_init(path2) != 0) return -1;
-		if(generate_pubkey() != 0) return -1;
+		if(keygen_bio_init(path2) != 0) return EIO;
+		if(generate_pubkey() != 0) return EIO;
 	}
 	if(keys & T2PPRIVATEKEY)
 	{
-		if(keygen_bio_init(path) != 0) return -1;
-		if(generate_privkey() != 0) return -1;
+		if(keygen_bio_init(path) != 0) return EIO;
+		if(generate_privkey() != 0) return EIO;
 	}
 	keygen_free();
 

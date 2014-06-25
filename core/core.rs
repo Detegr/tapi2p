@@ -37,20 +37,22 @@ impl Core
 	}
 	fn init(&self) -> Result<(), &str>
 	{
-		match fs::mkdir_recursive(&PathManager::get_root_path(), FilePermission::all())
+		fs::mkdir_recursive(&PathManager::get_root_path(), FilePermission::all())
 			.and(fs::mkdir_recursive(&PathManager::get_key_path(), FilePermission::all()))
 			.and(fs::mkdir_recursive(&PathManager::get_metadata_path(), FilePermission::all()))
-		{
-			Err(_) => return Err("Failed to create tapi2p directories"),
-			_ => ()
-		};
-		match fs::File::open(&PathManager::get_self_key_path()).and(fs::File::open(&PathManager::get_self_key_path()))
-		{
-			Err(_) => {
-				Err("Need to create keys")
-			}
-			_ => Ok({})
-		}
+			.and_then(|_| {
+				debug!("Created/existing directories:\n\t{}\n\t{}\n\t{}",
+						&PathManager::get_root_path().as_str(),
+						&PathManager::get_key_path().as_str(),
+						&PathManager::get_metadata_path().as_str());
+				Ok(())
+			})
+			.or_else(|_| return Err("Failed to create tapi2p directories"));
+		fs::stat(&PathManager::get_self_key_path())
+			.and_then(|_| fs::stat(&PathManager::get_self_key_path()))
+			.and_then(|_| Ok(()))
+			.or(::crypto::keygen::generate_keys(&PathManager::get_self_key_path()))
+			.or_else(|_| Err("Failed to create keys"))
 	}
 	fn accept_incoming_ui_connections(tx: &Sender<UIEvent>) -> ()
 	{
@@ -133,11 +135,14 @@ impl Core
 	pub fn run() -> ()
 	{
 		let core = Arc::new(Core::new());
-		Core::setup_signal_handler();
 		match core.init() {
-			Err(errstr) => println!("tapi2p failed to start: {}", errstr),
+			Err(errstr) => {
+				println!("tapi2p failed to start: {}", errstr);
+				return ();
+			},
 			_ => ()
 		}
+		Core::setup_signal_handler();
 		let (tx, rx): (Sender<UIEvent>, Receiver<UIEvent>) = channel();
 		spawn(proc() {
 			Core::accept_incoming_ui_connections(&tx);
