@@ -49,9 +49,9 @@ impl Core
 			})
 			.or_else(|_| return Err("Failed to create tapi2p directories")).unwrap();
 		fs::stat(&PathManager::get_self_key_path())
-			.and_then(|_| fs::stat(&PathManager::get_self_key_path()))
-			.and_then(|_| Ok(()))
-			.or(::crypto::keygen::generate_keys(&PathManager::get_self_key_path()))
+			.and(fs::stat(&PathManager::get_self_public_key_path()))
+			.and(Ok(()))
+			.or_else(|_| ::crypto::keygen::generate_keys(&PathManager::get_self_key_path()))
 			.or_else(|_| Err("Failed to create keys"))
 	}
 	fn accept_incoming_ui_connections(tx: &Sender<UIEvent>) -> ()

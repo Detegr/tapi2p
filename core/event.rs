@@ -140,7 +140,7 @@ impl Sendable for UIEvent
 			let mut writer: BufWriter = BufWriter::new(data_u8);
 			try!(writer.write_u8(self.mEventType as u8));
 			try!(writer.write_le_u32(0 as u32));
-			for _ in range (0, 16) {
+			for _ in range(0u, 16u) {
 				try!(writer.write_i8(0 as i8));
 			}
 			try!(writer.write_le_u16(0 as u16));
