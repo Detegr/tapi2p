@@ -3,7 +3,7 @@ use core::coreutils::manager::PathManager;
 use core::handlers;
 use core::event::EventDispatcher;
 use core::event::Sendable;
-use core::event::UIEvent;
+use core::event::{RemoteEvent,UIEvent};
 use core::event;
 use std::comm::channel;
 use std::io::Acceptor;
@@ -54,6 +54,9 @@ impl Core
 			.or_else(|_| ::crypto::keygen::generate_keys(&PathManager::get_self_key_path()))
 			.or_else(|_| Err("Failed to create keys"))
 	}
+	fn accept_incoming_peer_connections(tx: &Sender<RemoteEvent>) -> ()
+	{
+	}
 	fn accept_incoming_ui_connections(tx: &Sender<UIEvent>) -> ()
 	{
 		let socket_path=PathManager::get_socket_path();
@@ -66,24 +69,18 @@ impl Core
 		match listener.listen()
 		{
 			Err(e) => fail!(e),
-			Ok(mut acceptor) =>
+			Ok(mut acceptor) => while Core::threads_running()
 			{
-				while Core::threads_running()
+				acceptor.set_timeout(Some(1000));
+				for client in acceptor.incoming()
 				{
-					acceptor.set_timeout(Some(1000));
-					for client in acceptor.incoming()
-					{
-						match client {
-							Ok(mut stream) =>
-							{
-								match UIEvent::from_stream(&mut stream)
-								{
-									Some(event) => tx.send(event),
-									None => break
-								}
-							}
-							Err(_) => break
-						}
+					match client {
+						Ok(mut stream) => match UIEvent::from_stream(&mut stream)
+						{
+							Some(event) => tx.send(event),
+							None => break
+						},
+						Err(_) => break
 					}
 				}
 			}
@@ -143,12 +140,16 @@ impl Core
 			_ => ()
 		}
 		Core::setup_signal_handler();
-		let (tx, rx): (Sender<UIEvent>, Receiver<UIEvent>) = channel();
+		let (ui_tx, ui_rx): (Sender<UIEvent>, Receiver<UIEvent>) = channel();
+		let (tx, rx): (Sender<RemoteEvent>, Receiver<RemoteEvent>) = channel();
 		spawn(proc() {
-			Core::accept_incoming_ui_connections(&tx);
+			Core::accept_incoming_ui_connections(&ui_tx);
 		});
 		spawn(proc() {
-			Core::run_ui_event_callbacks(&core, &rx);
+			Core::accept_incoming_peer_connections(&tx);
+		});
+		spawn(proc() {
+			Core::run_ui_event_callbacks(&core, &ui_rx);
 		});
 	}
 }
