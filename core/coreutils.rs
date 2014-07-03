@@ -13,6 +13,10 @@ pub mod manager
 		{
 			Path::new(PathManager::get_root_string())
 		}
+		pub fn get_config_path() -> Path
+		{
+			Path::new(PathManager::get_root_string().append("config"))
+		}
 		pub fn get_key_path() -> Path
 		{
 			Path::new(PathManager::get_root_string().append("keys"))
