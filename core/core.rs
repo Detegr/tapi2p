@@ -1,5 +1,5 @@
 extern crate dtgconf;
-use self::dtgconf::config;
+use self::dtgconf::Config;
 
 // Imports
 use core::coreutils::manager::PathManager;
@@ -94,9 +94,9 @@ impl Core
 			.and(Ok(()))
 			.or_else(|_| ::crypto::keygen::generate_keys(&PathManager::get_self_key_path()))
 			.or_else(|_| Err("Failed to create keys"));
-		match config::cfg::load(&PathManager::get_config_path())
+		match Config::load(&PathManager::get_config_path())
 		{
-			Some(conf) =>
+			Ok(conf) =>
 			{
 				let item = match conf.find_item("Port", Some("Account"))
 				{
@@ -115,7 +115,7 @@ impl Core
 				};
 				Ok(())
 			}
-			None => return Err("tapi2p config file not found")
+			Err(e) => return Err(e.clone())
 		}
 	}
 	fn accept_incoming_peer_connections(core: &Arc<Core>) -> ()
@@ -157,8 +157,11 @@ impl Core
 			}
 		}
 	}
-	fn accept_incoming_ui_connections(tx: &Sender<UIEvent>) -> ()
+	fn accept_incoming_ui_connections(core: &Arc<Core>) -> ()
 	{
+		let mut dispatcher = EventDispatcher::<UIEvent>::new(core);
+		dispatcher.register_callback(event::ListPeers, handlers::handle_listpeers);
+
 		debug!("Accepting incoming UI connections");
 		let socket_path=PathManager::get_socket_path();
 		debug!("create_core_socket({})", socket_path.as_str());
@@ -178,7 +181,11 @@ impl Core
 					match client {
 						Ok(mut stream) => match UIEvent::from_stream(&mut stream)
 						{
-							Some(event) => tx.send(event),
+							Some(ref mut event) =>
+							{
+								debug!("Dispatching UI event");
+								dispatcher.dispatch(event)
+							}
 							None => break
 						},
 						Err(_) => break
@@ -242,10 +249,10 @@ impl Core
 	fn connect_to_peers(&mut self)
 	{
 		debug!("Connecting to peers");
-		let conf = match config::cfg::load(&PathManager::get_config_path())
+		let conf = match Config::load(&PathManager::get_config_path())
 		{
-			Some(conf) => conf,
-			None => fail!("Config file not found")
+			Ok(conf) => conf,
+			Err(e) => fail!("{}", e)
 		};
 		let sect = match conf.find_section("Peers")
 		{
@@ -279,23 +286,6 @@ impl Core
 				};
 			}
 			timer::sleep(1000);
-		}
-	}
-	fn run_ui_event_callbacks(core: &Arc<Core>, rx: &Receiver<UIEvent>) -> ()
-	{
-		let mut dispatcher = EventDispatcher::<UIEvent>::new(core);
-		dispatcher.register_callback(event::ListPeers, handlers::handle_listpeers);
-		while Core::threads_running()
-		{
-			match rx.recv_opt()
-			{
-				Ok(mut evt) =>
-				{
-					debug!("Dispatching UI event");
-					dispatcher.dispatch(&mut evt)
-				},
-				Err(_) => ()
-			}
 		}
 	}
 	fn threads_running() -> bool
@@ -344,17 +334,14 @@ impl Core
 		core.connect_to_peers();
 
 		let core_arc = Arc::new(core);
-		let (ui_tx, ui_rx): (Sender<UIEvent>, Receiver<UIEvent>) = channel();
 		let c1 = core_arc.clone();
 		let c2 = core_arc.clone();
-		spawn(proc() {
-			Core::accept_incoming_ui_connections(&ui_tx);
-		});
+
 		spawn(proc() {
 			Core::accept_incoming_peer_connections(&c1);
 		});
 		spawn(proc() {
-			Core::run_ui_event_callbacks(&c2, &ui_rx);
+			Core::accept_incoming_ui_connections(&c2);
 		});
 	}
 }
