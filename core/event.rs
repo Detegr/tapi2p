@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::io::BufWriter;
 use std::io::IoResult;
-use std::io::net::ip::IpAddr;
 use std::io::net::tcp::TcpStream;
 use std::io::net::unix::UnixStream;
 use std::mem::size_of;

@@ -1,5 +1,6 @@
 use serialize::{json, Encodable};
 use core::core::Core;
+use core::peer::ConnectionStatus;
 use std::io::net::ip::SocketAddr;
 use sync::Arc;
 use core::event::UIEvent;
@@ -7,7 +8,7 @@ use core::event::Sendable;
 use std::io::IoResult;
 
 #[deriving(Encodable)]
-pub struct Peer
+pub struct PeerListItem
 {
 	nick: String,
 	addr: String,
@@ -17,19 +18,18 @@ pub struct Peer
 #[deriving(Encodable)]
 pub struct ListPeers
 {
-	peers: Vec<Peer>
+	peers: Vec<PeerListItem>
 }
 
-
-impl Peer
+impl PeerListItem
 {
-	fn new(saddr: &SocketAddr) -> Peer
+	fn new(saddr: &SocketAddr, status: ConnectionStatus) -> PeerListItem
 	{
-		Peer {
+		PeerListItem {
 			nick: "".to_string(),
 			addr: saddr.ip.to_str().to_string(),
 			port: saddr.port,
-			conn_status: "ok".to_string()
+			conn_status: status.to_str().to_string()
 		}
 	}
 }
@@ -37,15 +37,12 @@ impl Peer
 pub fn handle_listpeers(core: &Arc<Core>, evt: &mut UIEvent) -> IoResult<()>
 {
 	let mut ret = ListPeers { peers: vec![] };
-	{
-		let mut peers = core.get_peers().lock();
-		for ref mut peer in peers.mut_iter() {
-			match peer.peer_name()
-			{
-				Ok(s) => ret.peers.push(Peer::new(&s)),
-				Err(_) => {}
-			}
+	core.with_peers_mut(|peer| {
+		match peer.get_connection_mut().peer_name()
+		{
+			Ok(s) => ret.peers.push(PeerListItem::new(&s, peer.get_status())),
+			Err(_) => {}
 		}
-	}
-	evt.send_str(json::Encoder::str_encode(&ret))
+	});
+	evt.send_str(json::encode(&ret))
 }

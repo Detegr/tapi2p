@@ -10,6 +10,7 @@ mod core {
 	mod coreutils;
 	mod event;
 	mod handlers;
+	mod peer;
 }
 mod crypto {
 	pub mod keygen;

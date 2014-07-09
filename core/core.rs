@@ -2,14 +2,13 @@ extern crate dtgconf;
 use self::dtgconf::Config;
 
 // Imports
-use core::coreutils::manager::PathManager;
+use core::peer::Peer;
+use core::coreutils::PathManager;
 use core::handlers;
 use core::event::EventDispatcher;
-use core::event::Sendable;
 use core::event::{RemoteEvent,UIEvent};
 use core::event;
-use std::comm::channel;
-use std::io::{Acceptor,Listener,TcpListener,TcpStream};
+use std::io::{Acceptor,Listener,TcpListener};
 use std::io::fs;
 use std::io::FilePermission;
 use std::io::net::unix::UnixListener;
@@ -18,11 +17,10 @@ use std::io::net::ip::{IpAddr, SocketAddr};
 use sync::{Arc,Mutex};
 use std::io::signal::Interrupt;
 use std::sync::atomics::{AtomicBool,SeqCst,INIT_ATOMIC_BOOL};
-use std::path::BytesContainer;
 use std::io::timer;
 
 pub static mut RUNNING : AtomicBool = INIT_ATOMIC_BOOL;
-pub type PeerList = Arc<Mutex<Vec<TcpStream>>>;
+pub type PeerList = Arc<Mutex<Vec<Peer>>>;
 
 pub struct Core
 {
@@ -39,20 +37,24 @@ impl Core
 			mPort: 0
 		}
 	}
-	pub fn peer_exists(&self, addr: &str, port: u16) -> bool
+	pub fn with_peer_mut_or_else<'a, T>(&'a self, addr: &str, port: u16, foundfunc: |&mut Peer| -> T, elsefunc: || -> T) -> T
 	{
-		for ref mut peer in self.get_peers().lock().mut_iter()
+		for peer in self.get_peers().lock().mut_iter()
 		{
-			match peer.peer_name()
+			match peer.get_connection_mut().peer_name()
 			{
 				Ok(p) =>
 				{
-					if p.ip.to_str() == addr.to_string() && p.port == port { return true; }
+					if p.ip.to_str() == addr.to_string() && p.port == port { return foundfunc(peer) }
 				}
 				Err(_) => continue
 			}
 		}
-		false
+		return elsefunc()
+	}
+	pub fn peer_exists(&self, addr: &str, port: u16) -> bool
+	{
+		self.with_peer_mut_or_else(addr, port, |_| { true }, || { false })
 	}
 	pub fn get_peers<'a>(&'a self) -> &'a PeerList
 	{
@@ -62,18 +64,18 @@ impl Core
 	{
 		self.mPort
 	}
-	pub fn with_peers(&self, func: |&TcpStream| -> ())
+	pub fn with_peers(&self, func: |&Peer| -> ())
 	{
-		for ref peer in self.get_peers().lock().iter()
+		for peer in self.get_peers().lock().iter()
 		{
-			func(*peer);
+			func(peer);
 		}
 	}
-	pub fn with_peers_mut(&self, func: |&mut TcpStream| -> ())
+	pub fn with_peers_mut(&self, func: |&mut Peer| -> ())
 	{
-		for ref mut peer in self.get_peers().lock().mut_iter()
+		for peer in self.get_peers().lock().mut_iter()
 		{
-			func(*peer);
+			func(peer);
 		}
 	}
 	fn init(&mut self) -> Result<(), &str>
@@ -93,7 +95,7 @@ impl Core
 			.and(fs::stat(&PathManager::get_self_public_key_path()))
 			.and(Ok(()))
 			.or_else(|_| ::crypto::keygen::generate_keys(&PathManager::get_self_key_path()))
-			.or_else(|_| Err("Failed to create keys"));
+			.or_else(|_| Err("Failed to create keys")).unwrap();
 		match Config::load(&PathManager::get_config_path())
 		{
 			Ok(conf) =>
@@ -139,7 +141,7 @@ impl Core
 				{
 					Ok(mut stream) =>
 					{
-						let mut peers = core.get_peers().lock();
+						debug!("Ok mut stream");
 						let new_peer_name = match stream.peer_name()
 						{
 							Ok(new_peer_name) => new_peer_name,
@@ -149,10 +151,18 @@ impl Core
 								break;
 							}
 						};
-						debug!("New peer: {}:{}", new_peer_name.ip, new_peer_name.port);
-						peers.push(stream);
+						core.with_peer_mut_or_else(new_peer_name.ip.to_str().as_slice(), new_peer_name.port,
+						|peer| {
+							debug!("PROMOTING");
+							peer.promote()
+						},
+						|| {
+							let mut peers = core.get_peers().lock();
+							debug!("New peer: {}:{}", new_peer_name.ip, new_peer_name.port);
+							peers.push(Peer::new_incoming(stream.clone()));
+						});
 					}
-					Err(e) => break
+					Err(_) => break
 				}
 			}
 		}
@@ -194,7 +204,7 @@ impl Core
 			}
 		}
 	}
-	fn connect_to_peer(&mut self, addr: &str, port: u16)
+	fn connect_to_peer(core: &Arc<Core>, addr: &str, port: u16)
 	{
 		debug!("Connecting -> {}:{}", addr, port);
 		let ipaddr = match from_str::<IpAddr>(addr)
@@ -224,10 +234,10 @@ impl Core
 				return;
 			}
 		};
-		let mut peers = self.get_peers().lock();
+		let mut peers = core.get_peers().lock();
 		for ref mut peer in peers.mut_iter()
 		{
-			let peername = match peer.peer_name()
+			let peername = match peer.get_connection_mut().peer_name()
 			{
 				Ok(peername) => peername,
 				Err(e) =>
@@ -236,17 +246,17 @@ impl Core
 					continue;
 				}
 			};
-			if(peername == new_peer_name)
+			if peername == new_peer_name
 			{
-				debug!("Peer {}:{} already exists", peername.ip, peername.port);
+				warn!("Peer {}:{} already exists", peername.ip, peername.port);
 				return;
 			}
 		}
 		debug!("New peer: {}:{}", new_peer_name.ip, new_peer_name.port);
 		stream.set_timeout(Some(0));
-		peers.push(stream);
+		peers.push(Peer::new_outgoing(stream));
 	}
-	fn connect_to_peers(&mut self)
+	fn connect_to_peers(core: &Arc<Core>, doloop: bool)
 	{
 		debug!("Connecting to peers");
 		let conf = match Config::load(&PathManager::get_config_path())
@@ -259,7 +269,7 @@ impl Core
 			Some(sect) => sect,
 			None => return ()
 		};
-		while Core::threads_running()
+		while Core::threads_running() && doloop
 		{
 			for addr in sect.get_items().iter()
 			{
@@ -277,15 +287,15 @@ impl Core
 				{
 					Some(port) =>
 					{
-						if !self.peer_exists(addr.get_key(), port)
+						if !core.peer_exists(addr.get_key(), port)
 						{
-							self.connect_to_peer(addr.get_key(), port)
+							Core::connect_to_peer(core, addr.get_key(), port)
 						}
 					},
 					None => debug!("Invalid port {} for {}", port_str, addr.get_key())
 				};
 			}
-			timer::sleep(1000);
+			if doloop { timer::sleep(1000); }
 		}
 	}
 	fn threads_running() -> bool
@@ -331,17 +341,25 @@ impl Core
 			_ => ()
 		}
 		Core::setup_signal_handler();
-		core.connect_to_peers();
 
 		let core_arc = Arc::new(core);
-		let c1 = core_arc.clone();
+		Core::connect_to_peers(&core_arc, false);
+
 		let c2 = core_arc.clone();
+		let c3 = core_arc.clone();
 
 		spawn(proc() {
-			Core::accept_incoming_peer_connections(&c1);
+			Core::connect_to_peers(&core_arc, true);
+			debug!("End of peer connection loop");
 		});
 		spawn(proc() {
-			Core::accept_incoming_ui_connections(&c2);
+			Core::accept_incoming_peer_connections(&c2);
+			debug!("End of incoming peer connection thread");
 		});
+		spawn(proc() {
+			Core::accept_incoming_ui_connections(&c3);
+			debug!("End of incoming UI connection thread");
+		});
+		debug!("End of run()");
 	}
 }
