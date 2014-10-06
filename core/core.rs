@@ -11,13 +11,15 @@ use core::event;
 use std::io::{Acceptor,Listener,TcpListener};
 use std::io::fs;
 use std::io::FilePermission;
-use std::io::net::unix::UnixListener;
+use std::io::net::pipe::UnixListener;
 use std::io::net::tcp::TcpStream;
 use std::io::net::ip::{IpAddr, SocketAddr};
 use sync::{Arc,Mutex};
 use std::io::signal::Interrupt;
 use std::sync::atomics::{AtomicBool,SeqCst,INIT_ATOMIC_BOOL};
 use std::io::timer;
+use std::io::fs::PathExtensions;
+use std::time::duration::Duration;
 
 pub static mut RUNNING : AtomicBool = INIT_ATOMIC_BOOL;
 pub type PeerList = Arc<Mutex<Vec<Peer>>>;
@@ -45,7 +47,7 @@ impl Core
 			{
 				Ok(p) =>
 				{
-					if p.ip.to_str() == addr.to_string() && p.port == port { return foundfunc(peer) }
+					if p.ip.to_string() == addr.to_string() && p.port == port { return foundfunc(peer) }
 				}
 				Err(_) => continue
 			}
@@ -151,7 +153,7 @@ impl Core
 								break;
 							}
 						};
-						core.with_peer_mut_or_else(new_peer_name.ip.to_str().as_slice(), new_peer_name.port,
+						core.with_peer_mut_or_else(new_peer_name.ip.to_string().as_slice(), new_peer_name.port,
 						|peer| {
 							debug!("PROMOTING");
 							peer.promote()
@@ -216,7 +218,7 @@ impl Core
 				return;
 			}
 		};
-		let mut stream = match TcpStream::connect_timeout(SocketAddr { ip: ipaddr, port: port }, 0)
+		let mut stream = match TcpStream::connect_timeout(SocketAddr { ip: ipaddr, port: port }, Duration::seconds(0))
 		{
 			Ok(stream) => stream,
 			Err(e) =>
@@ -295,7 +297,7 @@ impl Core
 					None => debug!("Invalid port {} for {}", port_str, addr.get_key())
 				};
 			}
-			if doloop { timer::sleep(1000); }
+			if doloop { timer::sleep(Duration::seconds(1)); }
 		}
 	}
 	fn threads_running() -> bool

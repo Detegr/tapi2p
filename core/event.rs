@@ -5,7 +5,7 @@ use std::fmt;
 use std::io::BufWriter;
 use std::io::IoResult;
 use std::io::net::tcp::TcpStream;
-use std::io::net::unix::UnixStream;
+use std::io::net::pipe::UnixStream;
 use std::mem::size_of;
 use std::path::BytesContainer;
 use sync::Arc;
@@ -155,8 +155,8 @@ impl fmt::Show for UIEvent
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
 	{
 		match self.mData.container_as_str() {
-			Some(s) => write!(f, "{}\nData: {}", self.mEventType.to_str(), s),
-			None => write!(f, "{}\nData_len: {}", self.mEventType.to_str(), self.mData.len())
+			Some(s) => write!(f, "{}\nData: {}", self.mEventType.to_string(), s),
+			None => write!(f, "{}\nData_len: {}", self.mEventType.to_string(), self.mData.len())
 		}
 	}
 }

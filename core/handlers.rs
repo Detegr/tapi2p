@@ -27,9 +27,9 @@ impl PeerListItem
 	{
 		PeerListItem {
 			nick: "".to_string(),
-			addr: saddr.ip.to_str().to_string(),
+			addr: saddr.ip.to_string(),
 			port: saddr.port,
-			conn_status: status.to_str().to_string()
+			conn_status: status.to_string()
 		}
 	}
 }
